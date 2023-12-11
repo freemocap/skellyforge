@@ -1,5 +1,5 @@
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QWidget,QVBoxLayout
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QWidget,QVBoxLayout
 
 import matplotlib
 matplotlib.use('QtAgg')
@@ -13,7 +13,7 @@ from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.me
 
 class SkeletonViewWidget(QWidget):
 
-    session_folder_loaded_signal = pyqtSignal()
+    session_folder_loaded_signal = Signal()
 
     def __init__(self, plot_title:str):
         super().__init__()

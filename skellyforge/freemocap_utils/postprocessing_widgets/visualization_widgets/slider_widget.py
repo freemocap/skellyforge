@@ -1,5 +1,5 @@
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QSlider, QWidget,QLabel,QHBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QSlider, QWidget,QLabel,QHBoxLayout
 
 class FrameCountSlider(QWidget):
     def __init__(self, num_frames:int):

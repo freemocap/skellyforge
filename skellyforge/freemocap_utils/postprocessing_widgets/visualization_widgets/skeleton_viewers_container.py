@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QHBoxLayout
 from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.skeleton_view_widget import SkeletonViewWidget
 
 

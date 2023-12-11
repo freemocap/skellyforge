@@ -1,5 +1,5 @@
 
-from PyQt6.QtWidgets import QWidget,QVBoxLayout
+from PySide6.QtWidgets import QWidget,QVBoxLayout
 
 import matplotlib
 matplotlib.use('QtAgg')

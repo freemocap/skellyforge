@@ -1,12 +1,12 @@
 
 from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.mediapipe_skeleton_builder import mediapipe_indices
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QComboBox
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QComboBox
+from PySide6.QtCore import Signal
 
 
 class MarkerSelectorWidget(QWidget):
-    marker_to_plot_updated_signal = pyqtSignal()
+    marker_to_plot_updated_signal = Signal()
     def __init__(self):
         super().__init__()
 

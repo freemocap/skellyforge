@@ -1,6 +1,6 @@
-from PyQt6.QtCore import Qt, QPointF, QRect
-from PyQt6.QtGui import QPainter, QColor, QBrush, QLinearGradient, QPen
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt, QPointF, QRect
+from PySide6.QtGui import QPainter, QColor, QBrush, QLinearGradient, QPen
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from skellyforge.freemocap_utils.postprocessing_widgets.stylesheet import label_stylesheet
 
 

@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from PyQt6.QtWidgets import QWidget,QVBoxLayout, QPushButton,QGroupBox, QHBoxLayout, QLineEdit, QLabel
+from PySide6.QtWidgets import QWidget,QVBoxLayout, QPushButton,QGroupBox, QHBoxLayout, QLineEdit, QLabel
 
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal
 
 from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.slider_widget import FrameCountSlider
 from skellyforge.freemocap_utils.postprocessing_widgets.task_worker_thread import TaskWorkerThread
@@ -26,7 +26,7 @@ from skellyforge.freemocap_utils.constants import (
 
 class MainMenu(QWidget):
     
-    save_skeleton_data_signal = pyqtSignal(object,object,object)
+    save_skeleton_data_signal = Signal(object,object,object)
     def __init__(self,freemocap_raw_data:np.ndarray):
         super().__init__()
 

@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from PyQt6.QtWidgets import QWidget,QVBoxLayout, QPushButton, QGroupBox
+from PySide6.QtWidgets import QWidget,QVBoxLayout, QPushButton, QGroupBox
 
 
 from skellyforge.freemocap_utils.postprocessing_widgets.task_worker_thread import TaskWorkerThread
