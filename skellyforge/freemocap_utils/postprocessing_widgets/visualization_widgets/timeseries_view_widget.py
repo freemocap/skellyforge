@@ -1,13 +1,18 @@
-
-from PySide6.QtWidgets import QWidget,QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 
 import matplotlib
-matplotlib.use('QtAgg')
 
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+matplotlib.use("QtAgg")
+
+from matplotlib.backends.backend_qtagg import (
+    FigureCanvasQTAgg,
+    NavigationToolbar2QT as NavigationToolbar,
+)
 from matplotlib.figure import Figure
 
-from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.mediapipe_skeleton_builder import mediapipe_indices
+from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.skeleton_builder import (
+    mediapipe_model_info, get_index_by_name
+)
 
 import numpy as np
 
@@ -25,6 +30,7 @@ class TimeSeriesPlotCanvas(FigureCanvasQTAgg):
 
         super(TimeSeriesPlotCanvas, self).__init__(fig)
 
+
 class TimeSeriesPlotterWidget(QWidget):
 
     def __init__(self):
@@ -34,7 +40,6 @@ class TimeSeriesPlotterWidget(QWidget):
         self.setLayout(self._layout)
 
         self.lines = []
-
 
         self.fig, self.axes_list = self.initialize_skeleton_plot()
 
@@ -48,18 +53,20 @@ class TimeSeriesPlotterWidget(QWidget):
         self.y_ax = fig.figure.axes[1]
         self.z_ax = fig.figure.axes[2]
 
-        self.axes_list = [self.x_ax,self.y_ax,self.z_ax]
+        self.axes_list = [self.x_ax, self.y_ax, self.z_ax]
         return fig, self.axes_list
 
-    def get_mediapipe_indices(self,marker_to_plot):
-        mediapipe_index = mediapipe_indices.index(marker_to_plot)
-        return mediapipe_index
-    
+    def update_plot(
+        self,
+        marker_to_plot: str,
+        original_freemocap_data: np.ndarray,
+        processed_freemocap_data: np.ndarray,
+        reset_axes=True,
+        model_info: dict = mediapipe_model_info,
+    ):
+        axes_names = ["X Axis (mm)", "Y Axis (mm)", "Z Axis (mm)"]
 
-    def update_plot(self,marker_to_plot:str, original_freemocap_data:np.ndarray, processed_freemocap_data:np.ndarray, reset_axes = True):
-        axes_names = ['X Axis (mm)', 'Y Axis (mm)', 'Z Axis (mm)']
-
-        mediapipe_index = self.get_mediapipe_indices(marker_to_plot)
+        joint_index = get_index_by_name(name=marker_to_plot, model_info=model_info)
 
         for line in self.lines:
             line.remove()
@@ -69,21 +76,28 @@ class TimeSeriesPlotterWidget(QWidget):
             if reset_axes:
                 ax.cla()
 
-            line1, = ax.plot(original_freemocap_data[:, mediapipe_index, dimension], label='Original Data', alpha=.8, color='red')
+            (line1,) = ax.plot(
+                original_freemocap_data[:, joint_index, dimension],
+                label="Original Data",
+                alpha=0.8,
+                color="red",
+            )
             self.lines.append(line1)
             if processed_freemocap_data is not None:
-                line2, = ax.plot(processed_freemocap_data[:, mediapipe_index, dimension], label='Processed Data', alpha=.6, color='blue')
+                (line2,) = ax.plot(
+                    processed_freemocap_data[:, joint_index, dimension],
+                    label="Processed Data",
+                    alpha=0.6,
+                    color="blue",
+                )
                 self.lines.append(line2)
 
             ax.set_ylabel(ax_name)
 
             if dimension == 2:  # put the xlabel only on the last plot
-                ax.set_xlabel('Frame #')
+                ax.set_xlabel("Frame #")
             ax.legend()
-        
-        self.fig.figure.suptitle(f'{marker_to_plot} trajectory')
+
+        self.fig.figure.suptitle(f"{marker_to_plot} trajectory")
 
         self.fig.figure.canvas.draw_idle()
-
-
-
