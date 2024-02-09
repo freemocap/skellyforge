@@ -1,6 +1,3 @@
-
-from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.skeleton_builder import mediapipe_indices
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QComboBox
 from PySide6.QtCore import Signal
 

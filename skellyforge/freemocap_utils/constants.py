@@ -15,6 +15,6 @@ PARAM_GOOD_FRAME = "Good Frame"
 
 RAW_DATA_FILE_NAME = "mediapipe3dData_numFrames_numTrackedPoints_spatialXYZ.npy"
 POSTPROCESSING_SETTINGS_FILE_NAME = 'postprocessing_settings.toml'
-RECORDING_SETTINGS_FILE_NAME = 'recording_settings.json'
+RECORDING_SETTINGS_FILE_NAME = 'recording_parameters.json'
 RAW_DATA_FOLDER_NAME = "raw_data"
 OUTPUT_DATA_FOLDER_NAME = "output_data"

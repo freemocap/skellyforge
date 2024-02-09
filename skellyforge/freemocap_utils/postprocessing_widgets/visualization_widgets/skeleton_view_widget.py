@@ -42,7 +42,7 @@ class SkeletonViewWidget(QWidget):
             connections = model_info["connections"]
 
         self.skeleton_3d_data = skeleton_3d_data
-        self.mediapipe_skeleton = build_skeleton(
+        self.skeleton = build_skeleton(
             skeleton_3d_frame_marker_xyz=self.skeleton_3d_data,
             pose_estimation_connections=connections,
         )
@@ -91,10 +91,10 @@ class SkeletonViewWidget(QWidget):
         self.fig.figure.canvas.draw()
 
     def plot_skeleton_bones(self, frame_number):
-        this_frame_skeleton_data = self.mediapipe_skeleton[frame_number]
-        for connection in this_frame_skeleton_data.keys():
-            line_start_point = this_frame_skeleton_data[connection][0]
-            line_end_point = this_frame_skeleton_data[connection][1]
+        this_frame_skeleton_data = self.skeleton[frame_number]
+        for connection in this_frame_skeleton_data:
+            line_start_point = connection[0]
+            line_end_point = connection[1]
 
             bone_x, bone_y, bone_z = (
                 [line_start_point[0], line_end_point[0]],
