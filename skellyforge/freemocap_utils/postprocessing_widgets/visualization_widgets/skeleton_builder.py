@@ -25,8 +25,8 @@ def build_skeleton(
     return skeleton_connection_coordinates
 
 
-def get_index_by_name(name: str, model_info: dict) -> int:
-    return model_info["landmark_names"].index(name)
+def get_index_by_name(name: str, landmark_names: list) -> int:
+    return landmark_names.index(name)
 
 
 # this is just here to have a default/backup for sessions that didn't have model info included

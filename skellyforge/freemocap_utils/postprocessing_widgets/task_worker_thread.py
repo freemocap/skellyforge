@@ -28,9 +28,6 @@ from skellyforge.freemocap_utils.postprocessing_widgets.postprocessing_functions
 from skellyforge.freemocap_utils.postprocessing_widgets.postprocessing_functions.rotate_skeleton import (
     align_skeleton_with_origin,
 )
-from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.skeleton_builder import (
-    mediapipe_model_info,
-)
 
 
 class TaskWorkerThread(threading.Thread):
@@ -39,7 +36,7 @@ class TaskWorkerThread(threading.Thread):
         raw_skeleton_data: np.ndarray,
         task_list: list,
         settings: dict,
-        model_info: dict = mediapipe_model_info,
+        landmark_names: list,
         task_running_callback=None,
         task_completed_callback=None,
         all_tasks_finished_callback=None,
@@ -47,11 +44,7 @@ class TaskWorkerThread(threading.Thread):
         super().__init__()
 
         self.raw_skeleton_data = raw_skeleton_data
-
-        if "body_landmark_names" in model_info:
-            self.skeleton_indices = model_info["body_landmark_names"]
-        else:
-            self.skeleton_indices = model_info["landmark_names"]
+        self.landmark_names = landmark_names
 
         self.available_tasks = {
             # dictionary of all tasks that could be called in this thread, and their associated functions
@@ -126,7 +119,7 @@ class TaskWorkerThread(threading.Thread):
             if good_frame_values_dict[PARAM_AUTO_FIND_GOOD_FRAME]:
                 self.good_frame = find_good_frame(
                     self.tasks[TASK_FILTERING]["result"],
-                    skeleton_indices=self.skeleton_indices,
+                    skeleton_indices=self.landmark_names,
                     initial_velocity_guess=0.5,
                 )
             else:
@@ -142,7 +135,7 @@ class TaskWorkerThread(threading.Thread):
         if rotate_values_dict[PARAM_ROTATE_DATA]:
             origin_aligned_skeleton = align_skeleton_with_origin(
                 self.tasks[TASK_FILTERING]["result"],
-                self.skeleton_indices,
+                self.landmark_names,
                 self.good_frame,
             )[0]
             return True, origin_aligned_skeleton

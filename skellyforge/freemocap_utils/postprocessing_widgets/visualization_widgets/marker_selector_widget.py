@@ -4,18 +4,13 @@ from PySide6.QtCore import Signal
 
 class MarkerSelectorWidget(QWidget):
     marker_to_plot_updated_signal = Signal()
-    def __init__(self, model_info: dict):
+    def __init__(self, landmark_names: list):
         super().__init__()
 
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-        
-        if "body_landmark_names" in model_info:
-            skeleton_indices = model_info["body_landmark_names"]
-        else:
-            skeleton_indices = model_info["landmark_names"]
 
-        combo_box_items = skeleton_indices
+        combo_box_items = landmark_names
         # combo_box_items.insert(0,'')
         self.marker_combo_box = QComboBox()
         self.marker_combo_box.addItems(combo_box_items)

@@ -25,14 +25,14 @@ from skellyforge.freemocap_utils.constants import (
 
 
 class InterpolationMenu(QWidget):
-    def __init__(self, freemocap_raw_data: np.ndarray, model_info: dict):
+    def __init__(self, freemocap_raw_data: np.ndarray, landmark_names: list):
         super().__init__()
         layout = QVBoxLayout()
 
         self.setStyleSheet(groupbox_stylesheet)
 
         self.freemocap_raw_data = freemocap_raw_data
-        self.model_info = model_info
+        self.landmark_names = landmark_names
         self.processed_freemocap_data = None
 
         self.time_series_groupbox = self.create_time_series_groupbox()
@@ -53,7 +53,7 @@ class InterpolationMenu(QWidget):
     def create_time_series_groupbox(self):
         groupbox = QGroupBox("View time series for a selected marker")
         time_series_layout = QVBoxLayout()
-        self.marker_selector_widget = MarkerSelectorWidget(model_info=self.model_info)
+        self.marker_selector_widget = MarkerSelectorWidget(landmark_names=self.landmark_names)
         time_series_layout.addWidget(self.marker_selector_widget)
         self.time_series_plotter_widget = TimeSeriesPlotterWidget()
         time_series_layout.addWidget(self.time_series_plotter_widget)
@@ -87,7 +87,7 @@ class InterpolationMenu(QWidget):
             raw_skeleton_data=self.freemocap_raw_data,
             task_list=[TASK_INTERPOLATION],
             settings=self.settings_dict,
-            model_info=self.model_info,
+            landmark_names=self.landmark_names,
             all_tasks_finished_callback=self.handle_interpolation_result,
         )
         self.worker_thread.start()

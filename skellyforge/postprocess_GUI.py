@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 import numpy as np
 
 from PySide6.QtWidgets import (
@@ -82,24 +82,25 @@ class PostProcessingGUI(QWidget):
 
         freemocap_raw_data = self.file_manager.load_skeleton_data()
         recording_settings = self.file_manager.load_recording_settings()
-        if "tracking_model_info" in recording_settings:
-            model_info = recording_settings["tracking_model_info"]
-        else:
-            model_info = mediapipe_model_info # older sessions won't have tracking model info, so default to mediapipe
+        landmark_names, connections = self.get_landmarks_and_connections(
+            recording_settings=recording_settings
+        )
 
         self.main_menu_tab = MainMenu(
-            freemocap_raw_data=freemocap_raw_data, model_info=model_info
+            freemocap_raw_data=freemocap_raw_data,
+            connections=connections,
+            landmark_names=landmark_names,
         )
         self.tab_widget.addTab(self.main_menu_tab, "Main Menu")
 
         self.interp_tab = InterpolationMenu(
-            freemocap_raw_data=freemocap_raw_data, model_info=model_info
+            freemocap_raw_data=freemocap_raw_data, landmark_names=landmark_names
         )
         self.tab_widget.addTab(self.interp_tab, "Interpolation")
         # layout.addWidget(self.main_menu)
 
         self.filter_tab = FilteringMenu(
-            freemocap_raw_data=freemocap_raw_data, model_info=model_info
+            freemocap_raw_data=freemocap_raw_data, landmark_names=landmark_names
         )
         self.tab_widget.addTab(self.filter_tab, "Filtering")
 
@@ -111,7 +112,26 @@ class PostProcessingGUI(QWidget):
 
         self.setLayout(layout)
 
-        f = 2
+    def get_landmarks_and_connections(
+        self, recording_settings: dict
+    ) -> Tuple[list, list]:
+        if "tracking_model_info" in recording_settings:
+            model_info = recording_settings["tracking_model_info"]
+        else:
+            model_info = mediapipe_model_info  # older sessions won't have tracking model info, so default to mediapipe
+
+        # we want to exclude hands and face, so we default to body if it's specified
+        if "body_landmark_names" in model_info:
+            landmark_names = model_info["body_landmark_names"]
+        else:
+            landmark_names = model_info["landmark_names"]
+
+        if "body_connections" in model_info:
+            connections = model_info["body_connections"]
+        else:
+            connections = model_info["connections"]
+
+        return landmark_names, connections
 
 
 class MainWindow(QMainWindow):

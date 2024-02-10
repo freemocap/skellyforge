@@ -48,7 +48,7 @@ class MainMenu(QWidget):
 
     save_skeleton_data_signal = Signal(object, object, object)
 
-    def __init__(self, freemocap_raw_data: np.ndarray, model_info: dict):
+    def __init__(self, freemocap_raw_data: np.ndarray, connections: list, landmark_names: list):
         super().__init__()
 
         self.led_names = [
@@ -73,7 +73,8 @@ class MainMenu(QWidget):
         self.setStyleSheet(groupbox_stylesheet)
 
         self.freemocap_raw_data = freemocap_raw_data
-        self.model_info = model_info
+        self.connections = connections
+        self.landmark_names = landmark_names
 
         skeleton_viewer_groupbox = self.create_skeleton_viewer_groupbox()
         layout.addWidget(skeleton_viewer_groupbox)
@@ -82,7 +83,7 @@ class MainMenu(QWidget):
         layout.addWidget(parameter_groupbox)
 
         self.skeleton_viewers_container.plot_raw_skeleton(
-            raw_skeleton_data=self.freemocap_raw_data, model_info=self.model_info
+            raw_skeleton_data=self.freemocap_raw_data, connections=self.connections
         )
 
         led_groupbox = self.create_led_groupbox()
@@ -167,7 +168,7 @@ class MainMenu(QWidget):
             raw_skeleton_data=self.freemocap_raw_data,
             task_list=self.task_list,
             settings=self.settings_dict,
-            model_info=self.model_info,
+            landmark_names=self.landmark_names,
             task_running_callback=self.handle_task_started,
             task_completed_callback=self.handle_task_completed,
             all_tasks_finished_callback=self.handle_plotting,
@@ -223,12 +224,12 @@ class MainMenu(QWidget):
         if self.rotated_skeleton is not None:
             self.skeleton_viewers_container.plot_processed_skeleton(
                 processed_skeleton_data=self.rotated_skeleton,
-                model_info=self.model_info,
+                connections=self.connections,
             )
         else:
             self.skeleton_viewers_container.plot_processed_skeleton(
                 processed_skeleton_data=self.filtered_skeleton,
-                model_info=self.model_info,
+                connections=self.connections,
             )
 
         self.update_viewer_plots(good_frame)

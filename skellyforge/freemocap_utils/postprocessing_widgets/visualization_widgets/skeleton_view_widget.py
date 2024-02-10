@@ -35,11 +35,7 @@ class SkeletonViewWidget(QWidget):
         self.current_ylim = None
         self.current_zlim = None
 
-    def load_skeleton(self, skeleton_3d_data: np.ndarray, model_info: dict = mediapipe_model_info):
-        if "body_connections" in model_info:
-            connections = model_info["body_connections"]
-        else:
-            connections = model_info["connections"]
+    def load_skeleton(self, skeleton_3d_data: np.ndarray, connections: list = mediapipe_model_info["body_connections"]):
 
         self.skeleton_3d_data = skeleton_3d_data
         self.skeleton = build_skeleton(

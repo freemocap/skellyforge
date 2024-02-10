@@ -19,16 +19,16 @@ class SkeletonViewersContainer(QWidget):
 
         self.setLayout(layout)
 
-    def plot_raw_skeleton(self, raw_skeleton_data: np.ndarray, model_info: dict):
+    def plot_raw_skeleton(self, raw_skeleton_data: np.ndarray, connections: list):
         self.raw_skeleton_viewer.load_skeleton(
-            skeleton_3d_data=raw_skeleton_data, model_info=model_info
+            skeleton_3d_data=raw_skeleton_data, connections=connections
         )
 
     def plot_processed_skeleton(
-        self, processed_skeleton_data: np.ndarray, model_info: dict
+        self, processed_skeleton_data: np.ndarray, connections: list
     ):
         self.processed_skeleton_viewer.load_skeleton(
-            skeleton_3d_data=processed_skeleton_data, model_info=model_info
+            skeleton_3d_data=processed_skeleton_data, connections=connections
         )
 
     def update_raw_viewer_plot(self, frame_number):

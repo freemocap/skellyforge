@@ -62,11 +62,11 @@ class TimeSeriesPlotterWidget(QWidget):
         original_freemocap_data: np.ndarray,
         processed_freemocap_data: np.ndarray,
         reset_axes=True,
-        model_info: dict = mediapipe_model_info,
+        landmark_names: list = mediapipe_model_info["body_landmark_names"],
     ):
         axes_names = ["X Axis (mm)", "Y Axis (mm)", "Z Axis (mm)"]
 
-        joint_index = get_index_by_name(name=marker_to_plot, model_info=model_info)
+        joint_index = get_index_by_name(name=marker_to_plot, landmark_names=landmark_names)
 
         for line in self.lines:
             line.remove()
