@@ -58,10 +58,13 @@ class FileManager:
             toml_file.write(toml_string)
 
     def load_recording_settings(self) -> dict:
-        with open(
-            self.output_data_array_path / RECORDING_SETTINGS_FILE_NAME, "r"
-        ) as json_file:
-            recording_settings = json.load(json_file)
+        try:
+            with open(
+                self.output_data_array_path / RECORDING_SETTINGS_FILE_NAME, "r"
+            ) as json_file:
+                recording_settings = json.load(json_file)
+        except FileNotFoundError: # if there isn't a settings file, passing an empty dict down will lead to mediapipe as a default
+            recording_settings = {}
 
         return recording_settings
 
