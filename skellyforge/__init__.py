@@ -1,7 +1,7 @@
 """Top-level package for basic_template_repo."""
 
 __package_name__ = "skellyforge"
-__version__ = "v2024.07.1006"
+__version__ = "v2024.08.1008"
 
 __author__ = """Aaron Cherian"""
 __email__ = "info@freemocap.org"
