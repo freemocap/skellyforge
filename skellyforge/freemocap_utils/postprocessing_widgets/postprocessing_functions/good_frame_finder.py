@@ -22,7 +22,7 @@ def find_best_velocity_guess(skeleton_velocity_data, skeleton_indices, velocity_
     """
     This function iterates over velocity data and tries to pare down to a single frame that has the closest velocity to 0 for all foot markers
     """
-
+    # TODO: find an alternative to hardcoding mediapipe index names
     right_heel_index = skeleton_indices.index('right_heel')
     right_toe_index = skeleton_indices.index('right_foot_index')
     left_heel_index = skeleton_indices.index('left_heel')
