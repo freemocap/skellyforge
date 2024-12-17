@@ -57,4 +57,4 @@ push            = true
 
 
 [project.scripts]
-skellyforge = "skellyforge.__main__:main"
+skellyforge = "skellyforge.__main__:run"

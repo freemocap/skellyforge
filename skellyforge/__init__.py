@@ -11,12 +11,12 @@ __repo_url__ = (
 )
 __repo_issues_url__ = f"{__repo_url__}issues"
 
-import skellyforge.freemocap_utils as freemocap_utils
-from skellyforge.freemocap_utils.config import default_settings
-from skellyforge.freemocap_utils.constants import TASK_FILTERING, PARAM_CUTOFF_FREQUENCY, PARAM_SAMPLING_RATE, \
-    PARAM_ORDER, PARAM_ROTATE_DATA, TASK_SKELETON_ROTATION, TASK_INTERPOLATION, TASK_FINDING_GOOD_FRAME
+# import skellyforge.freemocap_utils as freemocap_utils
+# from skellyforge.freemocap_utils.config import default_settings
+# from skellyforge.freemocap_utils.constants import TASK_FILTERING, PARAM_CUTOFF_FREQUENCY, PARAM_SAMPLING_RATE, \
+#     PARAM_ORDER, PARAM_ROTATE_DATA, TASK_SKELETON_ROTATION, TASK_INTERPOLATION, TASK_FINDING_GOOD_FRAME
 
-from skellyforge.freemocap_utils.postprocessing_widgets.task_worker_thread import TaskWorkerThread
+# from skellyforge.freemocap_utils.postprocessing_widgets.task_worker_thread import TaskWorkerThread
 
 
 print(f"Thank you for using {__package_name__}!")
