@@ -119,7 +119,7 @@ class PostProcessingGUI(QWidget):
         self, recording_settings: dict
     ) -> Tuple[list, list]:
         if "tracking_model_info" in recording_settings:
-            model_info = recording_settings["tracking_model_info"]
+            model_info = mediapipe_model_info
         else:
             model_info = mediapipe_model_info  # older sessions won't have tracking model info, so default to mediapipe
 
@@ -168,6 +168,6 @@ if __name__ == "__main__":
 
     main(
         Path(
-            r"D:\2023-05-17_MDN_NIH_data\1.0_recordings\calib_3\sesh_2023-05-17_14_53_48_MDN_NIH_Trial3"
+            r"D:\groundplane_test\recording_13_21_46_gmt-4__atc_groundplane_1"
         )
     )

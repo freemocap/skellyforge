@@ -14,7 +14,7 @@ def parse_args():
 def run():
     parse_args()
 
-    from postprocess_GUI import main
+    from skellyforge.postprocess_GUI import main
     main()
 
 if __name__ == "__main__":
