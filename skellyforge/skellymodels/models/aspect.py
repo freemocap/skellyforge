@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field, model_validator, ConfigDict
-from freemocap.data_layer.skellymodels.models.anatomical_structure import AnatomicalStructure
-from freemocap.data_layer.skellymodels.tracker_info.model_info import ModelInfo
-from freemocap.data_layer.skellymodels.models.anatomical_structure import AnatomicalStructure
-from freemocap.data_layer.skellymodels.models.error import Error
-from freemocap.data_layer.skellymodels.models.trajectory import Trajectory
-from freemocap.data_layer.skellymodels.utils.types import  SegmentName
+from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
+from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
+from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
+from skellyforge.skellymodels.models.error import Error
+from skellyforge.skellymodels.models.trajectory import Trajectory
+from skellyforge.skellymodels.utils.types import  SegmentName
 from typing import Dict, Any, Optional
 import numpy as np
 from enum import Enum

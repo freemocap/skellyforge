@@ -1,7 +1,7 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from typing import Dict, List
-from freemocap.data_layer.skellymodels.utils.types import MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
-from freemocap.data_layer.skellymodels.tracker_info.model_info import ModelInfo
+from skellyforge.skellymodels.utils.types import MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
+from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
 
 class AnatomicalStructure(BaseModel):
     """

@@ -3,12 +3,12 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import datetime
-from freemocap.data_layer.skellymodels.models.aspect import Aspect
-from freemocap.data_layer.skellymodels.models.trajectory import Trajectory
+from skellyforge.skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.models.trajectory import Trajectory
 from typing import Dict, Optional
 
-from freemocap.data_layer.skellymodels.tracker_info.model_info import ModelInfo
-from freemocap.data_layer.skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
+from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
+from skellyforge.skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
 
 from pathlib import Path
 import logging

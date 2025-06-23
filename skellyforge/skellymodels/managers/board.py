@@ -1,7 +1,7 @@
 from enum import Enum
-from freemocap.data_layer.skellymodels.managers.actor import Actor
-from freemocap.data_layer.skellymodels.tracker_info.model_info import ModelInfo
-from freemocap.data_layer.skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.managers.actor import Actor
+from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
+from skellyforge.skellymodels.models.aspect import Aspect
 import numpy as np
 
 ##NOTE: Playing around with the idea of making a Board Actor. Untested, but I think this could be extended to 
