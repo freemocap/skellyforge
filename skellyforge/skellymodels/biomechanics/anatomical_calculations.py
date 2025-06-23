@@ -1,9 +1,9 @@
-from freemocap.data_layer.skellymodels.models.aspect import Aspect, TrajectoryNames
-from freemocap.data_layer.skellymodels.models.trajectory import Trajectory
+from skellyforge.skellymodels.models.aspect import Aspect, TrajectoryNames
+from skellyforge.skellymodels.models.trajectory import Trajectory
 
-from freemocap.data_layer.skellymodels.biomechanics.calculations.calculate_center_of_mass import calculate_center_of_mass
-from freemocap.data_layer.skellymodels.biomechanics.calculations.enforce_rigid_bones import enforce_rigid_bones
-from freemocap.data_layer.skellymodels.biomechanics.models.anatomical_calculation import AnatomicalCalculation, CalculationResult
+from skellyforge.skellymodels.biomechanics.calculations.calculate_center_of_mass import calculate_center_of_mass
+from skellyforge.skellymodels.biomechanics.calculations.enforce_rigid_bones import enforce_rigid_bones
+from skellyforge.skellymodels.biomechanics.models.anatomical_calculation import AnatomicalCalculation, CalculationResult
 
 
 class CenterOfMassCalculation(AnatomicalCalculation):
