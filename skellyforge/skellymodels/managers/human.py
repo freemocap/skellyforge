@@ -1,8 +1,8 @@
 from enum import Enum
 import numpy as np
-from skellyforge.skellymodels.models.aspect import Aspect
-from skellyforge.skellymodels.managers.animal import Animal
-from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
+from skellymodels.models.aspect import Aspect
+from skellymodels.managers.animal import Animal
+from skellymodels.models.tracking_model_info import ModelInfo
 class HumanAspectNames(Enum):
     BODY = "body"
     FACE = "face"

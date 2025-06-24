@@ -1,7 +1,7 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from typing import Dict, List
-from skellyforge.skellymodels.utils.types import MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
-from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
+from skellymodels.utils.types import MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
+from skellymodels.models.tracking_model_info import ModelInfo
 
 class AnatomicalStructure(BaseModel):
     """

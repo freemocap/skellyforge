@@ -3,12 +3,12 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import datetime
-from skellyforge.skellymodels.models.aspect import Aspect
-from skellyforge.skellymodels.models.trajectory import Trajectory
+from skellymodels.models.aspect import Aspect
+from skellymodels.models.trajectory import Trajectory
 from typing import Dict, Optional
 
-from skellyforge.skellymodels.tracker_info.model_info import ModelInfo
-from skellyforge.skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
+from skellymodels.models.tracking_model_info import ModelInfo
+from skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
 
 from pathlib import Path
 import logging
@@ -99,7 +99,7 @@ class Actor(ABC):
         return actor
     
     @classmethod
-    def from_data(cls, model_info: ModelInfo, path_to_data_folder: Path|str) -> "Actor":
+    def from_data(cls, path_to_data_folder: Path|str, model_info: ModelInfo|None = None) -> "Actor":
         """
         Convenience wrapper to instantiate an ``Actor`` from previously saved out output data
 
@@ -109,7 +109,7 @@ class Actor(ABC):
         #Later on, if needed, we can consider fallback methods to loading from the big CSV or all the individual CSVs as well
         try:
             parquet_file = path_to_data_folder / FREEMOCAP_PARQUET_NAME
-            return cls.from_parquet(model_info, parquet_file)
+            return cls.from_parquet(path_to_parquet_file = parquet_file)
         except FileNotFoundError:
             logger.warning(f"Could not find parquet file at {parquet_file}")
         except Exception as e:
@@ -118,18 +118,22 @@ class Actor(ABC):
         raise RuntimeError(f"Could not load data from {path_to_data_folder}")
     
     @classmethod
-    def from_parquet(cls, model_info: ModelInfo, path_to_parquet_file: Path|str):
+    def from_parquet(cls, path_to_parquet_file: Path|str, model_info: ModelInfo|None = None) -> "Actor":
         """
-        Convience warpper to instantiate an ``Actor`` from the ``freemocap_data_by_frame.parquet`` file
+        Convience wrapper to instantiate an ``Actor`` from the ``freemocap_data_by_frame.parquet`` file
         """
         path_to_parquet_file = Path(path_to_parquet_file)
         dataframe = pd.read_parquet(path_to_parquet_file)
-
-        actor = cls(name =dataframe.attrs['metadata']['name'],
+        if not model_info:
+            if 'model_info' not in dataframe.attrs:
+                raise ValueError("No model_info found in parquet file, please provide a ModelInfo instance")
+            model_info = ModelInfo.from_model_dict(dataframe.attrs['model_info'])
+            
+        actor = cls(name =dataframe.attrs['model_info']['name'],
                     model_info = model_info)
 
-        if set(actor.aspect_order) != set(dataframe.attrs['metadata']['aspects']): #Want to come back around and make a more robust check
-            raise ValueError(f"Aspects in parquet file {dataframe.attrs['metadata']['aspects']} do not match aspects specified in model info {actor.aspect_order}")
+        if set(actor.aspect_order) != set(dataframe.attrs['model_info']['order']): #Want to come back around and make a more robust check
+            raise ValueError(f"Aspects in parquet file {dataframe.attrs['model_info']['order']} do not match aspects specified in model info {actor.aspect_order}")
 
         actor.populate_aspects_from_parquet(dataframe)
         return actor
@@ -210,10 +214,9 @@ class Actor(ABC):
         df.attrs['metadata'] = {
             'created_at': datetime.datetime.now().isoformat(),
             'created_with': 'skelly_models',
-            'name': self.name,
-            'aspects': list(self.aspect_order)
         }
 
+        df.attrs['model_info'] = self.model_info.model_dump()
         return df
 
     def _set_output_folder(self, path_to_output_folder: Path|str|None = None) -> Path:
@@ -222,7 +225,7 @@ class Actor(ABC):
 
     def save_out_numpy_data(self, path_to_output_folder: Path|str|None = None):
         """
-        Saves out a .npy file for each Trajectory in each Aspect with format {tracker_name}_{aspect}_{trajectory} 
+        Saves out a .npy file for each Trajectory in each Aspect with format {tracker_type}_{aspect}_{trajectory} 
         (i.e. 'mediapipe_body_3d_xyz')
         """
         path_to_output_folder = self._set_output_folder(path_to_output_folder)
@@ -236,7 +239,7 @@ class Actor(ABC):
 
     def save_out_csv_data(self, path_to_output_folder: Path|str|None = None):
         """
-        Saves out a .csv file for each Trajectory in each Aspect with format {tracker_name}_{aspect}_{trajectory} 
+        Saves out a .csv file for each Trajectory in each Aspect with format {tracker_type}_{aspect}_{trajectory} 
         (i.e. 'mediapipe_body_3d_xyz')
         """
         path_to_output_folder = self._set_output_folder(path_to_output_folder)
@@ -255,7 +258,7 @@ class Actor(ABC):
 
         save_path = path_to_output_folder / 'freemocap_data_by_frame.csv'    
         self.create_summary_dataframe().to_csv(save_path, index=False)
-        logger.info(f"Data successfully saved to {save_path}")
+        logger.info(f"CSV successfully saved to {save_path}")
 
     def save_out_all_data_parquet(self, path_to_output_folder: Path|str|None = None):
         """
@@ -267,7 +270,20 @@ class Actor(ABC):
         dataframe = self.create_summary_dataframe_with_metadata()
         save_path = path_to_output_folder / FREEMOCAP_PARQUET_NAME
         dataframe.to_parquet(save_path)
-        logger.info(f"Data successfully saved to {save_path}")
+        logger.info(f"Parquet successfully saved to {save_path}")
+
+    def save_out_all_xyz_numpy_data(self, path_to_output_folder: Path|str|None = None):
+        """
+        Saves out a single .npy file with all xyz trajectories from all aspects
+        """
+        path_to_output_folder = self._set_output_folder(path_to_output_folder)
+
+        all_xyz_data = np.concatenate([self.aspects[aspect_name].xyz.as_array for aspect_name in self.aspect_order], axis = 1)
+
+        save_path = path_to_output_folder/f"{self.tracker}_skeleton_3d.npy"
+        np.save(save_path, all_xyz_data)
+        logger.info(f"Combined marker position numpy array saved to f{save_path}")
+        f = 2
 
     def populate_aspects_from_parquet(self, dataframe:pd.DataFrame):
         """
