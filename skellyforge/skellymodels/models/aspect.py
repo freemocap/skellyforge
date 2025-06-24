@@ -13,8 +13,8 @@ class TrajectoryNames(Enum):
     """Enum for common trajectory names used in aspects."""
     XYZ = '3d_xyz'
     RIGID_XYZ = 'rigid_3d_xyz'
-    TOTAL_BODY_COM = 'total_body_com'
-    SEGMENT_COM = 'segment_com'
+    TOTAL_BODY_COM = 'total_body_center_of_mass'
+    SEGMENT_COM = 'segment_center_of_mass'
 
 class Aspect(BaseModel):
     """
