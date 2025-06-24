@@ -1,11 +1,3 @@
-
-import sys
-from importlib import import_module
-
-_skellymodels = import_module(__name__ + '.skellymodels')  # => skellyforge.skellymodels
-sys.modules['skellymodels'] = _skellymodels
-
-
 """Top-level package for basic_template_repo."""
 
 __package_name__ = "skellyforge"
