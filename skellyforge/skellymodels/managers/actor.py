@@ -216,11 +216,11 @@ class Actor(ABC):
 
         return df
 
-    def _set_output_folder(self, path_to_output_folder: Path|str|None):
+    def _set_output_folder(self, path_to_output_folder: Path|str|None = None) -> Path:
         path_to_output_folder = Path.cwd() if path_to_output_folder is None else Path(path_to_output_folder)
         return path_to_output_folder
 
-    def save_out_numpy_data(self, path_to_output_folder: Path|str|None):
+    def save_out_numpy_data(self, path_to_output_folder: Path|str|None = None):
         """
         Saves out a .npy file for each Trajectory in each Aspect with format {tracker_name}_{aspect}_{trajectory} 
         (i.e. 'mediapipe_body_3d_xyz')
@@ -234,7 +234,7 @@ class Actor(ABC):
                         trajectory.as_array) 
                 logger.info(f"Saved out {save_path}")
 
-    def save_out_csv_data(self, path_to_output_folder: Path|str|None):
+    def save_out_csv_data(self, path_to_output_folder: Path|str|None = None):
         """
         Saves out a .csv file for each Trajectory in each Aspect with format {tracker_name}_{aspect}_{trajectory} 
         (i.e. 'mediapipe_body_3d_xyz')
@@ -247,7 +247,7 @@ class Actor(ABC):
                 trajectory.as_dataframe.to_csv(path_to_output_folder/f"{aspect.metadata['tracker_type']}_{aspect.name}_{trajectory.name}.csv", index = False)
                 logger.info(f"Saved out {save_path}") 
 
-    def save_out_all_data_csv(self, path_to_output_folder: Path|str|None):
+    def save_out_all_data_csv(self, path_to_output_folder: Path|str|None = None):
         """
         Saves out a CSV in tidy format with all Trajectories from all Aspects
         """
@@ -257,7 +257,7 @@ class Actor(ABC):
         self.create_summary_dataframe().to_csv(save_path, index=False)
         logger.info(f"Data successfully saved to {save_path}")
 
-    def save_out_all_data_parquet(self, path_to_output_folder: Path|str|None):
+    def save_out_all_data_parquet(self, path_to_output_folder: Path|str|None = None):
         """
         Saves out a Parquet file using the same dataframe created in `create_summary_dataframe` and 
         adds additional metadata to the file.
