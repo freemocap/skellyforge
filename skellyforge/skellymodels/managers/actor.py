@@ -180,7 +180,7 @@ class Actor(ABC):
                 
                 # Add metadata columns
                 trajectory_df['model'] = f"{aspect.metadata['tracker_type']}.{aspect_name}"
-                trajectory_df['type'] = trajectory_name  # Store the trajectory type
+                trajectory_df['trajectory'] = trajectory_name  # Store the trajectory type
 
                 # Add error column
                 if aspect.reprojection_error is None:
@@ -198,7 +198,7 @@ class Actor(ABC):
         big_df = pd.concat(all_data, ignore_index=True)
 
         # Sort by frame, model, and type
-        big_df = big_df.sort_values(by=['frame', 'model', 'type']).reset_index(drop=True)
+        big_df = big_df.sort_values(by=['frame', 'model', 'trajectory']).reset_index(drop=True)
 
         return big_df
     
@@ -284,7 +284,7 @@ class Actor(ABC):
             tracker_name, aspect_name = model_name.split(".")
             trajectory_dict: dict[str, Trajectory] = {}
 
-            for trajectory_name, trajectory_data in aspect_data.groupby('type'):
+            for trajectory_name, trajectory_data in aspect_data.groupby('trajectory'):
                 marker_order = trajectory_data["keypoint"].drop_duplicates().tolist()
 
                 num_markers = len(marker_order)
