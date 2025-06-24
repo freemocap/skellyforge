@@ -3,12 +3,12 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 import datetime
-from skellymodels.models.aspect import Aspect
-from skellymodels.models.trajectory import Trajectory
+from skellyforge.skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.models.trajectory import Trajectory
 from typing import Dict, Optional
 
-from skellymodels.models.tracking_model_info import ModelInfo
-from skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
+from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
+from skellyforge.skellymodels.biomechanics.anatomical_calculations import CalculationPipeline, STANDARD_PIPELINE
 
 from pathlib import Path
 import logging
