@@ -107,6 +107,7 @@ class Actor(ABC):
         *path_to_data_folder*.
         """
         #Later on, if needed, we can consider fallback methods to loading from the big CSV or all the individual CSVs as well
+        path_to_data_folder = Path(path_to_data_folder)
         try:
             parquet_file = path_to_data_folder / FREEMOCAP_PARQUET_NAME
             return cls.from_parquet(path_to_parquet_file = parquet_file)
