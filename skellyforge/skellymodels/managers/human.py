@@ -1,8 +1,10 @@
 from enum import Enum
 import numpy as np
-from skellyforge.skellymodels.models.aspect import Aspect
-from skellyforge.skellymodels.managers.animal import Animal
-from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
+from skellymodels.models.aspect import Aspect, TrajectoryNames
+from skellymodels.models.trajectory import Trajectory
+from skellymodels.managers.animal import Animal
+from skellymodels.models.tracking_model_info import ModelInfo
+import logging
 class HumanAspectNames(Enum):
     BODY = "body"
     FACE = "face"
@@ -12,6 +14,8 @@ class HumanAspectNames(Enum):
 HUMAN_ENUMS = (HumanAspectNames.FACE,
                 HumanAspectNames.LEFT_HAND,
                 HumanAspectNames.RIGHT_HAND)
+
+logger = logging.getLogger(__name__)
 
 class Human(Animal):
     """
@@ -133,3 +137,102 @@ class Human(Animal):
                 aspect.add_reprojection_error(
                     reprojection_error_data[:, self.tracked_point_slices[aspect_enum.value]]
                 )
+
+    def fix_hands_to_wrist(self):
+        if not self.left_hand or not self.right_hand:
+            logger.warning('No hands aspects found - cannot fix hands to wrist')
+            return None
+
+        missing = []
+
+        if not any('wrist' in marker for marker in self.body.anatomical_structure.landmark_names):
+            missing.append(self.body.name)
+        
+        if not any('wrist' in marker for marker in self.left_hand.anatomical_structure.landmark_names):
+            missing.append(self.left_hand.name)
+
+        if not any('wrist' in marker for marker in self.right_hand.anatomical_structure.landmark_names):
+            missing.append(self.right_hand.name)
+            
+        if missing:
+            logger.warning(f"Wrist markers missing from {missing}. Cannot fix hands to wrist")  
+            return None
+
+    
+
+        for side in ['left', 'right']:
+            hand_aspect = self.aspects[f'{side}_hand']
+            hand_wrist = hand_aspect.xyz.as_dict['wrist']
+            body_wrist = (self.body.rigid_xyz or self.body.xyz).as_dict[f'{side}_wrist']
+
+            
+            position_delta = body_wrist - hand_wrist
+            position_delta = np.expand_dims(position_delta, 1)
+            translated_array = hand_aspect.xyz.as_array + position_delta
+
+            translated_trajectory = Trajectory(
+                name = hand_aspect.name,
+                array = translated_array,
+                landmark_names= hand_aspect.anatomical_structure.landmark_names
+            )
+
+            hand_aspect.add_trajectory({
+                TrajectoryNames.XYZ.value: translated_trajectory
+            })
+
+    def put_skeleton_on_ground(self):
+        
+        def get_unit_vector(vector: np.ndarray) -> np.ndarray:
+            return vector / np.linalg.norm(vector)
+        
+        foot_marker_list = ['left_heel', 'right_heel', 'left_foot_index', 'right_foot_index']
+
+        if not all(marker in self.body.anatomical_structure.landmark_names for marker in foot_marker_list):
+            logger.warning('Missing foot markers necessary to put skeleton on ground.')
+            return None
+        else: 
+            logger.info("Placing skeleton onto ground")
+
+        foot_trajectories = np.concatenate([np.expand_dims(self.body.xyz.as_dict[marker],axis = 1) for marker in foot_marker_list], axis = 1)
+        still_frame = self._find_still_frame(foot_trajectories)
+
+        center = np.mean(foot_trajectories[still_frame], axis = 0)
+
+        mid_foot_index =  (self.body.xyz.as_dict['right_foot_index'][still_frame] + self.body.xyz.as_dict['left_foot_index'][still_frame])/2
+        # mid_right_foot = (self.body.xyz.as_dict['right_heel'][still_frame] + self.body.xyz.as_dict['right_foot_index'][still_frame])/2
+
+        forward = get_unit_vector(mid_foot_index - center)
+        # left = get_unit_vector(mid_right_foot - center)    
+        up = get_unit_vector(self.body.xyz.as_dict['neck_center'][still_frame] - center)
+
+        x_hat = get_unit_vector(np.cross(forward,up))
+        y_hat = get_unit_vector(np.cross(up,x_hat))
+        z_hat = get_unit_vector(np.cross(x_hat, y_hat))
+        
+        skeleton_basis = np.column_stack([x_hat, y_hat, z_hat])
+        rotation_matrix = np.eye(3) @ skeleton_basis.T
+        translation_delta = 0 - center
+
+        for aspect_name, aspect in self.aspects.items():
+            transformed_trajectory = (aspect.xyz.as_array + translation_delta)@rotation_matrix.T
+            transformed_trajectory = Trajectory(
+                name = aspect.xyz.name,
+                array = transformed_trajectory,
+                landmark_names= aspect.anatomical_structure.landmark_names
+            )
+            aspect.add_trajectory({
+                aspect.xyz.name:  transformed_trajectory
+            })
+        f = 2
+
+
+    def _find_still_frame(self, array: np.ndarray):
+        velocity = np.linalg.norm(np.diff(array, axis = 0), axis = 2)
+        visible_frames = ~np.isnan(velocity).any(axis = 1)
+        
+        max_velocity_per_frame = np.nanmax(velocity[visible_frames],axis = 1)
+        lowest_velocity_index_of_visible_frames = int(np.nanargmin(max_velocity_per_frame))
+        lowest_velocity_index_of_all_frames = np.where(visible_frames)[0][lowest_velocity_index_of_visible_frames]
+        
+        return lowest_velocity_index_of_all_frames
+        f = 2
