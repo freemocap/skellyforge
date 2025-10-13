@@ -148,7 +148,7 @@ def triangulate_trajectories(
             logger.warning(
                 "Frame group is missing cameras from camera group, triangulating with only cameras in frame group"
             )
-            camera_group = camera_group.subset_cameras_names(list(frame_group.keys()))
+            camera_group = camera_group.subset_cameras_names(list(trajectory_group.keys()))
         raise ValueError(
             "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
         )
@@ -169,8 +169,12 @@ def triangulate_trajectories(
         data_2d, camera_group, config
     )
 
+    start_frame = list(trajectory_group.values())[0].start_frame
+    end_frame = list(trajectory_group.values())[0].end_frame
 
     return Trajectory3d(
+        start_frame=start_frame,
+        end_frame=end_frame,
         triangulated_data=triangulated_data,
         reprojection_error=reprojection_error,
         reprojection_error_by_camera=reprojection_error_by_camera,
