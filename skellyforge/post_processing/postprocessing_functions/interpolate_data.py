@@ -18,7 +18,7 @@ def interpolate_skeleton_data(skeleton_data:np.ndarray, method_to_use = 'linear'
         this_marker_interpolated_skel3d_array = np.array(df2)
         #replace the remaining NaN values (the ones that often happen at the start of the recording)
         this_marker_interpolated_skel3d_array = np.where(np.isfinite(this_marker_interpolated_skel3d_array), this_marker_interpolated_skel3d_array, np.nanmean(this_marker_interpolated_skel3d_array))
-        
+        # we may want to leave nans in the start/end, and only filter the middle with good data
         freemocap_interpolated_data[:,marker,:] = this_marker_interpolated_skel3d_array
 
     return freemocap_interpolated_data
