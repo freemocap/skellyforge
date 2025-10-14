@@ -31,7 +31,7 @@ dependencies = [
     "pyside6==6.6.*",
     "pyqtgraph==0.13.3",
     "scipy==1.11.4",
-    "skellytracker@git+https://github.com/freemocap/skellytracker.git",
+    "skellytracker@git+https://github.com/freemocap/skellytracker@philip/add_dlc",
     "rich==13.7.0",
     "pandas==2.1.4",
     "matplotlib==3.8.2",
