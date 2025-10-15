@@ -1,10 +1,11 @@
 import logging
+from typing import Any
 import numpy as np
 from pydantic import BaseModel
 
 from skellyforge.calibration.freemocap_anipose import CameraGroup
 from skellyforge.data_models.data_3d import Observation3d, Trajectory3d
-from skellyforge.data_models.frame_group import FrameGroup, Trajectory2dGroup
+from skellyforge.data_models.frame_group import CameraIdString, FrameGroup, Trajectory2dGroup
 
 logger = logging.getLogger(__name__)
 
@@ -76,17 +77,7 @@ def triangulate_frame_group(
     camera_group: CameraGroup,
     config: TriangulationConfig,
 ) -> Observation3d:
-    if list(frame_group.keys()) != [camera.name for camera in camera_group.cameras]:
-        if set(frame_group.keys()).issubset(
-            set(camera.name for camera in camera_group.cameras)
-        ):
-            logger.warning(
-                "Frame group is missing cameras from camera group, triangulating with only cameras in frame group"
-            )
-            camera_group = camera_group.subset_cameras_names(list(frame_group.keys()))
-        raise ValueError(
-            "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
-        )
+    camera_group = subset_camera_names(data_dict=frame_group, camera_group=camera_group)
 
     data_2d = np.array(
         [frame_group[camera.name].to_array for camera in camera_group.cameras]
@@ -111,6 +102,22 @@ def triangulate_frame_group(
         reprojection_error=reprojection_error,
         reprojection_error_by_camera=reprojection_error_by_camera,
     )
+
+def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup):
+    if list(data_dict.keys()) != [camera.name for camera in camera_group.cameras]:
+        if set(data_dict.keys()).issubset(
+            set(camera.name for camera in camera_group.cameras)
+        ):
+            logger.warning(
+                "Frame group is missing cameras from camera group, triangulating with only cameras in frame group"
+            )
+            camera_group = camera_group.subset_cameras_names(list(data_dict.keys()))
+        else:
+            raise ValueError(
+                "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
+            )
+            
+    return camera_group
 
 
 def triangulate_frame_groups(
@@ -141,17 +148,7 @@ def triangulate_trajectories(
         raise ValueError(
             "Input data must have the same end frame for all trajectories"
     )
-    if list(trajectory_group.keys()) != [camera.name for camera in camera_group.cameras]:
-        if set(trajectory_group.keys()).issubset(
-            set(camera.name for camera in camera_group.cameras)
-        ):
-            logger.warning(
-                "Frame group is missing cameras from camera group, triangulating with only cameras in frame group"
-            )
-            camera_group = camera_group.subset_cameras_names(list(trajectory_group.keys()))
-        raise ValueError(
-            "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
-        )
+    camera_group = subset_camera_names(data_dict=trajectory_group, camera_group=camera_group)
 
     data_2d = np.array(
         [trajectory_group[camera.name].points_2d for camera in camera_group.cameras]

@@ -1,5 +1,5 @@
 from skellyforge.data_models.data_2d import Trajectory2d
-from skellyforge.data_models.skellytracker_mock import BaseObservation
+from skellyforge.data_models.observation import BaseObservation
 
 # TODO: change to base models, add validation during class methods
 CameraIdString = str
