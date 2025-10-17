@@ -1,0 +1,70 @@
+name: charuco_board_5_3
+tracker_name: CharucoTracker
+
+order:
+  - body
+
+aspects:
+  body:
+    tracked_points:
+      type: list
+      names:
+        - "0"
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "6"
+        - "7"
+
+    segment_connections:
+      seg_0_1:
+        proximal: "0"
+        distal: "1"
+      seg_1_2:
+        proximal: "1"
+        distal: "2"
+      seg_2_3:
+        proximal: "2"
+        distal: "3"
+
+      seg_4_5:
+        proximal: "4"
+        distal: "5"
+      seg_5_6:
+        proximal: "5"
+        distal: "6"
+      seg_6_7:
+        proximal: "6"
+        distal: "7"
+
+      seg_0_4:
+        proximal: "0"
+        distal: "4"
+      seg_1_5:
+        proximal: "1"
+        distal: "5"
+      seg_2_6:
+        proximal: "2"
+        distal: "6"
+      seg_3_7:
+        proximal: "3"
+        distal: "7"
+
+    joint_hierarchy:
+      "0":
+        - "1"
+        - "4"
+      "1":
+        - "2"
+      "2":
+        - "3"
+      "3":
+        - "4"
+      "4":
+        - "5"
+      "5":
+        - "6"
+      "6":
+        - "7"
