@@ -1,8 +1,10 @@
-from pydantic import BaseModel
+from pathlib import Path
+from pydantic import BaseModel, ConfigDict
 import numpy as np
 
 
 class Observation3d(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     # TODO: since this is calculated data, it shouldn't be called 'observation' - need a different name
     frame_number: int
     triangulated_data: np.ndarray
@@ -11,6 +13,7 @@ class Observation3d(BaseModel):
 
 
 class Trajectory3d(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     start_frame: int
     end_frame: int
     triangulated_data: np.ndarray
@@ -40,3 +43,22 @@ class Trajectory3d(BaseModel):
             reprojection_error=reprojection_error,
             reprojection_error_by_camera=reprojection_error_by_camera,
         )
+    
+    def save_to_arrays(self, output_folder: str | Path, prefix: str = ""):
+        output_folder = Path(output_folder)
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        if len(prefix) > 0 and not prefix.endswith("_"):
+            prefix += "_"
+
+        np.save(output_folder / f"{prefix}3d_data_spatial_xyz.npy", self.triangulated_data)
+        np.save(output_folder / f"{prefix}reprojection_error.npy", self.reprojection_error)
+        np.save(output_folder / f"{prefix}reprojection_error_by_camera.npy", self.reprojection_error_by_camera)
+
+    def to_tidy_daframe(self):
+        # TODO
+        pass
+
+    def to_wide_dataframe(self):
+        # TODO
+        pass

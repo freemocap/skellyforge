@@ -18,7 +18,7 @@ def triangulate_array(
     data_2d: np.ndarray,
     camera_group: CameraGroup,
     config: TriangulationConfig,
-):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     number_of_cameras = data_2d.shape[0]
     number_of_frames = data_2d.shape[1]
     number_of_tracked_points = data_2d.shape[2]
@@ -31,6 +31,8 @@ def triangulate_array(
         raise ValueError("Input data must have 2 spatial dimensions")
 
     data2d_flat = data_2d.reshape(number_of_cameras, -1, 2)
+
+    print(f"shape of data2d_flat: {data2d_flat.shape}")
 
     # Triangulate 2D points to 3D
     if config.use_ransac:
@@ -79,8 +81,11 @@ def triangulate_frame_group(
 ) -> Observation3d:
     camera_group = subset_camera_names(data_dict=frame_group, camera_group=camera_group)
 
-    data_2d = np.array(
-        [frame_group[camera.name].to_array for camera in camera_group.cameras]
+    ordered_frame_group = preserve_camera_group_order(data_dict=frame_group, camera_group=camera_group)
+
+    data_2d = np.stack(
+        [observation.to_array for observation in ordered_frame_group.values()],
+        axis=0,
     )
 
     if len(frame_group) != data_2d.shape[0]:
@@ -102,22 +107,6 @@ def triangulate_frame_group(
         reprojection_error=reprojection_error,
         reprojection_error_by_camera=reprojection_error_by_camera,
     )
-
-def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup):
-    if list(data_dict.keys()) != [camera.name for camera in camera_group.cameras]:
-        if set(data_dict.keys()).issubset(
-            set(camera.name for camera in camera_group.cameras)
-        ):
-            logger.warning(
-                "Frame group is missing cameras from camera group, triangulating with only cameras in frame group"
-            )
-            camera_group = camera_group.subset_cameras_names(list(data_dict.keys()))
-        else:
-            raise ValueError(
-                "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
-            )
-            
-    return camera_group
 
 
 def triangulate_frame_groups(
@@ -149,9 +138,11 @@ def triangulate_trajectories(
             "Input data must have the same end frame for all trajectories"
     )
     camera_group = subset_camera_names(data_dict=trajectory_group, camera_group=camera_group)
+    ordered_trajectory_group = preserve_camera_group_order(data_dict=trajectory_group, camera_group=camera_group)
 
-    data_2d = np.array(
-        [trajectory_group[camera.name].points_2d for camera in camera_group.cameras]
+    data_2d = np.stack(
+        [trajectory.points2d for trajectory in ordered_trajectory_group.values()],
+        axis=0
     )
 
     if len(trajectory_group) != data_2d.shape[0]:
@@ -176,4 +167,71 @@ def triangulate_trajectories(
         reprojection_error=reprojection_error,
         reprojection_error_by_camera=reprojection_error_by_camera,
     )
+
+def triangulate_dict(
+    data_dict: dict[CameraIdString, np.ndarray],
+    camera_group: CameraGroup,
+    config: TriangulationConfig,
+    start_frame: int | None = None,
+    end_frame: int | None = None,
+) -> Trajectory3d:
+    camera_group = subset_camera_names(
+        data_dict=data_dict, camera_group=camera_group
+    )
+
+    ordered_data_dict = preserve_camera_group_order(data_dict=data_dict, camera_group=camera_group)
+
+    combined_2d_data = np.stack(
+        [observation for observation in ordered_data_dict.values()],
+        axis=0
+    )
+    print(f"shape of combined_2d_data: {combined_2d_data.shape}")
+
+    triangulated_data, reprojection_error, reprojection_error_by_camera = triangulate_array(
+        combined_2d_data, camera_group, config
+    )
+    if start_frame is None:
+        start_frame = 0
+    if end_frame is None:
+        end_frame = combined_2d_data.shape[1]
+    return Trajectory3d(
+        start_frame=start_frame,
+        end_frame=end_frame,
+        triangulated_data=triangulated_data,
+        reprojection_error=reprojection_error,
+        reprojection_error_by_camera=reprojection_error_by_camera,
+    )
+
     
+def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup):
+    valid_calibration_names = []
+    for camera in camera_group.cameras:
+        for key in data_dict.keys():
+            if camera.name in key:
+                valid_calibration_names.append(camera.name)
+                break
+    if len(valid_calibration_names) != len(data_dict.keys()):
+        raise ValueError(
+            "Camera names in frame group do not match camera names in camera group. Make sure calibration matches input data."
+        )
+    if len(valid_calibration_names) == len(camera_group.cameras):
+        return camera_group
+    logger.warning(
+        f"Frame group is missing cameras from camera group, triangulating with only cameras in frame group: {valid_calibration_names}"
+    )
+    return camera_group.subset_cameras_names(valid_calibration_names)
+
+
+def preserve_camera_group_order(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup) -> dict[CameraIdString, Any]:
+    ordered_data_dict = {}
+
+    for camera in camera_group.cameras:
+        for name, data in data_dict.items():
+            if camera.name in name:
+                ordered_data_dict[name] = data
+                break
+
+    print(f"camera group names: {[camera.name for camera in camera_group.cameras]}")
+    print(f"ordered data dict names: {[name for name in ordered_data_dict.keys()]}")
+
+    return ordered_data_dict
