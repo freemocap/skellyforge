@@ -41,7 +41,9 @@ if __name__ == "__main__":
         order = 4
     )
     
-    path_to_data = Path(r"D:\2023-06-07_TF01\1.0_recordings\four_camera\sesh_2023-06-07_12_06_15_TF01_flexion_neutral_trial_1\validation\mediapipe_dlc\mediapipe_dlc_body_3d_xyz.npy")
+    path_to_data = Path(r"D:\2023-06-07_TF01\1.0_recordings\four_camera\sesh_2023-06-07_12_06_15_TF01_flexion_neutral_trial_1\output_data\raw_data\dlc_3dData_numFrames_numTrackedPoints_spatialXYZ.npy")
     data = np.load(path_to_data)
 
-    test_pipeline(data, interp_config, filter_config)
+    test_pipeline(data, 
+                  interp_config, 
+                  filter_config)
