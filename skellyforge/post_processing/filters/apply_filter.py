@@ -22,6 +22,8 @@ def filter_trajectory(
             )
     
     return Trajectory3d(
+        start_frame=trajectory.start_frame,
+        end_frame=trajectory.end_frame,
         triangulated_data=filtered_data,
         reprojection_error=trajectory.reprojection_error,
         reprojection_error_by_camera=trajectory.reprojection_error_by_camera,
