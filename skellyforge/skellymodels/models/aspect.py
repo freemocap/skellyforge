@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field, model_validator, ConfigDict
-from skellymodels.models.anatomical_structure import AnatomicalStructure
-from skellymodels.models.tracking_model_info import ModelInfo
-from skellymodels.models.anatomical_structure import AnatomicalStructure
-from skellymodels.models.error import Error
-from skellymodels.models.trajectory import Trajectory
-from skellymodels.utils.types import  SegmentName
+from pydantic import BaseModel, Field, ConfigDict
+from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
+from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
+from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
+from skellyforge.skellymodels.models.error import Error
+from skellyforge.skellymodels.models.trajectory import Trajectory
+from skellyforge.skellymodels.utils.types import  SegmentName
 from typing import Dict, Any, Optional
 import numpy as np
 from enum import Enum

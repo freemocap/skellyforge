@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.models.aspect import Aspect
 from dataclasses import dataclass
 from typing import Dict, Any, List
 

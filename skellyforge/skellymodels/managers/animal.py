@@ -1,7 +1,7 @@
 from enum import Enum
-from skellymodels.managers.actor import Actor
-from skellymodels.models.tracking_model_info import ModelInfo
-from skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.managers.actor import Actor
+from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
+from skellyforge.skellymodels.models.aspect import Aspect
 import numpy as np
 
 class AnimalAspectName(Enum):

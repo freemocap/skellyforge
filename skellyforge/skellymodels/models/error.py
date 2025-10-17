@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 import numpy as np
 import pandas as pd
 from typing import List
-from skellymodels.utils.types import MarkerName
+from skellyforge.skellymodels.utils.types import MarkerName
 
 class Error(BaseModel):
     """

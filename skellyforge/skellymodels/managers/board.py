@@ -1,11 +1,8 @@
 from enum import Enum
-from skellymodels.managers.actor import Actor
-from skellymodels.models.tracking_model_info import ModelInfo
-from skellymodels.models.aspect import Aspect
+from skellyforge.skellymodels.managers.actor import Actor
+from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
+from skellyforge.skellymodels.models.aspect import Aspect
 from pathlib import Path
-##NOTE: Playing around with the idea of making a Board Actor. Untested, but I think this could be extended to 
-## keep track of 7x5 and 5x3 data (or take in those parameters) when saving out to automatically create the correct Board
-## will return to this later
 
 class BoardAspectEnum(Enum):
     BODY = "body"

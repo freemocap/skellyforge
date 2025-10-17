@@ -1,5 +1,6 @@
 from typing import TypeAlias, List
 from typing_extensions import TypedDict
+
 MarkerName: TypeAlias = str
 SegmentName: TypeAlias = str
 
