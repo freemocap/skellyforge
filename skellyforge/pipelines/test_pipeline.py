@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 class TrackingConfig(BaseModel): #this seems like something that could be integrated or made earlier in the pipeline, so just leaving it here for now
     tracker: str
-    name: str = "human"
+    name: str = "human" #the existence of the name is something I've questioned for a bit - but I do think it could be useful when we get to multi-person for appending to file names (human_one vs. two vs. user input etc.), which is why I've held onto it
     model_info: ModelInfo
 
 def test_pipeline(data:np.ndarray,
