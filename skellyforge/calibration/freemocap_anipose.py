@@ -23,8 +23,8 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.cluster.vq import whiten
 from scipy.linalg import inv as inverse
 from scipy.sparse import dok_matrix
-from skellytracker.process_folder_of_videos import process_list_of_videos
-from skellytracker.trackers.charuco_tracker.charuco_model_info import CharucoModelInfo, CharucoTrackingParams
+# from skellytracker.process_folder_of_videos import process_list_of_videos
+# from skellytracker.trackers.charuco_tracker.charuco_model_info import CharucoModelInfo, CharucoTrackingParams
 from tqdm import trange
 
 numba_logger = logging.getLogger("numba")
