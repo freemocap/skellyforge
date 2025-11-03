@@ -1,15 +1,13 @@
 from pathlib import Path
-
-from skellyforge.triangulation.triangulate import (
-    TriangulationConfig,
-    triangulate_dict,
-)
 from skellytracker.trackers.dlc_tracker.__dlc_tracker import (
     DeepLabCutTracker,
     DeepLabCutTrackerConfig,
 )
 
-
+from skellyforge.triangulation.triangulate import (
+    TriangulationConfig,
+    triangulate_dict,
+)
 from skellyforge.triangulation.load_camera_group import load_camera_group_from_toml
 from skellyforge.utilities.get_files_from_folder import get_csvs_from_folder, get_videos_from_folder
 
@@ -57,29 +55,23 @@ def run_dlc_pipeline(
 if __name__ == "__main__":
     # video_folder = "/Users/philipqueen/session_2025-07-11_ferret_757_EyeCamera_P43_E15__1/clips/0m_37s-1m_37s/mocap_data/synchronized_videos/"
     # video_paths = get_videos_from_folder(video_folder=video_folder)
-    # video_folder = "/Users/philipqueen/session_2025-07-11_ferret_757_EyeCamera_P43_E15__1/clips/0m_37s-1m_37s/mocap_data/dlc_output/head_body_eyecam_v1_model_outputs_iteration_17/"
-    # video_paths = get_csvs_from_folder(video_folder=video_folder)
-    # calibration_toml = "/Users/philipqueen/session_2025-07-01_ferret_757_EyeCameras_P33EO5/calibration/session_2025-07-01_calibration_camera_calibration.toml"
-
-    # dlc_config_path = "/Users/philipqueen/head_body_eyecam_v1/config.yaml"
-
-    # recording_folder = "/Users/philipqueen/session_2025-07-11_ferret_757_EyeCamera_P43_E15__1/forge_test"
-    # output_data_folder = Path(recording_folder) / "output_data"
-    # annotated_video_folder = Path(recording_folder) / "annotated_videos"
-
-    # triangulation_config = TriangulationConfig(use_ransac=False)
-
-
-    from pathlib import Path
-    video_folder = Path(r"D:\2023-06-07_TF01\forge_test\output_data\dlc")
+    video_folder = "/Users/philipqueen/session_2025-07-11_ferret_757_EyeCamera_P43_E15__1/clips/0m_37s-1m_37s/mocap_data/dlc_output/head_body_eyecam_v1_model_outputs_iteration_17/"
     video_paths = get_csvs_from_folder(video_folder=video_folder)
-    f = 2
+    calibration_toml = "/Users/philipqueen/session_2025-07-01_ferret_757_EyeCameras_P33EO5/calibration/session_2025-07-01_calibration_camera_calibration.toml"
 
-    # run_dlc_pipeline(
-    #     video_paths=video_paths,
-    #     annotated_video_folder=annotated_video_folder,
-    #     output_data_folder=output_data_folder,
-    #     dlc_config_path=dlc_config_path,
-    #     camera_calibration_data_toml_path=calibration_toml,
-    #     triangulation_config=triangulation_config,
-    # )
+    dlc_config_path = "/Users/philipqueen/head_body_eyecam_v1/config.yaml"
+
+    recording_folder = "/Users/philipqueen/session_2025-07-11_ferret_757_EyeCamera_P43_E15__1/forge_test"
+    output_data_folder = Path(recording_folder) / "output_data"
+    annotated_video_folder = Path(recording_folder) / "annotated_videos"
+
+    triangulation_config = TriangulationConfig(use_ransac=False)
+
+    run_dlc_pipeline(
+        video_paths=video_paths,
+        annotated_video_folder=annotated_video_folder,
+        output_data_folder=output_data_folder,
+        dlc_config_path=dlc_config_path,
+        camera_calibration_data_toml_path=calibration_toml,
+        triangulation_config=triangulation_config,
+    )
