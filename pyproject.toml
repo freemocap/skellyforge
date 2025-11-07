@@ -26,7 +26,6 @@ keywords = ["basic",
             "repository"] #change these to your project keywords
 
 dependencies = [
-    "aniposelib==0.4.3",
     "numpy==1.26.2",
     "pyside6==6.6.*",
     "pyqtgraph==0.13.3",
