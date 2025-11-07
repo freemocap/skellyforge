@@ -16,13 +16,14 @@ from skellyforge.freemocap_utils.constants import (
 )
 
 class FilteringMenu(QWidget):
-    def __init__(self, freemocap_raw_data:np.ndarray):
+    def __init__(self, freemocap_raw_data: np.ndarray, landmark_names: list):
         super().__init__()
 
         self.setStyleSheet(groupbox_stylesheet)
 
         layout = QVBoxLayout()
         self.freemocap_raw_data = freemocap_raw_data
+        self.landmark_names = landmark_names
         self.processed_freemocap_data = None
 
         # Timeseries and marker selector groupbox
@@ -44,7 +45,7 @@ class FilteringMenu(QWidget):
     def create_time_series_groupbox(self):
         groupbox = QGroupBox("View time series for a selected marker")
         time_series_layout = QVBoxLayout()
-        self.marker_selector_widget = MarkerSelectorWidget()
+        self.marker_selector_widget = MarkerSelectorWidget(landmark_names=self.landmark_names)
         time_series_layout.addWidget(self.marker_selector_widget)
         self.time_series_plotter_widget = TimeSeriesPlotterWidget()
         time_series_layout.addWidget(self.time_series_plotter_widget)
@@ -72,6 +73,7 @@ class FilteringMenu(QWidget):
             task_list= [TASK_INTERPOLATION, 
                         TASK_FILTERING],
             settings=self.settings_dict,
+            landmark_names=self.landmark_names,
             all_tasks_finished_callback=self.handle_filter_result)        
         self.worker_thread.start()
 

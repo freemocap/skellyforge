@@ -1,19 +1,16 @@
-
-from skellyforge.freemocap_utils.postprocessing_widgets.visualization_widgets.mediapipe_skeleton_builder import mediapipe_indices
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QComboBox
 from PySide6.QtCore import Signal
 
 
 class MarkerSelectorWidget(QWidget):
     marker_to_plot_updated_signal = Signal()
-    def __init__(self):
+    def __init__(self, landmark_names: list):
         super().__init__()
 
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-        
-        combo_box_items = mediapipe_indices
+
+        combo_box_items = landmark_names
         # combo_box_items.insert(0,'')
         self.marker_combo_box = QComboBox()
         self.marker_combo_box.addItems(combo_box_items)

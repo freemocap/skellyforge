@@ -29,7 +29,7 @@ def create_main_page_parameter_tree():
     main_tree.addParameters(rotation_params,showTop = False)
     return main_tree
 
-def create_main_page_settings_dict():
+def create_main_page_settings_dict() -> dict:
     interpolation_dict = parameter_tree_to_dict(interpolation_params, interpolation_name_mapping)
     filter_dict = parameter_tree_to_dict(filter_params)
     rotation_dict = parameter_tree_to_dict(rotation_params)
