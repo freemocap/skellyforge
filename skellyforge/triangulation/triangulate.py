@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class TriangulationConfig(BaseModel):
-    use_ransac: bool
+    use_ransac: bool = False
 
 
 def triangulate_array(
