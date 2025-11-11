@@ -27,8 +27,6 @@ keywords = ["basic",
 
 dependencies = [
     "numpy==1.26.2",
-    "pyside6==6.6.*",
-    "pyqtgraph==0.13.3",
     "scipy==1.11.4",
     "rich==13.7.0",
     "pandas==2.1.4",

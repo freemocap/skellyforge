@@ -1,1 +1,0 @@
-# This will get the core freemocap_anipose camera group stuff
