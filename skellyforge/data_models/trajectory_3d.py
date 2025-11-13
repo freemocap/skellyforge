@@ -20,9 +20,9 @@ class Observation3d(BaseModel):
     def to_point_dictionary(self) -> dict[str, Point3d]:
         points = {}
         for i, name in enumerate(self.names):
-            points[name] = Point3d(x=float(self.triangulated_data[0]),
-                                   y=float(self.triangulated_data[1]),
-                                   z=float(self.triangulated_data[2]),)
+            points[name] = Point3d(x=float(self.triangulated_data[i,0]),
+                                   y=float(self.triangulated_data[i,1]),
+                                   z=float(self.triangulated_data[i,2]),)
         return points
 
 
