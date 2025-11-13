@@ -4,7 +4,7 @@ from skellyforge.data_models.observation import BaseObservation
 # TODO: change to base models, add validation during class methods
 CameraIdString = str
 FrameNumber = int
-FrameGroup = dict[CameraIdString, BaseObservation]
-FrameGroups = dict[FrameNumber, FrameGroup]
+FrameObservationByCamera = dict[CameraIdString, BaseObservation]
+FrameGroups = dict[FrameNumber, FrameObservationByCamera]
 
 Trajectory2dGroup = dict[CameraIdString, Trajectory2d]
