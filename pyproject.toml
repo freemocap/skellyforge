@@ -20,10 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ] #additional classifiers can be found here: https://pypi.org/classifiers/
 
-keywords = ["basic",
-            "template",
-            "python",
-            "repository"] #change these to your project keywords
 
 dependencies = [
     "numpy==1.26.2",

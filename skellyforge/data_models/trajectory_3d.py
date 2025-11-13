@@ -1,15 +1,29 @@
 from pathlib import Path
-from pydantic import BaseModel, ConfigDict
-import numpy as np
 
+import numpy as np
+from pydantic import BaseModel, ConfigDict
+
+class Point3d(BaseModel):
+    x: float
+    y: float
+    z: float
 
 class Observation3d(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     # TODO: since this is calculated data, it shouldn't be called 'observation' - need a different name
     frame_number: int
+    names: list[str]
     triangulated_data: np.ndarray
-    reprojection_error: np.ndarray
-    reprojection_error_by_camera: np.ndarray
+    reprojection_error: np.ndarray | None = None
+    reprojection_error_by_camera: np.ndarray | None = None
+
+    def to_point_dictionary(self) -> dict[str, Point3d]:
+        points = {}
+        for i, name in enumerate(self.names):
+            points[name] = Point3d(x=float(self.triangulated_data[0]),
+                                   y=float(self.triangulated_data[1]),
+                                   z=float(self.triangulated_data[2]),)
+        return points
 
 
 class Trajectory3d(BaseModel):
@@ -43,7 +57,7 @@ class Trajectory3d(BaseModel):
             reprojection_error=reprojection_error,
             reprojection_error_by_camera=reprojection_error_by_camera,
         )
-    
+
     def save_to_arrays(self, output_folder: str | Path, prefix: str = ""):
         output_folder = Path(output_folder)
         output_folder.mkdir(parents=True, exist_ok=True)
