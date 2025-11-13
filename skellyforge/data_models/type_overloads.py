@@ -5,6 +5,6 @@ from skellyforge.data_models.observation import BaseObservation
 CameraIdString = str
 FrameNumber = int
 FrameObservationsByCamera = dict[CameraIdString, BaseObservation]
-FrameGroups = dict[FrameNumber, FrameObservationByCamera]
+FrameGroups = dict[FrameNumber, FrameObservationsByCamera]
 
 Trajectory2dGroup = dict[CameraIdString, Trajectory2d]
