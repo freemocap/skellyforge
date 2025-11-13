@@ -323,3 +323,107 @@ class Actor(ABC):
                 trajectory_dict[trajectory_name] = trajectory
                 
             self.aspects.get(aspect_name).add_trajectory(trajectory_dict)
+
+    def to_data3d_frame_id_xyz_array(self) -> np.ndarray:
+        """
+        Produces a numpy array with all trajectory data concatenated.
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (num_frames, total_num_markers, 3) where:
+            - First dimension is frames
+            - Second dimension is all marker IDs from all trajectories concatenated
+            - Third dimension is XYZ coordinates
+
+        Raises
+        ------
+        ValueError
+            If no trajectories are found in any aspect
+        RuntimeError
+            If trajectories have inconsistent frame counts
+        """
+        all_trajectory_arrays: list[np.ndarray] = []
+        all_marker_names: list[str] = []
+        frame_counts: set[int] = set()
+
+        # Collect all trajectory data from all aspects
+        for aspect_name in self.aspect_order:
+            if aspect_name not in self.aspects:
+                logger.warning(f"Aspect {aspect_name} not found in actor")
+                continue
+
+            aspect = self.aspects[aspect_name]
+
+            for trajectory_name, trajectory in aspect.trajectories.items():
+                trajectory_array = trajectory.as_array
+
+                if trajectory_array.size == 0:
+                    logger.warning(f"Empty trajectory {trajectory_name} in aspect {aspect_name}")
+                    continue
+
+                # Verify shape is (frames, markers, 3)
+                if trajectory_array.ndim != 3 or trajectory_array.shape[2] != 3:
+                    raise ValueError(
+                        f"Trajectory {trajectory_name} in aspect {aspect_name} has invalid shape "
+                        f"{trajectory_array.shape}. Expected (frames, markers, 3)"
+                    )
+
+                frame_counts.add(trajectory_array.shape[0])
+                all_trajectory_arrays.append(trajectory_array)
+
+                # Create unique marker IDs by combining aspect, trajectory, and landmark names
+                for landmark in trajectory.landmark_names:
+                    marker_id = f"{aspect_name}.{trajectory_name}.{landmark}"
+                    all_marker_names.append(marker_id)
+
+        # Check if we have any data
+        if not all_trajectory_arrays:
+            raise ValueError("No trajectory data found in any aspect")
+
+        # Verify all trajectories have the same number of frames
+        if len(frame_counts) > 1:
+            raise RuntimeError(
+                f"Inconsistent frame counts across trajectories: {frame_counts}. "
+                f"All trajectories must have the same number of frames."
+            )
+
+        # Concatenate all trajectories along the marker dimension (axis=1)
+        combined_array = np.concatenate(all_trajectory_arrays, axis=1)
+
+        logger.info(
+            f"Created data3d array with shape {combined_array.shape}: "
+            f"{combined_array.shape[0]} frames, {combined_array.shape[1]} markers, 3 coordinates"
+        )
+
+        return combined_array
+
+    def get_data3d_marker_mapping(self) -> dict[int, str]:
+        """
+        Returns a mapping from marker index to marker name for the data3d array.
+
+        Returns
+        -------
+        dict[int, str]
+            Dictionary mapping marker index to a unique marker identifier
+            in format "{aspect_name}.{trajectory_name}.{landmark_name}"
+        """
+        marker_mapping: dict[int, str] = {}
+        marker_index = 0
+
+        for aspect_name in self.aspect_order:
+            if aspect_name not in self.aspects:
+                continue
+
+            aspect = self.aspects[aspect_name]
+
+            for trajectory_name, trajectory in aspect.trajectories.items():
+                if trajectory.as_array.size == 0:
+                    continue
+
+                for landmark in trajectory.landmark_names:
+                    marker_id = f"{aspect_name}.{trajectory_name}.{landmark}"
+                    marker_mapping[marker_index] = marker_id
+                    marker_index += 1
+
+        return marker_mapping
