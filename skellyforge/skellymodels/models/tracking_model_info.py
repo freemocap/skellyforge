@@ -109,4 +109,8 @@ def MediapipeModelInfo():
 def RTMPoseModelInfo():
     return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'rtmpose_model_info.yaml')
 
-f = 2
+def CharucoBoard5x3ModelInfo():
+    return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'charuco_board_5_3.yaml')
+
+def CharucoBoard7x5ModelInfo():
+    return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'charuco_board_7_5.yaml')

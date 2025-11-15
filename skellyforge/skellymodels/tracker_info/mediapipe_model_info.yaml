@@ -286,13 +286,88 @@ aspects:
         - pinky_tip 
 
     virtual_marker_definitions: null
-    segment_connections: null
+
+    # MediaPipe Hand Connections from official source
+    segment_connections:
+      # Palm connections
+      palm_base:
+        proximal: wrist
+        distal: thumb_cmc
+      palm_to_index:
+        proximal: wrist
+        distal: index_finger_mcp
+      palm_to_middle:
+        proximal: index_finger_mcp
+        distal: middle_finger_mcp
+      palm_to_ring:
+        proximal: middle_finger_mcp
+        distal: ring_finger_mcp
+      palm_to_pinky:
+        proximal: ring_finger_mcp
+        distal: pinky_mcp
+      palm_cross_1:
+        proximal: wrist
+        distal: pinky_mcp
+      palm_cross_2:
+        proximal: index_finger_mcp
+        distal: ring_finger_mcp
+      # Thumb connections
+      thumb_base:
+        proximal: thumb_cmc
+        distal: thumb_mcp
+      thumb_mid:
+        proximal: thumb_mcp
+        distal: thumb_ip
+      thumb_tip_seg:
+        proximal: thumb_ip
+        distal: thumb_tip
+      # Index finger connections
+      index_base:
+        proximal: index_finger_mcp
+        distal: index_finger_pip
+      index_mid:
+        proximal: index_finger_pip
+        distal: index_finger_dip
+      index_tip_seg:
+        proximal: index_finger_dip
+        distal: index_finger_tip
+      # Middle finger connections
+      middle_base:
+        proximal: middle_finger_mcp
+        distal: middle_finger_pip
+      middle_mid:
+        proximal: middle_finger_pip
+        distal: middle_finger_dip
+      middle_tip_seg:
+        proximal: middle_finger_dip
+        distal: middle_finger_tip
+      # Ring finger connections
+      ring_base:
+        proximal: ring_finger_mcp
+        distal: ring_finger_pip
+      ring_mid:
+        proximal: ring_finger_pip
+        distal: ring_finger_dip
+      ring_tip_seg:
+        proximal: ring_finger_dip
+        distal: ring_finger_tip
+      # Pinky connections
+      pinky_base:
+        proximal: pinky_mcp
+        distal: pinky_pip
+      pinky_mid:
+        proximal: pinky_pip
+        distal: pinky_dip
+      pinky_tip_seg:
+        proximal: pinky_dip
+        distal: pinky_tip
+
     center_of_mass_definitions: null
     joint_hierarchy: null
-  
+
   #=================================
   # Left Hand Aspect Configuration
-  #=================================  
+  #=================================
   left_hand:
     tracked_points:
       type: list
@@ -317,29 +392,124 @@ aspects:
         - pinky_mcp
         - pinky_pip
         - pinky_dip
-        - pinky_tip 
+        - pinky_tip
 
     virtual_marker_definitions: null
-    segment_connections: null
+
+    # MediaPipe Hand Connections from official source (same structure as right hand)
+    segment_connections:
+      # Palm connections
+      palm_base:
+        proximal: wrist
+        distal: thumb_cmc
+      palm_to_index:
+        proximal: wrist
+        distal: index_finger_mcp
+      palm_to_middle:
+        proximal: index_finger_mcp
+        distal: middle_finger_mcp
+      palm_to_ring:
+        proximal: middle_finger_mcp
+        distal: ring_finger_mcp
+      palm_to_pinky:
+        proximal: ring_finger_mcp
+        distal: pinky_mcp
+      palm_cross_1:
+        proximal: wrist
+        distal: pinky_mcp
+      palm_cross_2:
+        proximal: index_finger_mcp
+        distal: ring_finger_mcp
+      # Thumb connections
+      thumb_base:
+        proximal: thumb_cmc
+        distal: thumb_mcp
+      thumb_mid:
+        proximal: thumb_mcp
+        distal: thumb_ip
+      thumb_tip_seg:
+        proximal: thumb_ip
+        distal: thumb_tip
+      # Index finger connections
+      index_base:
+        proximal: index_finger_mcp
+        distal: index_finger_pip
+      index_mid:
+        proximal: index_finger_pip
+        distal: index_finger_dip
+      index_tip_seg:
+        proximal: index_finger_dip
+        distal: index_finger_tip
+      # Middle finger connections
+      middle_base:
+        proximal: middle_finger_mcp
+        distal: middle_finger_pip
+      middle_mid:
+        proximal: middle_finger_pip
+        distal: middle_finger_dip
+      middle_tip_seg:
+        proximal: middle_finger_dip
+        distal: middle_finger_tip
+      # Ring finger connections
+      ring_base:
+        proximal: ring_finger_mcp
+        distal: ring_finger_pip
+      ring_mid:
+        proximal: ring_finger_pip
+        distal: ring_finger_dip
+      ring_tip_seg:
+        proximal: ring_finger_dip
+        distal: ring_finger_tip
+      # Pinky connections
+      pinky_base:
+        proximal: pinky_mcp
+        distal: pinky_pip
+      pinky_mid:
+        proximal: pinky_pip
+        distal: pinky_dip
+      pinky_tip_seg:
+        proximal: pinky_dip
+        distal: pinky_tip
+
     center_of_mass_definitions: null
     joint_hierarchy: null
 
   #=================================
   # Face Aspect Configuration
-  #=================================  
+  #=================================
   face:
     tracked_points:
       type: generated
-      names: 
+      names:
         convention: face_{:04d}
         count: 478
 
     virtual_marker_definitions: null
-    segment_connections: null
+
+    # MediaPipe Face Contour Connections from official source
+    # These are the contour connections as used in your get_mediapipe_face_info.py
+    segment_connections:
+      # Note: Face connections are typically referenced by index rather than name
+      # The connections below are stored as index pairs that form the contours
+      # These would typically be processed programmatically from the MediaPipe constants
+      # FACEMESH_LIPS, FACEMESH_LEFT_EYE, FACEMESH_RIGHT_EYE, etc.
+      # Since face points are generated with numeric names, connections should be handled
+      # in the code that processes this YAML, using the MediaPipe face_mesh_connections module
+      # The actual connections are available via:
+      # - FACEMESH_LIPS
+      # - FACEMESH_LEFT_EYE
+      # - FACEMESH_RIGHT_EYE
+      # - FACEMESH_LEFT_EYEBROW
+      # - FACEMESH_RIGHT_EYEBROW
+      # - FACEMESH_FACE_OVAL
+      # - FACEMESH_RIGHT_IRIS
+      # - FACEMESH_LEFT_IRIS
+      # These form the FACEMESH_CONTOURS when combined
+
     center_of_mass_definitions: null
     joint_hierarchy: null
 
-
-    
-
-      
+# Note: For face connections, since the landmarks are indexed (face_0000 to face_0477),
+# it's recommended to handle the connections programmatically using the MediaPipe
+# face_mesh_connections module rather than listing all connection pairs here.
+# The get_mediapipe_face_info.py file already extracts the correct contour indices.

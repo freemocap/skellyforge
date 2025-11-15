@@ -1,6 +1,6 @@
 from pathlib import Path
 import numpy as np
-from skellyforge.data_models.data_3d import Trajectory3d
+from skellyforge.data_models.trajectory_3d import Trajectory3d
 
 from skellyforge.post_processing.interpolation.apply_interpolation import interpolate_trajectory
 from skellyforge.post_processing.interpolation.interpolation_config import InterpolationConfig,InterpolationMethod

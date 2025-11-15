@@ -1,5 +1,5 @@
 import numpy as np
-from skellyforge.data_models.data_3d import Trajectory3d
+from skellyforge.data_models.trajectory_3d import Trajectory3d
 from skellyforge.post_processing.filters.filter_config import FilterConfig
 from skellyforge.post_processing.filters.filter_registry import FILTER_REGISTRY
 from tqdm import tqdm

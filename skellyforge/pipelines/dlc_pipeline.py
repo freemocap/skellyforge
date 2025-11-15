@@ -1,8 +1,14 @@
 from pathlib import Path
-from skellytracker.trackers.dlc_tracker.__dlc_tracker import (
+
+import logging
+logger = logging.getLogger(__name__)
+try:
+    from skellytracker.trackers.dlc_tracker.__dlc_tracker import (
     DeepLabCutTracker,
     DeepLabCutTrackerConfig,
-)
+    )
+except ImportError as e:
+    logger.warning("Error importing DeepLabCutTracker. Make sure skellytracker.DeepLabCutTracker is properly installed.")
 
 from skellyforge.triangulation.triangulate import (
     TriangulationConfig,

@@ -1,5 +1,5 @@
 from skellyforge.post_processing.interpolation.interpolation_config import InterpolationConfig
-from skellyforge.data_models.data_3d import Trajectory3d
+from skellyforge.data_models.trajectory_3d import Trajectory3d
 from skellyforge.post_processing.interpolation.interpolation_registry import INTERPOLATION_REGISTRY
 import numpy as np
 from tqdm import tqdm
