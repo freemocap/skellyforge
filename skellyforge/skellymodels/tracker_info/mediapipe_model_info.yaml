@@ -482,7 +482,7 @@ aspects:
       type: generated
       names:
         convention: face_{:04d}
-        count: 478
+        count: 136
 
     virtual_marker_definitions: null
 
