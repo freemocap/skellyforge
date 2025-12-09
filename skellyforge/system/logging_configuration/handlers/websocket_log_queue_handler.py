@@ -17,7 +17,7 @@ class WebSocketQueueHandler(QueueHandler):
     """Formats logs and puts them in a queue for websocket distribution"""
 
     def __init__(self, queue: multiprocessing.Queue):
-        super().__init__()
+        super().__init__(queue=queue)
         self.queue = queue
         self.addFilter(DeltaTimeFilter())
         self.setFormatter(CustomFormatter(LOG_FORMAT_STRING))
