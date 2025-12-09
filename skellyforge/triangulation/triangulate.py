@@ -3,9 +3,9 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel
 
-from skellyforge.calibration.freemocap_anipose import CameraGroup
-from skellyforge.data_models.data_3d import Observation3d, Trajectory3d
-from skellyforge.data_models.frame_group import CameraIdString, FrameGroup, Trajectory2dGroup
+from skellyforge.calibration.freemocap_anipose import AniposeCameraGroup
+from skellyforge.data_models.trajectory_3d import Observation3d, Trajectory3d
+from skellyforge.data_models.type_overloads import CameraIdString, FrameGroups, FrameObservationsByCamera, Trajectory2dGroup
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class TriangulationConfig(BaseModel):
 
 def triangulate_array(
     data_2d: np.ndarray,
-    camera_group: CameraGroup,
+    camera_group: AniposeCameraGroup,
     config: TriangulationConfig,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     number_of_cameras = data_2d.shape[0]
@@ -75,8 +75,8 @@ def triangulate_array(
 
 def triangulate_frame_group(
     frame_number: int,
-    frame_group: FrameGroup,
-    camera_group: CameraGroup,
+    frame_group: FrameObservationsByCamera,
+    camera_group: AniposeCameraGroup,
     config: TriangulationConfig,
 ) -> Observation3d:
     camera_group = subset_camera_names(data_dict=frame_group, camera_group=camera_group)
@@ -110,8 +110,8 @@ def triangulate_frame_group(
 
 
 def triangulate_frame_groups(
-    frame_groups: dict[int, FrameGroup],
-    camera_group: CameraGroup,
+    frame_groups: FrameGroups,
+    camera_group: AniposeCameraGroup,
     config: TriangulationConfig,
 ) -> Trajectory3d:
     observations_3d = []
@@ -125,7 +125,7 @@ def triangulate_frame_groups(
 
 def triangulate_trajectories(
     trajectory_group: Trajectory2dGroup,
-    camera_group: CameraGroup,
+    camera_group: AniposeCameraGroup,
     config: TriangulationConfig,
 ):
     # TODO: move this validation into Trajectory2dGroup creation
@@ -170,7 +170,7 @@ def triangulate_trajectories(
 
 def triangulate_dict(
     data_dict: dict[CameraIdString, np.ndarray],
-    camera_group: CameraGroup,
+    camera_group: AniposeCameraGroup,
     config: TriangulationConfig,
     start_frame: int | None = None,
     end_frame: int | None = None,
@@ -203,7 +203,7 @@ def triangulate_dict(
     )
 
     
-def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup):
+def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: AniposeCameraGroup):
     valid_calibration_names = []
     for camera in camera_group.cameras:
         for key in data_dict.keys():
@@ -222,7 +222,7 @@ def subset_camera_names(data_dict: dict[CameraIdString, Any], camera_group: Came
     return camera_group.subset_cameras_names(valid_calibration_names)
 
 
-def preserve_camera_group_order(data_dict: dict[CameraIdString, Any], camera_group: CameraGroup) -> dict[CameraIdString, Any]:
+def preserve_camera_group_order(data_dict: dict[CameraIdString, Any], camera_group: AniposeCameraGroup) -> dict[CameraIdString, Any]:
     ordered_data_dict = {}
 
     for camera in camera_group.cameras:
