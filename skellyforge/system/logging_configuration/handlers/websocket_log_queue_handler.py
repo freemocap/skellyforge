@@ -4,7 +4,7 @@ from logging.handlers import QueueHandler
 from multiprocessing import Queue
 from typing import Optional
 
-from skellycam.system.logging_configuration.log_levels import LogLevels
+from skellyforge.system.logging_configuration.log_levels import LogLevels
 
 from ..filters.delta_time import DeltaTimeFilter
 from ..formatters.custom_formatter import CustomFormatter
