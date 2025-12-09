@@ -249,25 +249,29 @@ class Actor(ABC):
                 trajectory.as_dataframe.to_csv(path_to_output_folder/f"{aspect.metadata['tracker_type']}_{aspect.name}_{trajectory.name}.csv", index = False)
                 logger.info(f"Saved out {save_path}") 
 
-    def save_out_all_data_csv(self, path_to_output_folder: Path|str|None = None):
+    def save_out_all_data_csv(self, path_to_output_folder: Path|str|None = None, prefix: str|None = None):
         """
         Saves out a CSV in tidy format with all Trajectories from all Aspects
         """
         path_to_output_folder = self._set_output_folder(path_to_output_folder)
 
-        save_path = path_to_output_folder / 'freemocap_data_by_frame.csv'    
+        file_name = f"{prefix}_freemocap_data_by_frame.csv" if prefix else 'freemocap_data_by_frame.csv'
+
+        save_path = path_to_output_folder / file_name
         self.create_summary_dataframe().to_csv(save_path, index=False)
         logger.info(f"CSV successfully saved to {save_path}")
 
-    def save_out_all_data_parquet(self, path_to_output_folder: Path|str|None = None):
+    def save_out_all_data_parquet(self, path_to_output_folder: Path|str|None = None, prefix: str|None = None):
         """
         Saves out a Parquet file using the same dataframe created in `create_summary_dataframe` and 
         adds additional metadata to the file.
         """
         path_to_output_folder = self._set_output_folder(path_to_output_folder)
 
+        file_name = f"{prefix}_{FREEMOCAP_PARQUET_NAME}" if prefix else FREEMOCAP_PARQUET_NAME
+
         dataframe = self.create_summary_dataframe_with_metadata()
-        save_path = path_to_output_folder / FREEMOCAP_PARQUET_NAME
+        save_path = path_to_output_folder / file_name
         dataframe.to_parquet(save_path)
         logger.info(f"Parquet successfully saved to {save_path}")
 
