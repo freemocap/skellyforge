@@ -1,6 +1,7 @@
 from skellyforge.post_processing.interpolation.interpolation_config import InterpolationConfig
 from skellyforge.data_models.trajectory_3d import Trajectory3d
 from skellyforge.post_processing.interpolation.interpolation_registry import INTERPOLATION_REGISTRY
+import sys
 import numpy as np
 from tqdm import tqdm
 
@@ -18,7 +19,7 @@ def interpolate_trajectory(
     interpolated_data =  np.empty_like(data, dtype=float)
 
     interp_function = INTERPOLATION_REGISTRY[config.method]
-    for marker in tqdm(range(num_markers), desc = "Interpolating data"):
+    for marker in tqdm(range(num_markers), desc="Interpolating data", disable=sys.stderr is None):
         interp_marker = interp_function(
             data[:, marker, :], #passing all dimensions works for pandas, not necessarily for other methods
             config
