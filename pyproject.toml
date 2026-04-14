@@ -22,7 +22,7 @@ classifiers = [
 
 
 dependencies = [
-    "numpy<2",
+    "numpy",#<2",
     "scipy",
     "pandas",
     "toml>=0.10.2",
