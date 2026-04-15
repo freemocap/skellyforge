@@ -509,8 +509,3 @@ aspects:
 
     center_of_mass_definitions: null
     joint_hierarchy: null
-
-# Note: For face connections, since the landmarks are indexed (face_0000 to face_0477),
-# it's recommended to handle the connections programmatically using the MediaPipe
-# face_mesh_connections module rather than listing all connection pairs here.
-# The get_mediapipe_face_info.py file already extracts the correct contour indices.
