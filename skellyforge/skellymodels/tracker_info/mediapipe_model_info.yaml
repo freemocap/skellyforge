@@ -482,7 +482,8 @@ aspects:
       type: generated
       names:
         convention: face_{:04d}
-        count: 478
+#        count: 478 # tesselated face
+        count: 136 # contour face
 
     virtual_marker_definitions: null
 

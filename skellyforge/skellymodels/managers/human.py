@@ -33,7 +33,7 @@ class Human(Animal):
         Configuration describing marker layout and aspect slicing
         from the full tracker output.
 
-    Attributes
+    Attributes (plus those inherited from `Animal`)
     ----------
     face : Aspect or None
         Face aspect if present in the model config.
