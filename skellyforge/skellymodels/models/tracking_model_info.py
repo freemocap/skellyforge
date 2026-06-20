@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, List
 import yaml
 from pydantic import BaseModel
-from skellyforge.skellymodels.utils.types import MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
+from skellyforge.skellymodels.utils.types import BoneKey, BoneLengthRatios, MarkerName, SegmentName, VirtualMarkerDefinition, SegmentConnection, SegmentCenterOfMassDefinition
 
 class AspectInfo(BaseModel):
     tracked_points_names: List[MarkerName]
@@ -10,6 +10,7 @@ class AspectInfo(BaseModel):
     virtual_marker_definitions: Dict[str, VirtualMarkerDefinition]|None = None
     segment_connections: Dict[SegmentName, SegmentConnection]|None = None
     center_of_mass_definitions: Dict[SegmentName, SegmentCenterOfMassDefinition]|None = None
+    bone_length_ratios: BoneLengthRatios|None = None
     joint_hierarchy: Dict[MarkerName, List[MarkerName]]|None = None
 
 class ModelInfo(BaseModel):
@@ -69,6 +70,7 @@ class ModelInfo(BaseModel):
                 virtual_marker_definitions = aspect_info.get('virtual_marker_definitions'),
                 segment_connections = aspect_info.get('segment_connections'),
                 center_of_mass_definitions = aspect_info.get('center_of_mass_definitions'),
+                bone_length_ratios = aspect_info.get('bone_length_ratios'),
                 joint_hierarchy = aspect_info.get('joint_hierarchy')
             )
         return aspects
@@ -114,3 +116,9 @@ def CharucoBoard5x3ModelInfo():
 
 def CharucoBoard7x5ModelInfo():
     return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'charuco_board_7_5.yaml')
+
+def CanonicalBodyModelInfo():
+    return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'canonical_body.yaml')
+
+def CanonicalHandModelInfo():
+    return ModelInfo.from_config_path(config_path = Path(__file__).parents[1]/'tracker_info'/'canonical_hand.yaml')

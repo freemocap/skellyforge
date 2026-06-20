@@ -1,9 +1,11 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from typing import Dict, List
-from skellyforge.skellymodels.utils.types import (MarkerName, 
-                                      SegmentName, 
-                                      VirtualMarkerDefinition, 
-                                      SegmentConnection, 
+from skellyforge.skellymodels.utils.types import (BoneKey,
+                                      BoneLengthRatios,
+                                      MarkerName,
+                                      SegmentName,
+                                      VirtualMarkerDefinition,
+                                      SegmentConnection,
                                       SegmentCenterOfMassDefinition
 )
 from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
@@ -30,11 +32,15 @@ class AnatomicalStructure(BaseModel):
     joint_hierarchy : dict[MarkerName, list[MarkerName]], optional
         Mapping of parent marker names to their immediate children, used for building
         skeletal graphs.
+    bone_length_ratios : dict[BoneKey, float], optional
+        Bone-length-to-height ratios keyed by "parent->child". Used to seed
+        initial segment length estimates before online adaptation.
     """
     tracked_point_names: List[MarkerName]
     virtual_markers_definitions: Dict[str, VirtualMarkerDefinition]|None = None
     segment_connections: Dict[SegmentName, SegmentConnection]|None = None
     center_of_mass_definitions: Dict[SegmentName, SegmentCenterOfMassDefinition]|None = None
+    bone_length_ratios: BoneLengthRatios|None = None
     joint_hierarchy: Dict[MarkerName, List[MarkerName]]|None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -134,6 +140,7 @@ class AnatomicalStructure(BaseModel):
             virtual_markers_definitions = aspect_structure.virtual_marker_definitions,
             segment_connections = aspect_structure.segment_connections,
             center_of_mass_definitions = aspect_structure.center_of_mass_definitions,
+            bone_length_ratios = aspect_structure.bone_length_ratios,
             joint_hierarchy = aspect_structure.joint_hierarchy
         )
 
