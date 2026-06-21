@@ -1,11 +1,16 @@
 # Canonical body anatomical model — tracker-agnostic.
 #
+# Single source of truth for the real-time body skeleton: the FABRIK fitter
+# (joint_hierarchy + bone_length_ratios), the center-of-mass calculation
+# (segment_connections + center_of_mass_definitions), and the frontend schema
+# (tracked_points + segment_connections) all read this one model.
+#
 # Defines the standard Winter-anthropometry body skeleton with:
 #   - 27 landmarks (23 COCO-WholeBody body points + 4 computed: head_center,
 #     neck_center, trunk_center, hips_center)
 #   - segment_connections (23 segments)
 #   - center_of_mass_definitions (Winter 2009 body segment parameters)
-#   - bone_length_ratios (Winter-style: bone_length / total_standing_height)
+#   - bone_length_ratios (all 26 body-tree bones, as adaptive FABRIK seeds)
 #   - joint_hierarchy (tree rooted at hips_center)
 #
 # All 27 entries in tracked_points are first-class landmarks. There is no
@@ -166,11 +171,22 @@ aspects:
         segment_com_percentage: 0.0145
 
     bone_length_ratios:
-      # All ratios = bone_length / total_standing_height.
-      # Keys use the FABRIK bone-key convention "parent->child".
-      # Arms, legs: Winter (2009) and Drillis & Contini (1966).
-      # Feet: heel from Winter; toe ratios are approximate
-      # (no published standard for big_toe/small_toe specifically).
+      # All ratios = bone_length / total_standing_height, keyed by the
+      # FABRIK bone-key convention "parent->child". These are APPROXIMATE
+      # SEEDS for the real-time FABRIK solver's online segment-length
+      # estimator — not values to rigidly enforce. The estimator blends each
+      # seed with the subject's observed bone lengths and adapts toward the
+      # observation as confidence builds.
+      #
+      # Covers all 26 body-tree bones so the solver never starts from a
+      # zero-length segment. Limb/foot ratios are the rigorous values; the
+      # torso/spine/head ratios are rougher (they exist mainly to seed, and
+      # the estimator self-corrects them — e.g. the two trunk segments below
+      # converge to equal observed lengths since trunk_center is the centroid
+      # of shoulders+hips, i.e. the midpoint of neck_center and hips_center).
+      #
+      # Limbs/legs: Winter (2009), Drillis & Contini (1966). Feet: heel from
+      # Winter; toe ratios approximate (no published big_toe/small_toe std).
       left_shoulder->left_elbow:     0.186
       left_elbow->left_wrist:        0.146
       right_shoulder->right_elbow:   0.186
@@ -185,6 +201,20 @@ aspects:
       right_ankle->right_heel:       0.024
       right_ankle->right_big_toe:    0.039
       right_ankle->right_small_toe:  0.039
+      # Torso / spine / head — approximate seeds (derived from Winter segment
+      # heights). The estimator adapts these to the subject at runtime.
+      hips_center->left_hip:         0.057   # hip half-width
+      hips_center->right_hip:        0.057
+      hips_center->trunk_center:     0.145   # → mid-trunk; converges equal to next
+      trunk_center->neck_center:     0.165   # → C7/neck base
+      neck_center->left_shoulder:    0.117   # ≈ half biacromial width (3D)
+      neck_center->right_shoulder:   0.117
+      neck_center->head_center:      0.090   # neck base → mid-ear
+      head_center->nose:             0.040
+      head_center->left_eye:         0.020
+      head_center->right_eye:        0.020
+      head_center->left_ear:         0.060
+      head_center->right_ear:        0.060
 
     joint_hierarchy:
       hips_center:
