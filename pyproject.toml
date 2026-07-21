@@ -20,23 +20,17 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ] #additional classifiers can be found here: https://pypi.org/classifiers/
 
-keywords = ["basic",
-            "template",
-            "python",
-            "repository"] #change these to your project keywords
 
 dependencies = [
-"numpy==1.26.2",
-"pyside6==6.6.*",
-"pyqtgraph==0.13.3",
-"scipy==1.11.4",
-"rich==13.7.0",
-"pandas==2.1.4",
-"matplotlib==3.8.2",
-"toml==0.10.2",
+    "numpy",#<2",
+    "scipy",
+    "pandas",
+    "toml>=0.10.2",
+    "pyyaml>=6.0",
+    "pyarrow>=21.0.0"
 ]
 
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10"
 
 dynamic = ["version"]
 

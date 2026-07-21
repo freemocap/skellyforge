@@ -1,0 +1,511 @@
+---
+name: mediapipe
+tracker_name: MediapipeHolisticTracker
+
+#=================================
+# Aspect Order
+#=================================     
+order: 
+  - body
+  - right_hand
+  - left_hand
+  - face
+
+aspects:
+  #=================================
+  # Body Aspect Configuration
+  #=================================
+  body:
+    tracked_points:
+      type: list
+      names:
+        - nose
+        - left_eye_inner
+        - left_eye
+        - left_eye_outer
+        - right_eye_inner
+        - right_eye
+        - right_eye_outer
+        - left_ear
+        - right_ear
+        - mouth_left
+        - mouth_right
+        - left_shoulder
+        - right_shoulder
+        - left_elbow
+        - right_elbow
+        - left_wrist
+        - right_wrist
+        - left_pinky
+        - right_pinky
+        - left_index
+        - right_index
+        - left_thumb
+        - right_thumb
+        - left_hip
+        - right_hip
+        - left_knee
+        - right_knee
+        - left_ankle
+        - right_ankle
+        - left_heel
+        - right_heel
+        - left_foot_index
+        - right_foot_index
+      
+    virtual_marker_definitions:
+      head_center:
+        marker_names:
+          - left_ear
+          - right_ear
+        marker_weights:
+          - 0.5
+          - 0.5
+      neck_center:
+        marker_names:
+          - left_shoulder
+          - right_shoulder
+        marker_weights:
+          - 0.5
+          - 0.5
+      trunk_center:
+        marker_names:
+          - left_shoulder
+          - right_shoulder
+          - left_hip
+          - right_hip
+        marker_weights:
+          - 0.25
+          - 0.25
+          - 0.25
+          - 0.25
+      hips_center:
+        marker_names:
+          - left_hip
+          - right_hip
+        marker_weights:
+          - 0.5
+          - 0.5
+
+    segment_connections:
+      head: 
+        proximal: left_ear
+        distal: right_ear
+      neck: 
+        proximal: head_center
+        distal: neck_center
+      spine:
+        proximal: neck_center
+        distal: hips_center
+      right_shoulder:
+        proximal: neck_center
+        distal: right_shoulder
+      left_shoulder:
+        proximal: neck_center
+        distal: left_shoulder
+      right_upper_arm:
+        proximal: right_shoulder
+        distal: right_elbow
+      left_upper_arm:
+        proximal: left_shoulder
+        distal: left_elbow
+      right_forearm:
+        proximal: right_elbow
+        distal: right_wrist
+      left_forearm:
+        proximal: left_elbow
+        distal: left_wrist
+      right_hand:
+        proximal: right_wrist
+        distal: right_index
+      left_hand:
+        proximal: left_wrist
+        distal: left_index
+      right_pelvis:
+        proximal: hips_center
+        distal: right_hip
+      left_pelvis:
+        proximal: hips_center
+        distal: left_hip
+      right_thigh:
+        proximal: right_hip
+        distal: right_knee
+      left_thigh:
+        proximal: left_hip
+        distal: left_knee
+      right_shank:
+        proximal: right_knee
+        distal: right_ankle
+      left_shank:
+        proximal: left_knee
+        distal: left_ankle
+      right_foot:
+        proximal: right_ankle
+        distal: right_foot_index
+      left_foot:
+        proximal: left_ankle
+        distal: left_foot_index
+      right_heel:
+        proximal: right_ankle
+        distal: right_heel
+      left_heel:
+        proximal: left_ankle
+        distal: left_heel
+      right_foot_bottom: 
+        proximal: right_heel
+        distal: right_foot_index
+      left_foot_bottom:
+        proximal: left_heel
+        distal: left_foot_index
+    
+    center_of_mass_definitions:
+      head:
+        segment_com_length: 0.5
+        segment_com_percentage: 0.081
+      spine:
+        segment_com_length: 0.5
+        segment_com_percentage: 0.497
+      right_upper_arm:
+        segment_com_length: 0.436
+        segment_com_percentage: 0.028
+      left_upper_arm:
+        segment_com_length: 0.436
+        segment_com_percentage: 0.028
+      right_forearm:
+        segment_com_length: 0.430
+        segment_com_percentage: 0.016
+      left_forearm:
+        segment_com_length: 0.430
+        segment_com_percentage: 0.016
+      right_hand:
+        segment_com_length: 0.506
+        segment_com_percentage: 0.006
+      left_hand:
+        segment_com_length: 0.506
+        segment_com_percentage: 0.006
+      right_thigh:
+        segment_com_length: 0.433
+        segment_com_percentage: 0.1
+      left_thigh:
+        segment_com_length: 0.433
+        segment_com_percentage: 0.1
+      right_shank:
+        segment_com_length: 0.433
+        segment_com_percentage: 0.0465    
+      left_shank:
+        segment_com_length: 0.433
+        segment_com_percentage: 0.0465
+      right_foot:
+        segment_com_length: 0.5
+        segment_com_percentage: 0.0145
+      left_foot:
+        segment_com_length: 0.5
+        segment_com_percentage: 0.0145 
+
+    joint_hierarchy:
+      hips_center:
+        - left_hip
+        - right_hip
+        - trunk_center
+      trunk_center:
+        - neck_center
+      neck_center:
+        - left_shoulder
+        - right_shoulder
+        - head_center
+      head_center:
+        - nose
+        - left_eye_inner
+        - left_eye
+        - left_eye_outer
+        - right_eye_inner
+        - right_eye
+        - right_eye_outer
+        - left_ear
+        - right_ear
+        - mouth_left
+        - mouth_right
+      left_shoulder:
+        - left_elbow
+      left_elbow:
+        - left_wrist
+      left_wrist:
+        - left_pinky
+        - left_index
+        - left_thumb
+      right_shoulder:
+        - right_elbow
+      right_elbow:
+        - right_wrist
+      right_wrist:
+        - right_pinky
+        - right_index
+        - right_thumb
+      left_hip:
+        - left_knee
+      left_knee:
+        - left_ankle
+      left_ankle:
+        - left_heel
+        - left_foot_index
+      right_hip:
+        - right_knee
+      right_knee:
+        - right_ankle
+      right_ankle:
+        - right_heel
+        - right_foot_index
+
+  #=================================
+  # Right Hand Aspect Configuration
+  #=================================  
+  right_hand:
+    tracked_points:
+      type: list
+      names:
+        - wrist
+        - thumb_cmc
+        - thumb_mcp
+        - thumb_ip
+        - thumb_tip
+        - index_finger_mcp
+        - index_finger_pip
+        - index_finger_dip
+        - index_finger_tip
+        - middle_finger_mcp
+        - middle_finger_pip
+        - middle_finger_dip
+        - middle_finger_tip
+        - ring_finger_mcp
+        - ring_finger_pip
+        - ring_finger_dip
+        - ring_finger_tip
+        - pinky_mcp
+        - pinky_pip
+        - pinky_dip
+        - pinky_tip 
+
+    virtual_marker_definitions: null
+
+    # MediaPipe Hand Connections from official source
+    segment_connections:
+      # Palm connections
+      palm_base:
+        proximal: wrist
+        distal: thumb_cmc
+      palm_to_index:
+        proximal: wrist
+        distal: index_finger_mcp
+      palm_to_middle:
+        proximal: index_finger_mcp
+        distal: middle_finger_mcp
+      palm_to_ring:
+        proximal: middle_finger_mcp
+        distal: ring_finger_mcp
+      palm_to_pinky:
+        proximal: ring_finger_mcp
+        distal: pinky_mcp
+      palm_cross_1:
+        proximal: wrist
+        distal: pinky_mcp
+      palm_cross_2:
+        proximal: index_finger_mcp
+        distal: ring_finger_mcp
+      # Thumb connections
+      thumb_base:
+        proximal: thumb_cmc
+        distal: thumb_mcp
+      thumb_mid:
+        proximal: thumb_mcp
+        distal: thumb_ip
+      thumb_tip_seg:
+        proximal: thumb_ip
+        distal: thumb_tip
+      # Index finger connections
+      index_base:
+        proximal: index_finger_mcp
+        distal: index_finger_pip
+      index_mid:
+        proximal: index_finger_pip
+        distal: index_finger_dip
+      index_tip_seg:
+        proximal: index_finger_dip
+        distal: index_finger_tip
+      # Middle finger connections
+      middle_base:
+        proximal: middle_finger_mcp
+        distal: middle_finger_pip
+      middle_mid:
+        proximal: middle_finger_pip
+        distal: middle_finger_dip
+      middle_tip_seg:
+        proximal: middle_finger_dip
+        distal: middle_finger_tip
+      # Ring finger connections
+      ring_base:
+        proximal: ring_finger_mcp
+        distal: ring_finger_pip
+      ring_mid:
+        proximal: ring_finger_pip
+        distal: ring_finger_dip
+      ring_tip_seg:
+        proximal: ring_finger_dip
+        distal: ring_finger_tip
+      # Pinky connections
+      pinky_base:
+        proximal: pinky_mcp
+        distal: pinky_pip
+      pinky_mid:
+        proximal: pinky_pip
+        distal: pinky_dip
+      pinky_tip_seg:
+        proximal: pinky_dip
+        distal: pinky_tip
+
+    center_of_mass_definitions: null
+    joint_hierarchy: null
+
+  #=================================
+  # Left Hand Aspect Configuration
+  #=================================
+  left_hand:
+    tracked_points:
+      type: list
+      names:
+        - wrist
+        - thumb_cmc
+        - thumb_mcp
+        - thumb_ip
+        - thumb_tip
+        - index_finger_mcp
+        - index_finger_pip
+        - index_finger_dip
+        - index_finger_tip
+        - middle_finger_mcp
+        - middle_finger_pip
+        - middle_finger_dip
+        - middle_finger_tip
+        - ring_finger_mcp
+        - ring_finger_pip
+        - ring_finger_dip
+        - ring_finger_tip
+        - pinky_mcp
+        - pinky_pip
+        - pinky_dip
+        - pinky_tip
+
+    virtual_marker_definitions: null
+
+    # MediaPipe Hand Connections from official source (same structure as right hand)
+    segment_connections:
+      # Palm connections
+      palm_base:
+        proximal: wrist
+        distal: thumb_cmc
+      palm_to_index:
+        proximal: wrist
+        distal: index_finger_mcp
+      palm_to_middle:
+        proximal: index_finger_mcp
+        distal: middle_finger_mcp
+      palm_to_ring:
+        proximal: middle_finger_mcp
+        distal: ring_finger_mcp
+      palm_to_pinky:
+        proximal: ring_finger_mcp
+        distal: pinky_mcp
+      palm_cross_1:
+        proximal: wrist
+        distal: pinky_mcp
+      palm_cross_2:
+        proximal: index_finger_mcp
+        distal: ring_finger_mcp
+      # Thumb connections
+      thumb_base:
+        proximal: thumb_cmc
+        distal: thumb_mcp
+      thumb_mid:
+        proximal: thumb_mcp
+        distal: thumb_ip
+      thumb_tip_seg:
+        proximal: thumb_ip
+        distal: thumb_tip
+      # Index finger connections
+      index_base:
+        proximal: index_finger_mcp
+        distal: index_finger_pip
+      index_mid:
+        proximal: index_finger_pip
+        distal: index_finger_dip
+      index_tip_seg:
+        proximal: index_finger_dip
+        distal: index_finger_tip
+      # Middle finger connections
+      middle_base:
+        proximal: middle_finger_mcp
+        distal: middle_finger_pip
+      middle_mid:
+        proximal: middle_finger_pip
+        distal: middle_finger_dip
+      middle_tip_seg:
+        proximal: middle_finger_dip
+        distal: middle_finger_tip
+      # Ring finger connections
+      ring_base:
+        proximal: ring_finger_mcp
+        distal: ring_finger_pip
+      ring_mid:
+        proximal: ring_finger_pip
+        distal: ring_finger_dip
+      ring_tip_seg:
+        proximal: ring_finger_dip
+        distal: ring_finger_tip
+      # Pinky connections
+      pinky_base:
+        proximal: pinky_mcp
+        distal: pinky_pip
+      pinky_mid:
+        proximal: pinky_pip
+        distal: pinky_dip
+      pinky_tip_seg:
+        proximal: pinky_dip
+        distal: pinky_tip
+
+    center_of_mass_definitions: null
+    joint_hierarchy: null
+
+  #=================================
+  # Face Aspect Configuration
+  #=================================
+  face:
+    tracked_points:
+      type: generated
+      names:
+        convention: face_{:04d}
+#        count: 478 # tesselated face
+        count: 136 # contour face
+
+    virtual_marker_definitions: null
+
+    # MediaPipe Face Contour Connections from official source
+    # These are the contour connections as used in your get_mediapipe_face_info.py
+    segment_connections:
+      # Note: Face connections are typically referenced by index rather than name
+      # The connections below are stored as index pairs that form the contours
+      # These would typically be processed programmatically from the MediaPipe constants
+      # FACEMESH_LIPS, FACEMESH_LEFT_EYE, FACEMESH_RIGHT_EYE, etc.
+      # Since face points are generated with numeric names, connections should be handled
+      # in the code that processes this YAML, using the MediaPipe face_mesh_connections module
+      # The actual connections are available via:
+      # - FACEMESH_LIPS
+      # - FACEMESH_LEFT_EYE
+      # - FACEMESH_RIGHT_EYE
+      # - FACEMESH_LEFT_EYEBROW
+      # - FACEMESH_RIGHT_EYEBROW
+      # - FACEMESH_FACE_OVAL
+      # - FACEMESH_RIGHT_IRIS
+      # - FACEMESH_LEFT_IRIS
+      # These form the FACEMESH_CONTOURS when combined
+
+    center_of_mass_definitions: null
+    joint_hierarchy: null

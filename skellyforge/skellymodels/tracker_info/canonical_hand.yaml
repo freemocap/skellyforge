@@ -1,0 +1,181 @@
+# Canonical hand anatomical model — tracker-agnostic.
+#
+# Defines the standard 21-landmark hand skeleton with:
+#   - segment_connections (20 bones: 4 per finger, Y-splitting from wrist)
+#   - joint_hierarchy (wrist root → 5 finger chains)
+#   - bone_length_ratios (Winter-style: bone_length / total_height)
+#
+# Landmark naming follows the MediaPipe Hand convention because the
+# names (wrist, thumb_cmc, thumb_mcp, …) are anatomically descriptive.
+# Per-tracker name mappings (e.g. RTMPose root→wrist, thumb1→thumb_cmc)
+# are defined in skellytracker's names_and_connections/ directory.
+#
+# Bone length ratios are from Buryanov & Kotiuk (2010) and Garrett (1971),
+# scaled by hand_length = 0.108 * height (Winter 2009).
+
+name: canonical_hand
+tracker_name: canonical
+
+order:
+  - hand
+
+aspects:
+  hand:
+    tracked_points:
+      type: list
+      names:
+        - wrist
+        - thumb_cmc
+        - thumb_mcp
+        - thumb_ip
+        - thumb_tip
+        - index_finger_mcp
+        - index_finger_pip
+        - index_finger_dip
+        - index_finger_tip
+        - middle_finger_mcp
+        - middle_finger_pip
+        - middle_finger_dip
+        - middle_finger_tip
+        - ring_finger_mcp
+        - ring_finger_pip
+        - ring_finger_dip
+        - ring_finger_tip
+        - pinky_mcp
+        - pinky_pip
+        - pinky_dip
+        - pinky_tip
+
+    virtual_marker_definitions: null
+
+    segment_connections:
+      # Thumb chain (carpometacarpal → proximal phalanx → distal phalanx → tip)
+      thumb_metacarpal:
+        proximal: wrist
+        distal: thumb_cmc
+      thumb_proximal:
+        proximal: thumb_cmc
+        distal: thumb_mcp
+      thumb_distal:
+        proximal: thumb_mcp
+        distal: thumb_ip
+      thumb_terminal:
+        proximal: thumb_ip
+        distal: thumb_tip
+      # Index finger chain (metacarpal → proximal → middle → distal phalanx)
+      index_metacarpal:
+        proximal: wrist
+        distal: index_finger_mcp
+      index_proximal:
+        proximal: index_finger_mcp
+        distal: index_finger_pip
+      index_middle:
+        proximal: index_finger_pip
+        distal: index_finger_dip
+      index_distal:
+        proximal: index_finger_dip
+        distal: index_finger_tip
+      # Middle finger chain
+      middle_metacarpal:
+        proximal: wrist
+        distal: middle_finger_mcp
+      middle_proximal:
+        proximal: middle_finger_mcp
+        distal: middle_finger_pip
+      middle_middle:
+        proximal: middle_finger_pip
+        distal: middle_finger_dip
+      middle_distal:
+        proximal: middle_finger_dip
+        distal: middle_finger_tip
+      # Ring finger chain
+      ring_metacarpal:
+        proximal: wrist
+        distal: ring_finger_mcp
+      ring_proximal:
+        proximal: ring_finger_mcp
+        distal: ring_finger_pip
+      ring_middle:
+        proximal: ring_finger_pip
+        distal: ring_finger_dip
+      ring_distal:
+        proximal: ring_finger_dip
+        distal: ring_finger_tip
+      # Pinky chain
+      pinky_metacarpal:
+        proximal: wrist
+        distal: pinky_mcp
+      pinky_proximal:
+        proximal: pinky_mcp
+        distal: pinky_pip
+      pinky_middle:
+        proximal: pinky_pip
+        distal: pinky_dip
+      pinky_distal:
+        proximal: pinky_dip
+        distal: pinky_tip
+
+    center_of_mass_definitions: null
+
+    bone_length_ratios:
+      # All ratios = bone_length / total_standing_height.
+      # Keys use the FABRIK bone-key convention "parent->child".
+      # Values are hand_length_ratio * 0.108 (hand_length / height).
+      wrist->thumb_cmc:                     0.01620   # 0.15 * 0.108
+      thumb_cmc->thumb_mcp:                 0.01944   # 0.18 * 0.108
+      thumb_mcp->thumb_ip:                  0.01836   # 0.17 * 0.108
+      thumb_ip->thumb_tip:                  0.01512   # 0.14 * 0.108
+      wrist->index_finger_mcp:              0.05184   # 0.48 * 0.108
+      index_finger_mcp->index_finger_pip:   0.02808   # 0.26 * 0.108
+      index_finger_pip->index_finger_dip:   0.01620   # 0.15 * 0.108
+      index_finger_dip->index_finger_tip:   0.01296   # 0.12 * 0.108
+      wrist->middle_finger_mcp:             0.04968   # 0.46 * 0.108
+      middle_finger_mcp->middle_finger_pip: 0.03024   # 0.28 * 0.108
+      middle_finger_pip->middle_finger_dip: 0.01836   # 0.17 * 0.108
+      middle_finger_dip->middle_finger_tip: 0.01404   # 0.13 * 0.108
+      wrist->ring_finger_mcp:               0.04752   # 0.44 * 0.108
+      ring_finger_mcp->ring_finger_pip:     0.02808   # 0.26 * 0.108
+      ring_finger_pip->ring_finger_dip:     0.01620   # 0.15 * 0.108
+      ring_finger_dip->ring_finger_tip:     0.01296   # 0.12 * 0.108
+      wrist->pinky_mcp:                     0.04536   # 0.42 * 0.108
+      pinky_mcp->pinky_pip:                 0.02376   # 0.22 * 0.108
+      pinky_pip->pinky_dip:                 0.01296   # 0.12 * 0.108
+      pinky_dip->pinky_tip:                 0.01080   # 0.10 * 0.108
+
+    joint_hierarchy:
+      wrist:
+        - thumb_cmc
+        - index_finger_mcp
+        - middle_finger_mcp
+        - ring_finger_mcp
+        - pinky_mcp
+      thumb_cmc:
+        - thumb_mcp
+      thumb_mcp:
+        - thumb_ip
+      thumb_ip:
+        - thumb_tip
+      index_finger_mcp:
+        - index_finger_pip
+      index_finger_pip:
+        - index_finger_dip
+      index_finger_dip:
+        - index_finger_tip
+      middle_finger_mcp:
+        - middle_finger_pip
+      middle_finger_pip:
+        - middle_finger_dip
+      middle_finger_dip:
+        - middle_finger_tip
+      ring_finger_mcp:
+        - ring_finger_pip
+      ring_finger_pip:
+        - ring_finger_dip
+      ring_finger_dip:
+        - ring_finger_tip
+      pinky_mcp:
+        - pinky_pip
+      pinky_pip:
+        - pinky_dip
+      pinky_dip:
+        - pinky_tip
