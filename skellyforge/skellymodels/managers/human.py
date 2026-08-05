@@ -171,7 +171,7 @@ class Human(Animal):
             translated_array = hand_aspect.xyz.as_array + position_delta
 
             translated_trajectory = Trajectory(
-                name = hand_aspect.name,
+                name=TrajectoryNames.XYZ.value,
                 array = translated_array,
                 landmark_names= hand_aspect.anatomical_structure.landmark_names
             )
