@@ -233,6 +233,9 @@ class HumanBone:
     parent: str | None
     """Canonical name of the parent bone, or ``None`` for the root (hips)."""
 
+    required: bool
+    """Whether this bone must be present for the skeleton to be valid."""
+
     proximal_landmark: str | None = None
     """Canonical landmark name for this bone's proximal joint center.
 
@@ -241,9 +244,6 @@ class HumanBone:
     ``None`` for bones whose proximal joint is not a directly tracked
     landmark (e.g. derived via ``anatomical_offset``).
     """
-
-    required: bool
-    """Whether this bone must be present for the skeleton to be valid."""
 
     reference_geometry: BoneReferenceGeometry
     """T-pose joint centers and coordinate frame."""
