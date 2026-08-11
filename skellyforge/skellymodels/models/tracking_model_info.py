@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, List
 import yaml
 from pydantic import BaseModel
-from skellyforge.skellymodels.utils.types import BoneKey, BoneLengthRatios, MarkerName, SegmentName, SegmentConnection, SegmentCenterOfMassDefinition
+from skellyforge.skellymodels.types import BoneKey, BoneLengthRatios, MarkerName, SegmentName, SegmentConnection, SegmentCenterOfMassDefinition
 
 class AspectInfo(BaseModel):
     tracked_points_names: List[MarkerName]

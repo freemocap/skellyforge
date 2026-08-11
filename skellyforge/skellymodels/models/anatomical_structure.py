@@ -1,6 +1,6 @@
 from pydantic import BaseModel, model_validator, ConfigDict
 from typing import Dict, List
-from skellyforge.skellymodels.utils.types import (BoneKey,
+from skellyforge.skellymodels.types import (BoneKey,
                                       BoneLengthRatios,
                                       MarkerName,
                                       SegmentName,

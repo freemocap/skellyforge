@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 import numpy as np
 import pandas as pd
 from typing import Dict, List
-from skellyforge.skellymodels.utils.types import MarkerName, SegmentName, SegmentConnection
+from skellyforge.skellymodels.types import MarkerName, SegmentName, SegmentConnection
 from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
 import warnings
 class Trajectory(BaseModel):

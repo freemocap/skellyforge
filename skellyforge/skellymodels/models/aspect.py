@@ -4,7 +4,7 @@ from skellyforge.skellymodels.models.tracking_model_info import ModelInfo
 from skellyforge.skellymodels.models.anatomical_structure import AnatomicalStructure
 from skellyforge.skellymodels.models.error import Error
 from skellyforge.skellymodels.models.trajectory import Trajectory
-from skellyforge.skellymodels.utils.types import  SegmentName
+from skellyforge.skellymodels.types import  SegmentName
 from typing import Dict, Any, Optional
 import numpy as np
 from enum import Enum

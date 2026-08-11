@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 from typing import Dict, List, Union,Tuple
 from collections import deque
-from skellyforge.skellymodels.utils.types import MarkerName
+from skellyforge.skellymodels.types import MarkerName
 import logging
 
 logger = logging.getLogger(__name__)
