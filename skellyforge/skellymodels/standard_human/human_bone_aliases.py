@@ -5,17 +5,13 @@ protocol. The canonical name is the single source of truth; aliases are a
 serialization concern — bones themselves never carry alias knowledge.
 
 Adding a new target means adding a column to ``BONE_ALIASES``. No bone
-definitions change. Missing aliases fall back to the canonical name with a
-warning logged.
+definitions change. Missing aliases silently fall back to the canonical
+name — the stream keeps working while the alias row is added.
 
 Target key conventions:
     ``vrm`` — VRM 1.0 camelCase (also used by VMC Protocol over OSC)
     ``unreal`` — UE5 Mannequin skeleton bone names
 """
-
-import logging
-
-logger = logging.getLogger(__name__)
 
 # ── Alias table ────────────────────────────────────────────────────────
 #
@@ -300,30 +296,14 @@ def resolve_alias(bone_name: str, target: str) -> str | None:
     target_aliases = BONE_ALIASES.get(bone_name)
 
     if target_aliases is None:
-        logger.warning(
-            "Bone %r not found in BONE_ALIASES table — "
-            "returning canonical name as fallback. "
-            "Add a row for it in human_bone_aliases.py.",
-            bone_name,
-        )
         return bone_name
 
     alias = target_aliases.get(target)
 
     if alias is None and target in target_aliases:
-        # Explicit None in the table — bone has no equivalent in target.
         return None
 
     if alias is None:
-        # Target key not in this bone's dict — missing target column.
-        logger.warning(
-            "No %r alias defined for bone %r — "
-            "returning canonical name as fallback. "
-            "Add a %r key to its BONE_ALIASES entry.",
-            target,
-            bone_name,
-            target,
-        )
         return bone_name
 
     return alias

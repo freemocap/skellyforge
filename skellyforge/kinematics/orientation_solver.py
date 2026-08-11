@@ -42,7 +42,6 @@ References
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -72,8 +71,6 @@ if TYPE_CHECKING:
     from skellyforge.skellymodels.standard_human.standard_human_model import (
         StandardHuman,
     )
-
-logger = logging.getLogger(__name__)
 
 # Threshold for singularity detection: if parent and child bone directions
 # are within this angle (radians), the chain-resolved twist is unreliable.
@@ -127,10 +124,6 @@ def solve_bone_world_orientation(
     live_bone_vec = live_distal - live_proximal
     live_norm = float(np.linalg.norm(live_bone_vec))
     if live_norm < 1e-10:
-        logger.debug(
-            "Bone %s has near-zero live length — returning identity.",
-            bone.name,
-        )
         return RotationQuaternion.identity()
     live_bone_vec = live_bone_vec / live_norm
 
@@ -419,14 +412,6 @@ def _solve_chain_resolved(
 
     dot = float(np.abs(np.dot(live_bone_vec, live_twist_direction)))
     if dot > _SINGULARITY_DOT_THRESHOLD:
-        logger.debug(
-            "Bone %s: chain-resolved twist direction is nearly parallel "
-            "to bone long axis (|dot|=%.4f > %.4f). Degrading to "
-            "damped-minimal.",
-            bone.name,
-            dot,
-            _SINGULARITY_DOT_THRESHOLD,
-        )
         ref_approx = bone.reference_geometry.coordinate_frame.approximate_axis
         live_approx = swing_quat.rotate_vector(ref_approx)
         return _solve_damped_minimal(
