@@ -2,17 +2,19 @@
 
 This package provides the mathematical core that the orientation solver
 (SF-SH-4) and the canonical frame aggregator call per-frame. Everything
-here is hot-path safe: dataclasses with ``__slots__`` for scalar ops,
-pure numpy functions for vectorized batch ops. No Pydantic, no
-serialization, no wire-format awareness.
+here is hot-path safe: dataclasses for scalar ops, pure numpy functions
+for vectorized batch ops. No Pydantic in the hot path, no serialization,
+no wire-format awareness, no imports from skellytracker or freemocap.
 
 Package structure:
-    quaternion_math.py          — Quaternion dataclass + all vectorized
-                                  quaternion operations (single home)
-    coordinate_frame_ops.py     — Runtime basis construction from live
-                                  landmarks vs reference geometry
-    rigid_body_kinematics.py    — Aggregate model: pose arrays -> derived
-                                  kinematics + module-level vectorized fns
+    quaternion_math.py          — RotationQuaternion dataclass + vectorized ops
+    coordinate_frame_ops.py     — Runtime basis construction
+    rigid_body_kinematics.py    — Aggregate model + vectorized kinematics
+    orientation_solver.py       — Per-bone orientation from live landmarks
+    skeleton_rigidifier.py      — Forward-pass skeleton rigidifier
+    online_segment_lengths.py   — Rolling-window median bone-length estimator
+    segment_lengths.py          — Segment-length measurement + diagnostics
+    inertial/                   — Anthropometric BSIP + composite inertia
 """
 
 from skellyforge.kinematics.coordinate_frame_ops import (
@@ -22,8 +24,17 @@ from skellyforge.kinematics.coordinate_frame_ops import (
     compute_rotation_from_live_basis,
     rotation_between_vectors,
 )
+from skellyforge.kinematics.online_segment_lengths import (
+    RollingBoneLengths,
+)
+from skellyforge.kinematics.orientation_solver import (
+    FrameOrientationResult,
+    solve_bone_full_frame,
+    solve_bone_world_orientation,
+    solve_frame_orientations,
+)
 from skellyforge.kinematics.quaternion_math import (
-    Quaternion,
+    RotationQuaternion,
     compose_with_constant,
     compute_angular_velocity,
     conjugate_quaternion_array,
@@ -44,10 +55,27 @@ from skellyforge.kinematics.rigid_body_kinematics import (
     compute_linear_acceleration,
     compute_linear_velocity,
 )
+from skellyforge.kinematics.segment_lengths import (
+    DEFAULT_THRESHOLDS,
+    LIMB_SEGMENTS,
+    HumanShapeThresholds,
+    SegmentDef,
+    SegmentLengthReport,
+    SegmentStats,
+    StreamingSegmentLengthMonitor,
+    build_segment_length_report,
+    canonical_bone_length_ratios,
+    equivalence_violations,
+    measure_segment_lengths,
+    report_from_segment_lengths,
+)
+from skellyforge.kinematics.skeleton_rigidifier import (
+    TreeRigidifier,
+)
 
 __all__ = [
     # quaternion_math
-    "Quaternion",
+    "RotationQuaternion",
     "compose_with_constant",
     "compute_angular_velocity",
     "conjugate_quaternion_array",
@@ -72,4 +100,26 @@ __all__ = [
     "compute_keypoint_world_positions",
     "compute_linear_acceleration",
     "compute_linear_velocity",
+    # skeleton_rigidifier
+    "TreeRigidifier",
+    # online_segment_lengths
+    "RollingBoneLengths",
+    # segment_lengths
+    "SegmentDef",
+    "SegmentStats",
+    "SegmentLengthReport",
+    "HumanShapeThresholds",
+    "DEFAULT_THRESHOLDS",
+    "LIMB_SEGMENTS",
+    "StreamingSegmentLengthMonitor",
+    "measure_segment_lengths",
+    "report_from_segment_lengths",
+    "build_segment_length_report",
+    "canonical_bone_length_ratios",
+    "equivalence_violations",
+    # orientation_solver
+    "FrameOrientationResult",
+    "solve_bone_world_orientation",
+    "solve_bone_full_frame",
+    "solve_frame_orientations",
 ]

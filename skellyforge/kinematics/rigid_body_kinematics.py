@@ -14,7 +14,7 @@ Conventions
 -----------
 - Units: position in mm, velocity in mm/s, acceleration in mm/s²,
   angular velocity in rad/s, angular acceleration in rad/s².
-- Quaternion order: ``[w, x, y, z]`` — consistent with ``quaternion_math``
+- RotationQuaternion order: ``[w, x, y, z]`` — consistent with ``quaternion_math``
   and the standard stream contract.
 - Derivatives use finite differences: forward at frame 0, central for
   interior frames, backward at the final frame.
@@ -30,7 +30,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.quaternion_math import (
-    Quaternion,
+    RotationQuaternion,
     compute_angular_velocity as _compute_angular_velocity,
     normalize_quaternion_array,
     quaternion_to_euler,
@@ -343,20 +343,20 @@ class RigidBodyKinematics:
 
     # ── Accessors: per-frame ─────────────────────────────────────
 
-    def get_quaternion(self, frame: int) -> Quaternion:
-        """Return the ``Quaternion`` at frame index *frame*."""
+    def get_quaternion(self, frame: int) -> RotationQuaternion:
+        """Return the ``RotationQuaternion`` at frame index *frame*."""
         if not 0 <= frame < self.n_frames:
             raise IndexError(
                 f"frame {frame} out of range [0, {self.n_frames})"
             )
         q = self.quaternions_wxyz[frame]
-        return Quaternion(
+        return RotationQuaternion(
             w=float(q[0]), x=float(q[1]), y=float(q[2]), z=float(q[3])
         )
 
     def get_pose_at_frame(
         self, frame: int
-    ) -> tuple[NDArray[float64], Quaternion]:
+    ) -> tuple[NDArray[float64], RotationQuaternion]:
         """Return ``(position, quaternion)`` at frame index *frame*."""
         if not 0 <= frame < self.n_frames:
             raise IndexError(

@@ -57,7 +57,7 @@ from skellyforge.kinematics.coordinate_frame_ops import (
     rotation_between_vectors,
 )
 from skellyforge.kinematics.quaternion_math import (
-    Quaternion,
+    RotationQuaternion,
     hamilton_product,
 )
 from skellyforge.kinematics.rigid_body_kinematics import (
@@ -91,8 +91,8 @@ def solve_bone_world_orientation(
     live_proximal: NDArray[float64],
     live_distal: NDArray[float64],
     live_twist_direction: NDArray[float64] | None = None,
-    previous_world_quaternion: Quaternion | None = None,
-) -> Quaternion:
+    previous_world_quaternion: RotationQuaternion | None = None,
+) -> RotationQuaternion:
     """Compute the world-frame rotation for a single bone.
 
     Parameters
@@ -109,14 +109,14 @@ def solve_bone_world_orientation(
         for ``FULL_FRAME`` (not used); used as the approximate axis for
         ``DAMPED_MINIMAL`` if provided, else the reference approximate
         axis rotated by swing is used.
-    previous_world_quaternion : Quaternion or None
+    previous_world_quaternion : RotationQuaternion or None
         The bone's world quaternion from the previous frame. Used only
         by ``DAMPED_MINIMAL`` for temporal smoothing. ``None`` on the
         first frame or when no history is available.
 
     Returns
     -------
-    Quaternion
+    RotationQuaternion
         World-frame rotation taking the bone from T-pose to its current
         orientation. Identity means the bone is exactly in T-pose.
     """
@@ -131,7 +131,7 @@ def solve_bone_world_orientation(
             "Bone %s has near-zero live length — returning identity.",
             bone.name,
         )
-        return Quaternion.identity()
+        return RotationQuaternion.identity()
     live_bone_vec = live_bone_vec / live_norm
 
     swing_quat = rotation_between_vectors(ref_bone_vec, live_bone_vec)
@@ -172,7 +172,7 @@ def solve_bone_full_frame(
     bone: "HumanBone",
     reference_marker_positions: NDArray[float64],
     live_marker_positions: NDArray[float64],
-) -> Quaternion:
+) -> RotationQuaternion:
     """Compute world rotation for a full-frame bone via Kabsch alignment.
 
     Parameters
@@ -185,7 +185,7 @@ def solve_bone_full_frame(
 
     Returns
     -------
-    Quaternion
+    RotationQuaternion
     """
     from skellyforge.kinematics.coordinate_frame_ops import (
         align_point_sets_kabsch,
@@ -200,7 +200,7 @@ def solve_bone_full_frame(
     R = align_point_sets_kabsch(
         reference_marker_positions, live_marker_positions
     )
-    return Quaternion.from_rotation_matrix(R)
+    return RotationQuaternion.from_rotation_matrix(R)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -269,7 +269,7 @@ def solve_frame_orientations(
     -------
     FrameOrientationResult
     """
-    world_quats: dict[str, Quaternion] = {}
+    world_quats: dict[str, RotationQuaternion] = {}
     local_quats: dict[str, NDArray[float64]] = {}
 
     # Build bone lookup
@@ -333,7 +333,7 @@ def solve_frame_orientations(
         if previous_result is not None:
             prev_wxyz = previous_result.world_quaternions.get(bone.name)
             if prev_wxyz is not None:
-                prev_quat = Quaternion(
+                prev_quat = RotationQuaternion(
                     w=float(prev_wxyz[0]),
                     x=float(prev_wxyz[1]),
                     y=float(prev_wxyz[2]),
@@ -375,7 +375,7 @@ def solve_frame_orientations(
                     [local.w, local.x, local.y, local.z], dtype=np.float64
                 )
 
-    # Convert Quaternion objects to wxyz arrays for the result
+    # Convert RotationQuaternion objects to wxyz arrays for the result
     world_wxyz: dict[str, NDArray[float64]] = {}
     for name, q in world_quats.items():
         world_wxyz[name] = np.array(
@@ -395,10 +395,10 @@ def solve_frame_orientations(
 
 def _solve_chain_resolved(
     bone: "HumanBone",
-    swing_quat: Quaternion,
+    swing_quat: RotationQuaternion,
     live_bone_vec: NDArray[float64],
     live_twist_direction: NDArray[float64] | None,
-) -> Quaternion:
+) -> RotationQuaternion:
     """Resolve twist from a child bone's direction."""
     ref_geom = bone.reference_geometry
 
@@ -446,11 +446,11 @@ def _solve_chain_resolved(
 
 def _solve_damped_minimal(
     bone: "HumanBone",
-    swing_quat: Quaternion,
+    swing_quat: RotationQuaternion,
     live_bone_vec: NDArray[float64],
     live_twist_direction: NDArray[float64] | None,
-    previous_world_quaternion: Quaternion | None,
-) -> Quaternion:
+    previous_world_quaternion: RotationQuaternion | None,
+) -> RotationQuaternion:
     """Resolve twist with temporal damping toward rest twist.
 
     If a live twist direction is available (e.g. from the swing-rotated
@@ -474,4 +474,4 @@ def _solve_damped_minimal(
         return current
 
     # Temporal damping: SLERP toward previous frame
-    return Quaternion.slerp(previous_world_quaternion, current, 1.0 - damping)
+    return RotationQuaternion.slerp(previous_world_quaternion, current, 1.0 - damping)

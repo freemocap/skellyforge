@@ -40,7 +40,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.quaternion_math import (
-    Quaternion,
+    RotationQuaternion,
     normalize_quaternion_array,
 )
 
@@ -125,7 +125,7 @@ def build_orthonormal_basis(
 def rotation_between_vectors(
     from_vector: NDArray[float64],
     to_vector: NDArray[float64],
-) -> Quaternion:
+) -> RotationQuaternion:
     """Compute the shortest rotation that aligns *from_vector* onto *to_vector*.
 
     This is a **swing-only** rotation — it aligns the long axes of two
@@ -142,7 +142,7 @@ def rotation_between_vectors(
 
     Returns
     -------
-    Quaternion
+    RotationQuaternion
         The rotation taking *from_vector* to *to_vector*.
 
     Notes
@@ -163,7 +163,7 @@ def rotation_between_vectors(
     if cross_norm < 1e-10:
         # Vectors are parallel (dot ≈ 1) or anti-parallel (dot ≈ −1)
         if dot > 0.0:
-            return Quaternion.identity()
+            return RotationQuaternion.identity()
 
         # Anti-parallel: pick any perpendicular axis via Gram-Schmidt
         # against an arbitrary non-collinear basis vector
@@ -175,14 +175,14 @@ def rotation_between_vectors(
         axis = arbitrary - np.dot(arbitrary, a) * a
         axis = axis / np.linalg.norm(axis)
         # 180° rotation around that axis: quaternion (0, axis)
-        return Quaternion(w=0.0, x=float(axis[0]), y=float(axis[1]), z=float(axis[2]))
+        return RotationQuaternion(w=0.0, x=float(axis[0]), y=float(axis[1]), z=float(axis[2]))
 
     # Standard case: axis = cross(a, b), angle = arccos(dot)
     axis = cross / cross_norm
     angle = np.arccos(np.clip(dot, -1.0, 1.0))
     half_angle = angle / 2.0
     sin_half = np.sin(half_angle)
-    return Quaternion(
+    return RotationQuaternion(
         w=float(np.cos(half_angle)),
         x=float(axis[0] * sin_half),
         y=float(axis[1] * sin_half),
@@ -316,7 +316,7 @@ def compute_live_bone_basis(
 def compute_rotation_from_live_basis(
     live_basis: NDArray[float64],
     reference_basis: NDArray[float64],
-) -> Quaternion:
+) -> RotationQuaternion:
     """Compute the rotation quaternion from a live basis to a reference basis.
 
     Given two right-handed orthonormal bases (rows = basis vectors), find
@@ -335,7 +335,7 @@ def compute_rotation_from_live_basis(
 
     Returns
     -------
-    Quaternion
+    RotationQuaternion
         The rotation from reference to live configuration. Identity
         means the bone is exactly in its T-pose orientation.
     """
@@ -396,7 +396,7 @@ def compute_rotation_from_live_basis(
         Vt_corrected[-1, :] *= -1.0
         R_clean = U @ Vt_corrected
 
-    return Quaternion.from_rotation_matrix(R_clean)
+    return RotationQuaternion.from_rotation_matrix(R_clean)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────

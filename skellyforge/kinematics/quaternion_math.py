@@ -1,7 +1,7 @@
-"""Quaternion algebra for 3D rotations — scalar and vectorized operations.
+"""RotationQuaternion algebra for 3D rotations — scalar and vectorized operations.
 
 This is the single home for all quaternion math in the kinematics engine.
-Every operation lives here exactly once: scalar ``Quaternion`` dataclass for
+Every operation lives here exactly once: scalar ``RotationQuaternion`` dataclass for
 single-frame use, and pure numpy module-level functions for batch operations
 on ``(N, 4)`` arrays. No other module in the project should contain a
 Hamilton product, SLERP, or quaternion-to-matrix conversion.
@@ -9,11 +9,11 @@ Hamilton product, SLERP, or quaternion-to-matrix conversion.
 Convention
 ----------
 - Scalar-first ordering: **[w, x, y, z]** everywhere — on the wire, in
-  numpy arrays, and in ``Quaternion`` field order. This matches the
+  numpy arrays, and in ``RotationQuaternion`` field order. This matches the
   standard stream's ``ROTATIONS_WORLD`` and ``ROTATIONS_LOCAL`` channel
   layout (``w, x, y, z`` float32 columns per doc 09).
 - All quaternions are **unit** quaternions representing rotations. The
-  scalar ``Quaternion`` auto-normalizes in ``__post_init__``; vectorized
+  scalar ``RotationQuaternion`` auto-normalizes in ``__post_init__``; vectorized
   functions assume pre-normalized input (call ``normalize_quaternion_array``
   if needed).
 - Identity rotation is ``(1, 0, 0, 0)`` — this is the T-pose contract for
@@ -22,8 +22,8 @@ Convention
 References
 ----------
 - Hamilton (1844) "On Quaternions" — Hamilton product definition.
-- Shoemake (1985) "Animating Rotation with Quaternion Curves" — SLERP.
-- Shepperd (1978) "Quaternion from Rotation Matrix" — trace-based
+- Shoemake (1985) "Animating Rotation with RotationQuaternion Curves" — SLERP.
+- Shepperd (1978) "RotationQuaternion from Rotation Matrix" — trace-based
   matrix-to-quaternion in ``from_rotation_matrix``.
 - Diebel (2006) "Representing Attitude: Euler Angles, Unit Quaternions,
   and Rotation Vectors" — Euler ZYX intrinsic convention.
@@ -42,12 +42,12 @@ if TYPE_CHECKING:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Scalar Quaternion (slot-based dataclass — hot-path safe)
+# Scalar RotationQuaternion (slot-based dataclass — hot-path safe)
 # ═══════════════════════════════════════════════════════════════════════
 
 
 @dataclass(slots=True)
-class Quaternion:
+class RotationQuaternion:
     """Unit quaternion for a single 3D rotation.
 
     Auto-normalizes on construction so that arithmetic drift is contained
@@ -80,37 +80,37 @@ class Quaternion:
         self.z /= norm
 
     @classmethod
-    def identity(cls) -> "Quaternion":
+    def identity(cls) -> "RotationQuaternion":
         """Return the identity rotation ``(1, 0, 0, 0)``."""
         return cls(w=1.0, x=0.0, y=0.0, z=0.0)
 
     # ── Basic operations ──────────────────────────────────────────
 
-    def conjugate(self) -> "Quaternion":
+    def conjugate(self) -> "RotationQuaternion":
         """Return the conjugate ``(w, -x, -y, -z)``.
 
         For a unit quaternion the conjugate equals the inverse.
         """
-        return Quaternion(w=self.w, x=-self.x, y=-self.y, z=-self.z)
+        return RotationQuaternion(w=self.w, x=-self.x, y=-self.y, z=-self.z)
 
-    def inverse(self) -> "Quaternion":
+    def inverse(self) -> "RotationQuaternion":
         """Return the inverse rotation. Same as ``conjugate`` for unit quaternions."""
         return self.conjugate()
 
-    def __mul__(self, other: "Quaternion") -> "Quaternion":
+    def __mul__(self, other: "RotationQuaternion") -> "RotationQuaternion":
         """Hamilton product ``self * other`` — composes the two rotations.
 
         The rotation represented by ``self * other`` is equivalent to
         applying ``other`` first, then ``self``: ``R(q₁·q₂) = R(q₁) ∘ R(q₂)``.
         """
-        return Quaternion(
+        return RotationQuaternion(
             w=self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
             x=self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
             y=self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
             z=self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w,
         )
 
-    def dot(self, other: "Quaternion") -> float:
+    def dot(self, other: "RotationQuaternion") -> float:
         """Dot product ``w₁w₂ + x₁x₂ + y₁y₂ + z₁z₂``.
 
         For unit quaternions this is cos(θ/2) where θ is the rotation angle
@@ -150,7 +150,7 @@ class Quaternion:
         )
 
     @classmethod
-    def from_rotation_matrix(cls, R: NDArray[float64]) -> "Quaternion":
+    def from_rotation_matrix(cls, R: NDArray[float64]) -> "RotationQuaternion":
         """Construct a quaternion from a 3×3 rotation matrix.
 
         Uses Shepperd's trace-based method (Shepperd 1978) which selects
@@ -258,8 +258,8 @@ class Quaternion:
 
     @classmethod
     def slerp(
-        cls, q0: "Quaternion", q1: "Quaternion", t: float
-    ) -> "Quaternion":
+        cls, q0: "RotationQuaternion", q1: "RotationQuaternion", t: float
+    ) -> "RotationQuaternion":
         """Spherical linear interpolation between two quaternions.
 
         Follows Shoemake (1985). Handles the double-cover ambiguity
@@ -270,16 +270,16 @@ class Quaternion:
 
         Parameters
         ----------
-        q0 : Quaternion
+        q0 : RotationQuaternion
             Start rotation (t = 0).
-        q1 : Quaternion
+        q1 : RotationQuaternion
             End rotation (t = 1).
         t : float
             Interpolation parameter in [0, 1].
 
         Returns
         -------
-        Quaternion
+        RotationQuaternion
             Interpolated unit quaternion.
         """
         if not 0.0 <= t <= 1.0:
@@ -327,9 +327,9 @@ class Quaternion:
 # ═══════════════════════════════════════════════════════════════════════
 #
 # All functions operate on (N, 4) float64 arrays with columns [w, x, y, z].
-# They are the vectorized equivalents of the Quaternion methods above and
+# They are the vectorized equivalents of the RotationQuaternion methods above and
 # are the ones used in the per-frame hot loop (orientation solver, rigid
-# body kinematics). No per-element Quaternion objects are created.
+# body kinematics). No per-element RotationQuaternion objects are created.
 
 
 def normalize_quaternion_array(
@@ -360,7 +360,7 @@ def hamilton_product(
     """Batch Hamilton product ``q_a * q_b`` for (N, 4) arrays.
 
     The result represents composing the rotation of ``q_b`` followed by
-    the rotation of ``q_a``, matching the scalar ``Quaternion.__mul__``
+    the rotation of ``q_a``, matching the scalar ``RotationQuaternion.__mul__``
     semantics: ``R(q_a·q_b) = R(q_a) ∘ R(q_b)``.
     """
     q_a = np.asarray(q_a, dtype=np.float64)
@@ -397,7 +397,7 @@ def quaternion_to_rotation_matrix(
 ) -> NDArray[float64]:
     """Convert (N, 4) quaternion array to (N, 3, 3) rotation matrices.
 
-    Same formula as ``Quaternion.to_rotation_matrix``, vectorized.
+    Same formula as ``RotationQuaternion.to_rotation_matrix``, vectorized.
     """
     q = np.asarray(q, dtype=np.float64)
     _check_quat_shape(q)
@@ -461,7 +461,7 @@ def quaternion_to_euler(
     """Convert (N, 4) quaternions to (N, 3) Euler angles.
 
     Returns columns ``[roll, pitch, yaw]`` in radians, ZYX intrinsic
-    (aerospace) convention. Same formulas as ``Quaternion.to_euler_xyz``.
+    (aerospace) convention. Same formulas as ``RotationQuaternion.to_euler_xyz``.
     """
     q = np.asarray(q, dtype=np.float64)
     _check_quat_shape(q)
