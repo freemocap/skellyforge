@@ -27,7 +27,8 @@ dependencies = [
     "pandas",
     "toml>=0.10.2",
     "pyyaml>=6.0",
-    "pyarrow>=21.0.0"
+    "pyarrow>=21.0.0",
+    "pydantic>=2.13.4",
 ]
 
 requires-python = ">=3.10"
