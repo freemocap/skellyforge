@@ -146,7 +146,7 @@ class Actor(ABC):
     def aspect_from_model_info(self, name:str) -> None:
         """
         Creates a structured Aspect from the model_info configuration. This Aspect will
-        have a defined/validated AnatomicalStructure (marker names, virtual markers, center of mass, etc.)
+        have a defined/validated AnatomicalStructure (marker names, segments, center of mass, etc.)
         that will be used for data
         """
         aspect:Aspect = Aspect.from_model_info(

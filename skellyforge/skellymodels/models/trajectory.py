@@ -10,8 +10,7 @@ class Trajectory(BaseModel):
     A Trajectory stores 3D data for a given anatomical component
     (e.g., body, face, hand) as a NumPy array of shape (num_frames, num_markers, 3).
 
-    It includes utilities for dictionary and DataFrame views of the data,
-    and supports the inclusion of virtual markers at construction time.
+    It includes utilities for dictionary and DataFrame views of the data.
 
     Parameters
     ----------
@@ -42,46 +41,27 @@ class Trajectory(BaseModel):
         Factory method to create a Trajectory from tracked points and
         a corresponding AnatomicalStructure.
 
-        This method optionally computes virtual markers based on weighted
-        combinations of real markers as defined in the anatomical structure.
+        Every tracked point is a first-class canonical landmark. Computed
+        landmarks (e.g. neck_center) are produced upstream by the
+        tracker→canonical mapping, so the array maps 1:1 onto the anatomical
+        structure's landmarks.
 
         Parameters
         ----------
         name : str
             Name of the trajectory (e.g. '3d_xyz').
         tracked_points_array : ndarray of shape (num_frames, num_markers, 3)
-            Raw array of real marker positions.
+            Array of canonical landmark positions.
         anatomical_structure : AnatomicalStructure
-            Provides marker names and virtual marker definitions.
+            Provides the landmark names.
 
         Returns
         -------
         Trajectory
-            A new trajectory instance with virtual markers (if defined).
         """
-        landmark_names = anatomical_structure.tracked_point_names.copy()
-        vm_defs = anatomical_structure.virtual_markers_definitions
-        
-        output_array_as_list: list[np.ndarray] = [tracked_points_array]
-        #compute virtual markers
-        if vm_defs:
-            for vm_name, vm_components in vm_defs.items():
-                component_names = vm_components["marker_names"]
-                component_weights = vm_components["marker_weights"]
-
-                component_indices = [anatomical_structure.tracked_point_names.index(name) for name in component_names]
-                component_data = tracked_points_array[:,component_indices,:]
-                component_weights = np.array(component_weights)[None, :, None]
-                weighted_marker_data = component_data * component_weights
-                virtual_marker = np.sum(weighted_marker_data, axis = 1)
-                output_array_as_list.append(virtual_marker[:, None, :])
-                landmark_names.append(vm_name) 
-
-        output_array = np.concatenate(output_array_as_list, axis=1) if len(output_array_as_list) > 1 else tracked_points_array
-    
-        return cls(name = name, 
-                   array = output_array,
-                   landmark_names = landmark_names)
+        return cls(name = name,
+                   array = tracked_points_array,
+                   landmark_names = anatomical_structure.tracked_point_names.copy())
     
     @model_validator(mode="after")
     def _check_shape(self):

@@ -4,7 +4,6 @@ from skellyforge.skellymodels.utils.types import (BoneKey,
                                       BoneLengthRatios,
                                       MarkerName,
                                       SegmentName,
-                                      VirtualMarkerDefinition,
                                       SegmentConnection,
                                       SegmentCenterOfMassDefinition
 )
@@ -14,7 +13,7 @@ class AnatomicalStructure(BaseModel):
     """
     A validated data structure representing the anatomical layout of a tracked subject.
 
-    This model defines tracked markers, optional virtual markers, segment definitions,
+    This model defines tracked markers, segment definitions,
     center of mass mappings, and joint hierarchies. It is typically constructed from a
     ModelInfo instance and used downstream for anatomical calculations (e.g. center of
     mass computation, rigid segment enforcement).
@@ -22,9 +21,7 @@ class AnatomicalStructure(BaseModel):
     Parameters
     ----------
     tracked_point_names : list of str
-        Ordered list of marker names being output from the pose estimation tracker 
-    virtual_markers_definitions : dict[str, VirtualMarkerDefinition], optional
-        Definitions for computed markers based on weighted combinations of other markers.
+        Ordered list of marker names being output from the pose estimation tracker
     segment_connections : dict[SegmentName, SegmentConnection], optional
         Mapping of segments to their proximal/distal marker definitions.
     center_of_mass_definitions : dict[SegmentName, SegmentCenterOfMassDefinition], optional
@@ -37,7 +34,6 @@ class AnatomicalStructure(BaseModel):
         initial segment length estimates before online adaptation.
     """
     tracked_point_names: List[MarkerName]
-    virtual_markers_definitions: Dict[str, VirtualMarkerDefinition]|None = None
     segment_connections: Dict[SegmentName, SegmentConnection]|None = None
     center_of_mass_definitions: Dict[SegmentName, SegmentCenterOfMassDefinition]|None = None
     bone_length_ratios: BoneLengthRatios|None = None
@@ -53,39 +49,11 @@ class AnatomicalStructure(BaseModel):
         Raises
         ------
         ValueError
-            If virtual markers, segment connections, CoM definitions, or joint hierarchies
+            If segment connections, CoM definitions, or joint hierarchies
             reference undefined or invalid markers.
         """
         valid_marker_names = set(self.tracked_point_names)
 
-        if self.virtual_markers_definitions:
-            for virtual_marker_name, virtual_marker_values in self.virtual_markers_definitions.items():
-                marker_names = virtual_marker_values.get("marker_names", [])
-                marker_weights = virtual_marker_values.get("marker_weights", [])
-
-                if len(marker_names) != len(marker_weights):
-                    raise ValueError(
-                        f"The number of marker names must match the number of marker weights for virtual marker{virtual_marker_name}. "
-                        f"Currently there are {len(marker_names)} names and {len(marker_weights)} weights."
-                    )
-
-                # Check if all marker names are in our valid set
-                invalid_markers = [name for name in marker_names if name not in valid_marker_names]
-                if invalid_markers:
-                    raise ValueError(
-                        f"The marker(s) {invalid_markers} used to calculate virtual marker {virtual_marker_name} are not in tracked_points list"
-                    )
-                
-                # Validate weights sum
-                weight_sum = sum(marker_weights)
-                if not 0.99 <= weight_sum <= 1.01:  # Allowing a tiny bit of floating-point leniency
-                    raise ValueError(
-                        f"Marker weights must sum to approximately 1 for virtual marker {virtual_marker_name}. Current sum is {weight_sum}."
-                    )
-                
-                # Add this virtual marker to our valid set for below validations
-                valid_marker_names.add(virtual_marker_name)
-        
         if self.segment_connections:
             for segment_name, segment_connection in self.segment_connections.items():
                 # Check if proximal and distal markers exist in marker_names
@@ -137,7 +105,6 @@ class AnatomicalStructure(BaseModel):
         aspect_structure = model_info.aspects[aspect_name]
         return cls(
             tracked_point_names = aspect_structure.tracked_points_names,
-            virtual_markers_definitions = aspect_structure.virtual_marker_definitions,
             segment_connections = aspect_structure.segment_connections,
             center_of_mass_definitions = aspect_structure.center_of_mass_definitions,
             bone_length_ratios = aspect_structure.bone_length_ratios,
@@ -147,37 +114,18 @@ class AnatomicalStructure(BaseModel):
     @property
     def landmark_names(self) -> list[MarkerName]:
         """
-        Returns a combined list of tracked and virtual marker names.
+        Returns the canonical landmark names. Every tracked point is a
+        first-class landmark (the tracker→canonical mapping produces them),
+        so this is simply the ordered tracked-point list.
 
         Returns
         -------
         list of str
             Full list of marker names in order.
         """
-        landmark_names = self.tracked_point_names.copy()
-        if self.virtual_markers_definitions:
-            landmark_names.extend(self.virtual_markers_definitions.keys())
-        return landmark_names
+        return self.tracked_point_names.copy()
 
-    @property
-    def virtual_marker_names(self) -> list[MarkerName]:
-        """
-        Returns only the virtual marker names.
-
-        Returns
-        -------
-        list of str
-            Names of virtual markers defined in the structure.
-        """
-        if not self.virtual_markers_definitions:
-            return []
-        return list(self.virtual_markers_definitions.keys())
-    
     def __str__(self):
-        virtual_markers = (
-            f"{len(self.virtual_markers_definitions)} virtual markers"
-            if self.virtual_markers_definitions else "No virtual markers"
-        )
         segments = (
             f"{len(self.segment_connections)} segments"
             if self.segment_connections else "No segment connections"
@@ -191,7 +139,6 @@ class AnatomicalStructure(BaseModel):
             if self.joint_hierarchy else "No joint hierarchy"
         )
         return (f"  {len(self.tracked_point_names)} tracked points\n"
-                f"  {virtual_markers}\n"
                 f"  {segments}\n"
                 f"  {com_definitions}\n"
                 f"  {joint_hierarchy}")

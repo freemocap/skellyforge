@@ -53,40 +53,6 @@ aspects:
         - left_foot_index
         - right_foot_index
       
-    virtual_marker_definitions:
-      head_center:
-        marker_names:
-          - left_ear
-          - right_ear
-        marker_weights:
-          - 0.5
-          - 0.5
-      neck_center:
-        marker_names:
-          - left_shoulder
-          - right_shoulder
-        marker_weights:
-          - 0.5
-          - 0.5
-      trunk_center:
-        marker_names:
-          - left_shoulder
-          - right_shoulder
-          - left_hip
-          - right_hip
-        marker_weights:
-          - 0.25
-          - 0.25
-          - 0.25
-          - 0.25
-      hips_center:
-        marker_names:
-          - left_hip
-          - right_hip
-        marker_weights:
-          - 0.5
-          - 0.5
-
     segment_connections:
       head: 
         proximal: left_ear
@@ -285,8 +251,6 @@ aspects:
         - pinky_dip
         - pinky_tip 
 
-    virtual_marker_definitions: null
-
     # MediaPipe Hand Connections from official source
     segment_connections:
       # Palm connections
@@ -394,8 +358,6 @@ aspects:
         - pinky_dip
         - pinky_tip
 
-    virtual_marker_definitions: null
-
     # MediaPipe Hand Connections from official source (same structure as right hand)
     segment_connections:
       # Palm connections
@@ -484,8 +446,6 @@ aspects:
         convention: face_{:04d}
 #        count: 478 # tesselated face
         count: 136 # contour face
-
-    virtual_marker_definitions: null
 
     # MediaPipe Face Contour Connections from official source
     # These are the contour connections as used in your get_mediapipe_face_info.py

@@ -13,10 +13,10 @@
 #   - bone_length_ratios (all 26 body-tree bones, as adaptive FABRIK seeds)
 #   - joint_hierarchy (tree rooted at hips_center)
 #
-# All 27 entries in tracked_points are first-class landmarks. There is no
-# "virtual marker" concept here — the per-tracker mapping YAMLs in
-# skellytracker define HOW each canonical landmark is produced from tracker
-# keypoints (1:1 passthrough, unweighted mean, or weighted sum).
+# All 27 entries in tracked_points are first-class canonical landmarks. The
+# per-tracker mapping YAMLs in skellytracker define HOW each canonical landmark
+# is produced from tracker keypoints (1:1 passthrough, unweighted mean, or
+# weighted sum).
 #
 # Anthropometric data from Winter (2009) and Drillis & Contini (1966).
 
@@ -58,8 +58,6 @@ aspects:
         - neck_center
         - trunk_center
         - hips_center
-
-    virtual_marker_definitions: null
 
     segment_connections:
       head:

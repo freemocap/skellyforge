@@ -46,8 +46,6 @@ aspects:
         - pinky_dip
         - pinky_tip
 
-    virtual_marker_definitions: null
-
     segment_connections:
       # Thumb chain (carpometacarpal → proximal phalanx → distal phalanx → tip)
       thumb_metacarpal:

@@ -15,7 +15,7 @@ class CenterOfMassCalculation(AnatomicalCalculation):
     - center_of_mass_definitions
 
     Adds two new trajectories to the aspect:
-    - 'total_body_com' (Trajectory with a single virtual marker)
+    - 'total_body_com' (Trajectory with a single landmark)
     - 'segment_com' (Trajectory with one marker per segment)
     """
     def calculate(self, aspect:Aspect) -> CalculationResult:

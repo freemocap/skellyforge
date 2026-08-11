@@ -32,7 +32,7 @@ class Aspect(BaseModel):
     name : str
         Name of the aspect (e.g. "body", "face", "left_hand").
     anatomical_structure : AnatomicalStructure
-        Model defining marker layout, virtual markers, segments, and joint structure.
+        Model defining marker layout, segments, and joint structure.
     trajectories : dict[str, Trajectory], optional
         Dictionary mapping trajectory names (e.g. "3d_xyz") to trajectory data.
     reprojection_error : Error, optional
@@ -109,7 +109,7 @@ class Aspect(BaseModel):
         Parameters
         ----------
         tracked_points : np.ndarray
-            Tracked XYZ marker array, excluding virtual markers.
+            Canonical landmark XYZ array (frames × landmarks × 3).
         """
 
         if self.anatomical_structure is None:

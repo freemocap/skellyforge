@@ -42,40 +42,6 @@ aspects:
         - right_small_toe
         - right_heel
 
-    virtual_marker_definitions:
-      head_center:
-        marker_names:
-          - left_ear
-          - right_ear
-        marker_weights:
-          - 0.5
-          - 0.5
-      neck_center:
-        marker_names:
-          - left_shoulder
-          - right_shoulder
-        marker_weights:
-          - 0.5
-          - 0.5
-      trunk_center:
-        marker_names:
-          - left_shoulder
-          - right_shoulder
-          - left_hip
-          - right_hip
-        marker_weights:
-          - 0.25
-          - 0.25
-          - 0.25
-          - 0.25
-      hips_center:
-        marker_names:
-          - left_hip
-          - right_hip
-        marker_weights:
-          - 0.5
-          - 0.5
-
     segment_connections:
       head: 
         proximal: left_ear
@@ -236,8 +202,6 @@ aspects:
       names: 
         convention: face_{:04d}
         count: 68
-
-    virtual_marker_definitions: null
     segment_connections: null
     center_of_mass_definitions: null
     joint_hierarchy: null
@@ -270,8 +234,6 @@ aspects:
         - pinky_finger2
         - pinky_finger3
         - pinky_finger4
-
-    virtual_marker_definitions: null
     segment_connections: null
     center_of_mass_definitions: null
     joint_hierarchy: null
@@ -304,8 +266,6 @@ aspects:
         - pinky_finger2
         - pinky_finger3
         - pinky_finger4
-
-    virtual_marker_definitions: null
     segment_connections: null
     center_of_mass_definitions: null
     joint_hierarchy: null
