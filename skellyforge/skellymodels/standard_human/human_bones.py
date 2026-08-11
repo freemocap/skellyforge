@@ -236,6 +236,12 @@ class HumanBone:
     required: bool
     """Whether this bone must be present for the skeleton to be valid."""
 
+    reference_geometry: BoneReferenceGeometry
+    """T-pose joint centers and coordinate frame."""
+
+    twist_policy: TwistPolicy
+    """How to resolve the twist degree of freedom."""
+
     proximal_landmark: str | None = None
     """Canonical landmark name for this bone's proximal joint center.
 
@@ -244,12 +250,6 @@ class HumanBone:
     ``None`` for bones whose proximal joint is not a directly tracked
     landmark (e.g. derived via ``anatomical_offset``).
     """
-
-    reference_geometry: BoneReferenceGeometry
-    """T-pose joint centers and coordinate frame."""
-
-    twist_policy: TwistPolicy
-    """How to resolve the twist degree of freedom."""
 
     def __post_init__(self) -> None:
         if not self.name:
