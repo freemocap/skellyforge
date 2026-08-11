@@ -233,6 +233,15 @@ class HumanBone:
     parent: str | None
     """Canonical name of the parent bone, or ``None`` for the root (hips)."""
 
+    proximal_landmark: str | None = None
+    """Canonical landmark name for this bone's proximal joint center.
+
+    e.g. ``hips`` → ``hips_center``, ``left_upper_leg`` → ``left_hip``.
+    Bridge between VRM bone names and rigidifier landmark names.
+    ``None`` for bones whose proximal joint is not a directly tracked
+    landmark (e.g. derived via ``anatomical_offset``).
+    """
+
     required: bool
     """Whether this bone must be present for the skeleton to be valid."""
 
