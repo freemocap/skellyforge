@@ -228,7 +228,7 @@ class StandardHuman(BaseModel):
         ``HumanBone``: ``name``, ``parent``, ``required``,
         ``proximal_joint``, ``distal_joint``, ``exact_axis``,
         ``approximate_axis``, ``twist_tier``, and optionally
-        ``twist_source_bone`` and ``damping_factor``.
+        ``twist_source_bone`` and ``twist_time_constant_seconds``.
 
         This is the primary construction path — bone definitions
         typically come from a YAML config or a programmatic builder.
@@ -250,11 +250,15 @@ class StandardHuman(BaseModel):
             )
 
             twist_tier = TwistTier(bd["twist_tier"])
-            twist = TwistPolicy(
-                tier=twist_tier,
-                twist_source_bone=bd.get("twist_source_bone"),
-                damping_factor=bd.get("damping_factor", 0.95),
-            )
+            twist_policy_fields: dict[str, Any] = {
+                "tier": twist_tier,
+                "twist_source_bone": bd.get("twist_source_bone"),
+            }
+            if "twist_time_constant_seconds" in bd:
+                twist_policy_fields["twist_time_constant_seconds"] = float(
+                    bd["twist_time_constant_seconds"]
+                )
+            twist = TwistPolicy(**twist_policy_fields)
 
             bones.append(HumanBone(
                 name=bd["name"],

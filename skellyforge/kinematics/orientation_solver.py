@@ -43,25 +43,23 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
-    build_orthonormal_basis,
+    align_point_sets_kabsch,
     compute_live_bone_basis,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
 )
-from skellyforge.kinematics.quaternion_math import (
-    RotationQuaternion,
-    hamilton_product,
+from skellyforge.kinematics.critically_damped_orientation import (
+    CriticallyDampedOrientationState,
+    advance_critically_damped_orientation,
 )
-from skellyforge.kinematics.rigid_body_kinematics import (
-    _check_strictly_increasing,  # noqa: F401 — used in temporal history
-)
+from skellyforge.kinematics.quaternion_math import RotationQuaternion
+from skellyforge.skellymodels.standard_human.human_bones import TwistTier
 
 if TYPE_CHECKING:
     from numpy import float64
@@ -83,14 +81,32 @@ _SINGULARITY_DOT_THRESHOLD = np.cos(_SINGULARITY_THRESHOLD_RAD)  # ≈ 0.996
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@dataclass(frozen=True)
+class BoneOrientationSolution:
+    """One segment's raw (undamped) orientation, plus which tier resolved it.
+
+    ``twist_resolved_by_damped_minimal`` is ``True`` when the segment's twist was
+    resolved by the fallback tier — either because its policy declares it, or
+    because a ``CHAIN_RESOLVED`` segment degraded (twist source missing, or the
+    singularity gate tripped). It tells the frame-level solver which segments to
+    run through the critically damped filter.
+
+    Damping is deliberately **not** applied here: it is a function of elapsed time,
+    and a single-segment call has no ``dt``. See
+    :func:`solve_frame_orientations`.
+    """
+
+    orientation: RotationQuaternion
+    twist_resolved_by_damped_minimal: bool
+
+
 def solve_bone_world_orientation(
     bone: "HumanBone",
     live_proximal: NDArray[float64],
     live_distal: NDArray[float64],
     live_twist_direction: NDArray[float64] | None = None,
-    previous_world_quaternion: RotationQuaternion | None = None,
-) -> RotationQuaternion:
-    """Compute the world-frame rotation for a single bone.
+) -> BoneOrientationSolution:
+    """Compute the raw world-frame rotation for a single bone.
 
     Parameters
     ----------
@@ -106,16 +122,13 @@ def solve_bone_world_orientation(
         for ``FULL_FRAME`` (not used); used as the approximate axis for
         ``DAMPED_MINIMAL`` if provided, else the reference approximate
         axis rotated by swing is used.
-    previous_world_quaternion : RotationQuaternion or None
-        The bone's world quaternion from the previous frame. Used only
-        by ``DAMPED_MINIMAL`` for temporal smoothing. ``None`` on the
-        first frame or when no history is available.
 
     Returns
     -------
-    RotationQuaternion
-        World-frame rotation taking the bone from T-pose to its current
-        orientation. Identity means the bone is exactly in T-pose.
+    BoneOrientationSolution
+        The **undamped** world-frame rotation taking the bone from T-pose to its
+        current orientation (identity means exactly T-pose), and whether the
+        damped-minimal tier resolved the twist.
     """
     ref_geom = bone.reference_geometry
 
@@ -124,21 +137,28 @@ def solve_bone_world_orientation(
     live_bone_vec = live_distal - live_proximal
     live_norm = float(np.linalg.norm(live_bone_vec))
     if live_norm < 1e-10:
-        return RotationQuaternion.identity()
+        raise ValueError(
+            f"Bone {bone.name!r} has coincident live proximal and distal joints "
+            f"({live_proximal} and {live_distal}); its direction is undefined, so "
+            f"no orientation can be resolved."
+        )
     live_bone_vec = live_bone_vec / live_norm
 
     swing_quat = rotation_between_vectors(ref_bone_vec, live_bone_vec)
 
     # ── Twist resolution ────────────────────────────────────────
-    policy = bone.twist_policy
+    tier = bone.twist_policy.tier
 
-    if policy.tier.value == "full_frame":
-        # Full-frame: swing-only for now. When ≥3 markers per segment
+    if tier == TwistTier.FULL_FRAME:
+        # Full-frame: swing-only for now. When >=3 markers per segment
         # are available, the caller should use solve_bone_full_frame()
         # instead. This path is the fallback when only endpoints exist.
-        return swing_quat
+        return BoneOrientationSolution(
+            orientation=swing_quat,
+            twist_resolved_by_damped_minimal=False,
+        )
 
-    elif policy.tier.value == "chain_resolved":
+    if tier == TwistTier.CHAIN_RESOLVED:
         return _solve_chain_resolved(
             bone=bone,
             swing_quat=swing_quat,
@@ -146,18 +166,19 @@ def solve_bone_world_orientation(
             live_twist_direction=live_twist_direction,
         )
 
-    elif policy.tier.value == "damped_minimal":
-        return _solve_damped_minimal(
-            bone=bone,
-            swing_quat=swing_quat,
-            live_bone_vec=live_bone_vec,
-            live_twist_direction=live_twist_direction,
-            previous_world_quaternion=previous_world_quaternion,
+    if tier == TwistTier.DAMPED_MINIMAL:
+        return BoneOrientationSolution(
+            orientation=_solve_minimal_twist(
+                bone=bone,
+                swing_quat=swing_quat,
+                live_bone_vec=live_bone_vec,
+                live_twist_direction=live_twist_direction,
+            ),
+            twist_resolved_by_damped_minimal=True,
         )
 
-    else:
-        raise ValueError(
-            f"Unknown twist tier {policy.tier!r} for bone {bone.name!r}"
+    raise ValueError(
+            f"Unknown twist tier {bone.twist_policy.tier!r} for bone {bone.name!r}"
         )
 
 
@@ -180,10 +201,6 @@ def solve_bone_full_frame(
     -------
     RotationQuaternion
     """
-    from skellyforge.kinematics.coordinate_frame_ops import (
-        align_point_sets_kabsch,
-    )
-
     if len(reference_marker_positions) < 3:
         raise ValueError(
             f"Full-frame bone {bone.name!r} requires >= 3 markers, "
@@ -214,16 +231,33 @@ class FrameOrientationResult:
         ``{bone_name: (4,) wxyz array}`` — parent-relative rotation,
         ``conjugate(world_parent) * world_child``. The root bone's local
         equals its world.
+    timestamp_seconds : float
+        When this frame was solved. The next frame's ``dt`` is measured
+        against it, so the damping filter is driven by real elapsed time
+        rather than a frame count.
+    damping_states : dict
+        ``{bone_name: CriticallyDampedOrientationState}`` for the segments
+        whose twist was resolved by the damped-minimal tier. Carried into the
+        next frame; segments that did not need damping are absent.
+
+        Held **on the result**, not in module scope, so two pipelines in one
+        process cannot contaminate each other's smoothing and a new session
+        starts clean.
     """
 
     world_quaternions: dict[str, NDArray[float64]]
     local_quaternions: dict[str, NDArray[float64]]
+    timestamp_seconds: float
+    damping_states: dict[str, CriticallyDampedOrientationState] = field(
+        default_factory=dict
+    )
 
 
 def solve_frame_orientations(
     standard_human: "StandardHuman",
     live_joint_positions: dict[str, NDArray[float64]],
     *,
+    timestamp_seconds: float,
     previous_result: FrameOrientationResult | None = None,
     child_direction_map: dict[str, str] | None = None,
 ) -> FrameOrientationResult:
@@ -242,6 +276,14 @@ def solve_frame_orientations(
        swing-computed) child bone direction as the twist reference and
        recompute the full orientation.
 
+    Damping
+    -------
+    Segments whose twist was resolved by the damped-minimal tier — whether by
+    policy or by a ``CHAIN_RESOLVED`` segment degrading — are passed through the
+    critically damped filter before their world quaternion is recorded, using
+    ``dt = timestamp_seconds - previous_result.timestamp_seconds``. Every
+    fallback path damps; that is the case damping exists for.
+
     Parameters
     ----------
     standard_human : StandardHuman
@@ -251,8 +293,16 @@ def solve_frame_orientations(
         The key is the bone name; the position is the PROXIMAL joint of
         that bone. The distal joint is the proximal joint of the first
         child bone (or can be looked up from the hierarchy).
+    timestamp_seconds : float
+        This frame's time. Damping is driven by real elapsed time, so this must
+        advance between frames for smoothing to apply. **Required, deliberately
+        without a default** — a default would let a caller silently disable
+        damping by omission, which is the kind of quiet degradation that is far
+        harder to notice than a missing argument.
     previous_result : FrameOrientationResult or None
-        Previous frame's result, for temporal damping.
+        Previous frame's result, carrying the per-segment damping state and the
+        timestamp ``dt`` is measured from. ``None`` on the first frame, where
+        every damped segment is seeded at its raw orientation with zero velocity.
     child_direction_map : dict or None
         Optional ``{bone_name: child_bone_name}`` mapping that specifies
         which child provides the twist reference for chain-resolved
@@ -262,6 +312,19 @@ def solve_frame_orientations(
     -------
     FrameOrientationResult
     """
+    timestep_seconds: float | None = None
+    if previous_result is not None:
+        elapsed = timestamp_seconds - previous_result.timestamp_seconds
+        # A non-advancing clock cannot drive a time-based filter. Rather than
+        # fabricate a dt, treat the frame as a fresh start: each damped segment
+        # re-seeds at its raw orientation. Long gaps need no special case — the
+        # filter's exponential decay lands them on target with zero velocity.
+        timestep_seconds = elapsed if elapsed > 0.0 else None
+
+    previous_damping_states: dict[str, CriticallyDampedOrientationState] = (
+        previous_result.damping_states if previous_result is not None else {}
+    )
+    damping_states: dict[str, CriticallyDampedOrientationState] = {}
     world_quats: dict[str, RotationQuaternion] = {}
     local_quats: dict[str, NDArray[float64]] = {}
 
@@ -322,25 +385,35 @@ def solve_frame_orientations(
                         if twist_norm > 1e-10:
                             twist_dir = twist_vec / twist_norm
 
-        prev_quat = None
-        if previous_result is not None:
-            prev_wxyz = previous_result.world_quaternions.get(bone.name)
-            if prev_wxyz is not None:
-                prev_quat = RotationQuaternion(
-                    w=float(prev_wxyz[0]),
-                    x=float(prev_wxyz[1]),
-                    y=float(prev_wxyz[2]),
-                    z=float(prev_wxyz[3]),
-                )
-
-        world_quat = solve_bone_world_orientation(
+        solution = solve_bone_world_orientation(
             bone=bone,
             live_proximal=proximal,
             live_distal=distal,
             live_twist_direction=twist_dir,
-            previous_world_quaternion=prev_quat,
         )
-        world_quats[bone.name] = world_quat
+
+        if not solution.twist_resolved_by_damped_minimal:
+            world_quats[bone.name] = solution.orientation
+            continue
+
+        # ── Critically damped twist smoothing ────────────────────
+        previous_state = previous_damping_states.get(bone.name)
+        if previous_state is None or timestep_seconds is None:
+            # First frame for this segment, or a clock that did not advance:
+            # seed the filter at the raw orientation with zero velocity.
+            damped_state = CriticallyDampedOrientationState.at_rest(
+                solution.orientation
+            )
+        else:
+            damped_state = advance_critically_damped_orientation(
+                state=previous_state,
+                target_orientation=solution.orientation,
+                time_constant_seconds=bone.twist_policy.twist_time_constant_seconds,
+                timestep_seconds=timestep_seconds,
+            )
+
+        damping_states[bone.name] = damped_state
+        world_quats[bone.name] = damped_state.orientation
 
     # ── Compute local quaternions ────────────────────────────────
     for bone in bones_to_solve:
@@ -383,6 +456,8 @@ def solve_frame_orientations(
     return FrameOrientationResult(
         world_quaternions=world_wxyz,
         local_quaternions=local_quats,
+        timestamp_seconds=timestamp_seconds,
+        damping_states=damping_states,
     )
 
 
@@ -396,72 +471,70 @@ def _solve_chain_resolved(
     swing_quat: RotationQuaternion,
     live_bone_vec: NDArray[float64],
     live_twist_direction: NDArray[float64] | None,
-) -> RotationQuaternion:
-    """Resolve twist from a child bone's direction."""
+) -> BoneOrientationSolution:
+    """Resolve twist from a child bone's direction, degrading when it cannot.
+
+    Two conditions force the fallback: no twist source this frame (occlusion), and
+    the **singularity gate** — a twist direction within ~5 degrees of the bone's own
+    long axis, where the cross product that builds the basis is numerically
+    worthless.
+
+    Both return ``twist_resolved_by_damped_minimal=True`` so the frame-level solver
+    damps them. Skipping damping here is what made the fallback pop in exactly the
+    situation damping exists for.
+    """
     ref_geom = bone.reference_geometry
 
-    # Singularity gate: if the live twist direction is nearly parallel
-    # to the bone direction, the cross product is unreliable.
-    if live_twist_direction is None:
-        # Fall back to damped-minimal with the swing-rotated reference
-        # approximate axis
-        ref_approx = ref_geom.coordinate_frame.approximate_axis
-        live_approx = swing_quat.rotate_vector(ref_approx)
-        return _solve_damped_minimal(
-            bone=bone,
-            swing_quat=swing_quat,
-            live_bone_vec=live_bone_vec,
-            live_twist_direction=live_approx,
-            previous_world_quaternion=None,
-        )
+    twist_source_is_unusable = live_twist_direction is None or (
+        float(np.abs(np.dot(live_bone_vec, live_twist_direction)))
+        > _SINGULARITY_DOT_THRESHOLD
+    )
 
-    dot = float(np.abs(np.dot(live_bone_vec, live_twist_direction)))
-    if dot > _SINGULARITY_DOT_THRESHOLD:
-        ref_approx = bone.reference_geometry.coordinate_frame.approximate_axis
-        live_approx = swing_quat.rotate_vector(ref_approx)
-        return _solve_damped_minimal(
-            bone=bone,
-            swing_quat=swing_quat,
-            live_bone_vec=live_bone_vec,
-            live_twist_direction=live_approx,
-            previous_world_quaternion=None,
+    if twist_source_is_unusable:
+        return BoneOrientationSolution(
+            orientation=_solve_minimal_twist(
+                bone=bone,
+                swing_quat=swing_quat,
+                live_bone_vec=live_bone_vec,
+                live_twist_direction=None,
+            ),
+            twist_resolved_by_damped_minimal=True,
         )
 
     # Build live basis from bone direction + twist direction, then
     # compute rotation from reference basis to live basis.
     live_basis = compute_live_bone_basis(live_bone_vec, live_twist_direction)
     ref_basis = ref_geom.coordinate_frame.build_basis_matrix()
-    return compute_rotation_from_live_basis(live_basis, ref_basis)
+    return BoneOrientationSolution(
+        orientation=compute_rotation_from_live_basis(live_basis, ref_basis),
+        twist_resolved_by_damped_minimal=False,
+    )
 
 
-def _solve_damped_minimal(
+def _solve_minimal_twist(
     bone: "HumanBone",
     swing_quat: RotationQuaternion,
     live_bone_vec: NDArray[float64],
     live_twist_direction: NDArray[float64] | None,
-    previous_world_quaternion: RotationQuaternion | None,
 ) -> RotationQuaternion:
-    """Resolve twist with temporal damping toward rest twist.
+    """Resolve twist by holding the rest twist — the minimal-twist estimate.
 
-    If a live twist direction is available (e.g. from the swing-rotated
-    reference approximate axis), use it to build the live basis. Then
-    SLERP toward the previous frame's quaternion for temporal smoothing.
+    With no usable twist source, the reference approximate axis is carried into the
+    live configuration by the swing rotation. That is the "no roll beyond what the
+    swing implies" answer, and it is inherently noisy frame to frame, which is why
+    the frame-level solver runs this tier's output through the critically damped
+    filter (:mod:`skellyforge.kinematics.critically_damped_orientation`).
+
+    This function is **undamped** — damping needs elapsed time, which a per-segment
+    call does not have.
     """
     ref_geom = bone.reference_geometry
-    damping = bone.twist_policy.damping_factor
 
     if live_twist_direction is None:
-        # No twist information at all — rotate reference approximate
-        # axis by the swing to get a guess, then damp.
-        ref_approx = ref_geom.coordinate_frame.approximate_axis
-        live_twist_direction = swing_quat.rotate_vector(ref_approx)
+        live_twist_direction = swing_quat.rotate_vector(
+            ref_geom.coordinate_frame.approximate_axis
+        )
 
     live_basis = compute_live_bone_basis(live_bone_vec, live_twist_direction)
     ref_basis = ref_geom.coordinate_frame.build_basis_matrix()
-    current = compute_rotation_from_live_basis(live_basis, ref_basis)
-
-    if previous_world_quaternion is None:
-        return current
-
-    # Temporal damping: SLERP toward previous frame
-    return RotationQuaternion.slerp(previous_world_quaternion, current, 1.0 - damping)
+    return compute_rotation_from_live_basis(live_basis, ref_basis)

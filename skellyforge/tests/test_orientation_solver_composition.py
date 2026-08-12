@@ -188,6 +188,7 @@ def test_tested_segments_are_not_at_rest_orientation() -> None:
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
     for segment_name in ("hips", "spine", "chest"):
         world = quaternion_from_wxyz(result.world_quaternions[segment_name])
@@ -212,6 +213,7 @@ def test_tested_segment_rotation_axes_are_not_parallel() -> None:
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
     for parent_name, child_name in (("hips", "spine"), ("spine", "chest")):
         parent_axis = rotation_axis_of(quaternion_from_wxyz(result.world_quaternions[parent_name]))
@@ -229,6 +231,7 @@ def test_solver_reaches_every_non_leaf_segment() -> None:
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
     for segment_name in ("hips", "spine", "chest"):
         assert segment_name in result.world_quaternions
@@ -249,6 +252,7 @@ def test_local_quaternion_round_trips_to_world(parent_name: str, child_name: str
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
 
     parent_world = quaternion_from_wxyz(result.world_quaternions[parent_name])
@@ -273,6 +277,7 @@ def test_local_quaternion_equals_conjugate_parent_times_child(
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
 
     parent_world = quaternion_from_wxyz(result.world_quaternions[parent_name])
@@ -290,6 +295,7 @@ def test_root_local_equals_root_world() -> None:
     result = solve_frame_orientations(
         standard_human=build_vertical_chain_model(),
         live_joint_positions=build_differential_bend_positions(),
+        timestamp_seconds=0.0,
     )
     assert_same_rotation(
         quaternion_from_wxyz(result.local_quaternions["hips"]),
@@ -313,6 +319,7 @@ def test_rest_pose_input_yields_identity_rotations() -> None:
     result = solve_frame_orientations(
         standard_human=model,
         live_joint_positions=rest_positions,
+        timestamp_seconds=0.0,
     )
 
     for segment_name, world_wxyz in result.world_quaternions.items():

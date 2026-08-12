@@ -183,12 +183,22 @@ class TwistPolicy:
     ``None`` for FULL_FRAME and DAMPED_MINIMAL tiers.
     """
 
-    damping_factor: float = 0.95
-    """For DAMPED_MINIMAL tier: critically-damped smoothing factor
-    (0 < factor < 1). Higher = more smoothing, slower recovery.
+    twist_time_constant_seconds: float = 0.05
+    """Time constant ``tau`` of the critically damped twist filter, in
+    **seconds**. Larger means heavier smoothing and a slower approach.
 
-    Default 0.95 is appropriate for 60 Hz capture; tune if framerate
-    changes significantly.
+    Applies whenever the damped-minimal tier resolves the twist — either because
+    this policy declares it, or because a CHAIN_RESOLVED segment degraded to it
+    (twist source occluded, or the singularity gate tripped).
+
+    Expressed as a time constant rather than a per-frame blend factor so
+    behaviour is identical at any framerate: a blend factor silently means a
+    different time constant at 30, 60 and 120 fps, so a rig tuned on one machine
+    misbehaves on another.
+
+    A critically damped step response decays as ``(1 + t/tau) * exp(-t/tau)``,
+    reaching ~4% of its initial error at ``t = 5*tau`` — so the 0.05 s default
+    settles in roughly a quarter of a second.
     """
 
     def __post_init__(self) -> None:
@@ -206,9 +216,10 @@ class TwistPolicy:
                     f"CHAIN_RESOLVED tier, got tier={self.tier.value}"
                 )
 
-        if not 0.0 < self.damping_factor < 1.0:
+        if self.twist_time_constant_seconds <= 0.0:
             raise ValueError(
-                f"damping_factor must be in (0, 1), got {self.damping_factor}"
+                f"twist_time_constant_seconds must be > 0, got "
+                f"{self.twist_time_constant_seconds}"
             )
 
 

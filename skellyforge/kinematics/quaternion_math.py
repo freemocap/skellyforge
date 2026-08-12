@@ -216,6 +216,51 @@ class RotationQuaternion:
             axis = -axis
         return axis, angle
 
+    @classmethod
+    def from_rotation_vector(
+        cls, rotation_vector: NDArray[float64]
+    ) -> "RotationQuaternion":
+        """Exponential map: a rotation vector (axis x angle) to a quaternion.
+
+        The inverse of :meth:`to_rotation_vector`. The vector's magnitude is the
+        rotation angle in radians; its direction is the rotation axis.
+
+        Uses the small-angle limit near zero, where ``sin(theta/2)/theta``
+        approaches ``1/2`` but is numerically unstable evaluated directly.
+        """
+        rotation_vector = np.asarray(rotation_vector, dtype=np.float64)
+        if rotation_vector.shape != (3,):
+            raise ValueError(
+                f"Rotation vector must have shape (3,), got {rotation_vector.shape}"
+            )
+
+        angle = float(np.linalg.norm(rotation_vector))
+        if angle < 1e-12:
+            half = 0.5 * rotation_vector
+            return cls(w=1.0, x=float(half[0]), y=float(half[1]), z=float(half[2]))
+
+        axis = rotation_vector / angle
+        sin_half = float(np.sin(angle / 2.0))
+        return cls(
+            w=float(np.cos(angle / 2.0)),
+            x=float(axis[0] * sin_half),
+            y=float(axis[1] * sin_half),
+            z=float(axis[2] * sin_half),
+        )
+
+    def to_rotation_vector(self) -> NDArray[float64]:
+        """Logarithmic map: this rotation as a vector (axis x angle).
+
+        The inverse of :meth:`from_rotation_vector`. Magnitude is the angle in
+        radians, in ``[0, pi]`` — the **shortest arc**, since ``q`` and ``-q``
+        are the same rotation and :meth:`to_axis_angle` resolves the double cover.
+
+        This is the tangent-space representation orientation filters work in:
+        rotations are not a vector space, but rotation vectors are.
+        """
+        axis, angle = self.to_axis_angle()
+        return axis * angle
+
     def to_euler_xyz(self) -> tuple[float, float, float]:
         """Return ``(roll, pitch, yaw)`` in radians.
 
