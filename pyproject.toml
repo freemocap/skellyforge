@@ -38,6 +38,14 @@ dynamic = ["version"]
 [project.optional-dependencies]
 dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
 
+[tool.pytest.ini_options]
+# The engine suite runs on numpy + pydantic only — no heavy optional dependencies —
+# so it stays fast and CI-cheap. Spec:
+# freemocap/docs/streaming-compatibility/14-engine-testing-strategy.md
+testpaths = ["skellyforge/tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
+
 [tool.bumpver] #bump the version by entering `bumpver update` in the terminal
 current_version = "v2024.12.1009"
 version_pattern = "vYYYY.0M.BUILD[-TAG]"
