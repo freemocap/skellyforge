@@ -211,9 +211,9 @@ class FrameOrientationResult:
         ``{bone_name: (4,) wxyz array}`` — world-frame rotation from
         T-pose for each bone.
     local_quaternions : dict
-        ``{bone_name: (4,) wxyz array}`` — parent-relative rotation
-        (``hamilton_product(world_child, conjugate(world_parent))``).
-        The root bone's local equals its world.
+        ``{bone_name: (4,) wxyz array}`` — parent-relative rotation,
+        ``conjugate(world_parent) * world_child``. The root bone's local
+        equals its world.
     """
 
     world_quaternions: dict[str, NDArray[float64]]
@@ -361,9 +361,14 @@ def solve_frame_orientations(
                     [world.w, world.x, world.y, world.z], dtype=np.float64
                 )
             else:
-                # local = world_child * conj(world_parent)
-                parent_conj = parent_world.conjugate()
-                local = world * parent_conj
+                # A world quaternion maps segment-frame -> world, so world
+                # composition is q_child_world = q_parent_world * q_child_local.
+                # Inverting gives the parent-relative rotation:
+                #     q_child_local = conj(q_parent_world) * q_child_world
+                # Operand order is load-bearing — the reverse yields the correct
+                # angle about the wrong axis (the delta in world frame rather than
+                # relative to the parent).
+                local = parent_world.conjugate() * world
                 local_quats[bone.name] = np.array(
                     [local.w, local.x, local.y, local.z], dtype=np.float64
                 )
