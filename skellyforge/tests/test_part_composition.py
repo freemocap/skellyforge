@@ -93,3 +93,110 @@ def test_required_keypoints_are_fully_prefixed_after_composition():
     thumb = next(s for s in composed if s.name == "left_thumb_metacarpal")
     assert hand.required_keypoints() == {"left_wrist", "left_middle_finger_mcp", "left_thumb_cmc"}
     assert thumb.required_keypoints() == {"left_thumb_cmc", "left_thumb_mcp"}
+
+
+def test_midline_references_fall_back_to_unprefixed_names():
+    # The limb part's shoulder attaches to the midline `upper_chest` and its twist
+    # references the midline `neck_center`; the leg attaches to the midline `hips`.
+    # Under prefix `left_` those become `left_upper_chest` / `left_neck_center` /
+    # `left_hips`, none of which exist — name agreement resolves them back.
+    midline = SegmentPart(name="midline", segments=(
+        SegmentDefinition(
+            name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
+            origin_keypoint="hips_center", long_axis_keypoint="trunk_center",
+            twist_keypoint="right_hip",
+            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.145,
+        ),
+        SegmentDefinition(
+            name="upper_chest", parent="hips", parent_attachment=ParentAttachment.DISTAL,
+            origin_keypoint="mid_sternum", long_axis_keypoint="neck_center",
+            twist_keypoint="right_shoulder",
+            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.055,
+        ),
+    ))
+    limb = SegmentPart(name="limb", segments=(
+        SegmentDefinition(
+            name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
+            origin_keypoint="sternoclavicular", long_axis_keypoint="shoulder",
+            twist_keypoint="neck_center",
+            rest_rotation=(-math.pi / 2, 0.0, 0.0), rest_roll=0.0, length_ratio=0.103,
+        ),
+        SegmentDefinition(
+            name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
+            origin_keypoint="hip", long_axis_keypoint="knee", twist_keypoint="ankle",
+            rest_rotation=(math.pi, 0.0, 0.0), rest_roll=0.0, length_ratio=0.245,
+        ),
+    ))
+    composed = compose_parts([(midline, ""), (limb, "left_")])
+    shoulder = next(s for s in composed if s.name == "left_shoulder")
+    upper_leg = next(s for s in composed if s.name == "left_upper_leg")
+    assert shoulder.parent == "upper_chest"
+    assert shoulder.twist_keypoint == "neck_center"
+    assert upper_leg.parent == "hips"
+
+
+from skellyforge.skellymodels.standard_human.body_part import compose_body_parts
+
+
+# Hand-written deliberately: it is the independent authority the composed body
+# is checked AGAINST (Task 6 keys the tracker-mapping completeness contract on
+# this set). Deriving it from the body would make the test tautological — a
+# typo in the authored data must fail it, not reproduce in the expected set.
+BODY_KEYPOINT_SET = {
+    # midline
+    "hips_center", "trunk_center", "neck_center", "head_center", "nose",
+    "mid_sternum", "head_vertex", "right_hip", "right_shoulder",
+}
+for _side in ("left_", "right_"):
+    BODY_KEYPOINT_SET |= {
+        f"{_side}sternoclavicular", f"{_side}shoulder", f"{_side}elbow",
+        f"{_side}wrist", f"{_side}middle_finger_mcp", f"{_side}hip",
+        f"{_side}knee", f"{_side}ankle", f"{_side}foot_ball", f"{_side}heel",
+        f"{_side}big_toe", f"{_side}small_toe",
+    }
+
+
+BODY_PARENT_MAP = {
+    "hips": None,
+    "spine": "hips",
+    "chest": "spine",
+    "upper_chest": "chest",
+    "neck": "upper_chest",
+    "head": "neck",
+    "left_shoulder": "upper_chest",
+    "left_upper_arm": "left_shoulder",
+    "left_lower_arm": "left_upper_arm",
+    "left_upper_leg": "hips",
+    "left_lower_leg": "left_upper_leg",
+    "left_foot": "left_lower_leg",
+    "left_toes": "left_foot",
+    "right_shoulder": "upper_chest",
+    "right_upper_arm": "right_shoulder",
+    "right_lower_arm": "right_upper_arm",
+    "right_upper_leg": "hips",
+    "right_lower_leg": "right_upper_leg",
+    "right_foot": "right_lower_leg",
+    "right_toes": "right_foot",
+}
+
+
+def test_body_part_every_segment_reaches_the_root():
+    body = compose_body_parts()
+    assert len(body) == 20  # 6 midline + 7×2 limbs
+    assert {s.name: s.parent for s in body} == BODY_PARENT_MAP
+    for segment in body:
+        seen = set()
+        current = segment
+        while current.parent is not None:
+            assert current.name not in seen, f"cycle at {current.name}"
+            seen.add(current.name)
+            current = next(s for s in body if s.name == current.parent)
+        assert current.name == "hips", f"{segment.name} terminates at {current.name}, not hips"
+
+
+def test_body_part_declares_exactly_the_documented_keypoint_set():
+    body = compose_body_parts()
+    declared: set[str] = set()
+    for segment in body:
+        declared |= segment.required_keypoints()
+    assert declared == BODY_KEYPOINT_SET

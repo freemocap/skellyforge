@@ -55,7 +55,20 @@ def compose_parts(
     Downstream consumers — the solver, the stream schema — receive a flat indexed
     list exactly as before. They receive it from this build step instead of from a
     file, which is also where the per-frame O(n) lookups stop being O(n^2).
+
+    References resolve by **name agreement**, parents and keypoints alike. A
+    prefixed reference that does not exist falls back to its unprefixed name when
+    that name is declared (a midline segment or keypoint): ``left_shoulder`` finds
+    the midline ``upper_chest``, its twist reference finds ``neck_center``. A
+    reference whose fallback resolves to nothing is kept as authored — the
+    composed model's validators (Task 4) raise on unresolvable parents.
     """
+    midline_keypoints: set[str] = set()
+    for part, prefix in parts:
+        if prefix == "":
+            for segment in part.segments:
+                midline_keypoints |= segment.required_keypoints()
+
     composed: list[SegmentDefinition] = []
     seen: set[str] = set()
     for part, prefix in parts:
@@ -65,6 +78,42 @@ def compose_parts(
                     f"duplicate segment name {segment.name!r} after composing part "
                     f"{part.name!r} with prefix {prefix!r}"
                 )
+            if prefix:
+                segment = _resolve_midline_references(segment, midline_keypoints)
             seen.add(segment.name)
             composed.append(segment)
-    return composed
+
+    resolved: list[SegmentDefinition] = []
+    for segment in composed:
+        parent = segment.parent
+        if parent is not None and parent not in seen:
+            unprefixed = parent.split("_", 1)[1] if "_" in parent else parent
+            if unprefixed in seen:
+                parent = unprefixed
+        resolved.append(dataclasses.replace(segment, parent=parent))
+    return resolved
+
+
+def _resolve_midline_references(
+    segment: SegmentDefinition,
+    midline_keypoints: set[str],
+) -> SegmentDefinition:
+    """Fall prefixed keypoint references back to midline names where they exist.
+
+    ``left_neck_center`` does not exist — ``neck_center`` does. References that do
+    not name a midline keypoint (``left_elbow``) are left prefixed.
+    """
+    def resolved(name: str | None) -> str | None:
+        if name is None:
+            return None
+        if name in midline_keypoints:
+            return name
+        unprefixed = name.split("_", 1)[1] if "_" in name else name
+        return unprefixed if unprefixed in midline_keypoints else name
+
+    return dataclasses.replace(
+        segment,
+        origin_keypoint=resolved(segment.origin_keypoint),
+        long_axis_keypoint=resolved(segment.long_axis_keypoint),
+        twist_keypoint=resolved(segment.twist_keypoint),
+    )
