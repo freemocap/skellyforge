@@ -18,10 +18,10 @@ skellyforge/
 │   ├── segment_parts.py          # SegmentPart + compose_parts (prefixing + midline name-agreement fallback)
 │   ├── body_part.py              # BODY_MIDLINE_PART + BODY_LIMB_PART (20 segments)
 │   ├── hand_part.py              # HAND_PART (16 segments)
-│   ├── face_part.py              # FACE_PART (3 driven VRM face bones: eyes/jaw)
-│   ├── standard_human_model.py   # frozen StandardHuman + compose_standard_human() — 55 segments
+│   ├── face_part.py              # FACE_PART (8 segments: 3 VRM face bones + 5 face-detail)
+│   ├── standard_human_model.py   # frozen StandardHuman + compose_standard_human() — 60 segments
 │   ├── reference_geometry.py     # build_reference_geometry → ReferenceGeometry (T-pose, mirroring)
-│   ├── human_bone_aliases.py     # BONE_ALIASES (55: vrm + unreal targets)
+│   ├── human_bone_aliases.py     # BONE_ALIASES (60: vrm + unreal targets)
 │   └── human_blendshapes.py      # 52 ARKit BlendShapeChannel declarations
 └── kinematics/
     ├── quaternion_math.py        # RotationQuaternion (wxyz) + vectorized ops
@@ -53,6 +53,11 @@ default env either (no lint gate here yet).
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once at load.
 - The authored data carries **provenance comments** (sourced vs. estimated-with-said-so) — the honesty
   rules in `freemocap/docs/streaming-compatibility/phase-1/09-segment-model.md` §7.
-- Boundary rule: skellyforge **never imports** skellytracker or freemocap.
+- Boundary rule: skellyforge **never imports** skellytracker or freemocap — with one sanctioned
+  exception. `skellymodels/standard_human/tracker_contract.py` imports skellytracker's `core.io`
+  mapping machinery (mapping-path registry + `TrackerMapping` — base install only, no detector or
+  onnxruntime/mediapipe extras) to validate the tracker→standard-human completeness contract at load
+  time. The boundary deliberately leaks in exactly that one module; nothing else in skellyforge may
+  import skellytracker, and `skellyforge/__init__.py` must NOT import `tracker_contract`.
 - Vocabulary: **keypoint / segment** only. "Landmark" and "canonical" are retired (MediaPipe's own
   `PoseLandmarker`-style product names are the only exception).

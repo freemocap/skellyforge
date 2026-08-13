@@ -227,10 +227,14 @@ def test_hand_composes_onto_the_body_by_name_agreement():
     assert left_hand.twist_keypoint == "left_thumb_cmc"
 
 
-def test_face_part_declares_three_driven_face_bones():
-    # The three VRM 1.0 face bones are driven segments (eyes/jaw branch from
-    # the head's ORIGIN), fully inside required_keypoints() like any other.
-    assert {s.name for s in FACE_PART.segments} == {"left_eye", "right_eye", "jaw"}
+def test_face_part_declares_eight_face_segments():
+    # The three VRM 1.0 face bones (eyes/jaw) plus the five FreeMoCap
+    # face-detail segments (nose/ears/mouth corners) — all driven segments
+    # branching from the head's ORIGIN, fully inside required_keypoints().
+    assert {s.name for s in FACE_PART.segments} == {
+        "left_eye", "right_eye", "jaw",
+        "nose", "left_ear", "right_ear", "left_mouth", "right_mouth",
+    }
     for segment in FACE_PART.segments:
         assert segment.parent == "head"
         assert segment.parent_attachment == ParentAttachment.ORIGIN

@@ -66,6 +66,28 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
         "vrm": "jaw",
         "unreal": None,  # no standard UE mannequin jaw bone
     },
+    # FreeMoCap face-detail segments — no VRM 1.0 humanoid or UE mannequin
+    # equivalent; both targets resolve to None so adapters omit them.
+    "nose": {
+        "vrm": None,
+        "unreal": None,
+    },
+    "left_ear": {
+        "vrm": None,
+        "unreal": None,
+    },
+    "right_ear": {
+        "vrm": None,
+        "unreal": None,
+    },
+    "left_mouth": {
+        "vrm": None,
+        "unreal": None,
+    },
+    "right_mouth": {
+        "vrm": None,
+        "unreal": None,
+    },
 
     # ── Left arm ───────────────────────────────────────────────────
     "left_shoulder": {

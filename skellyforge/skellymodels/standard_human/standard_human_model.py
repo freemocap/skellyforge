@@ -1,6 +1,6 @@
 """Standard human model — the canonical VRM-1.0-aligned humanoid, composed.
 
-A frozen dataclass holding the composed 55-segment human: parts authored once
+A frozen dataclass holding the composed 60-segment human: parts authored once
 (body midline, body limb, hand ×2, face), expanded into one flat indexed
 segment list at load, with dict-backed name→segment and parent→children
 indices built once (the per-frame O(n) scans of the old model are gone).
@@ -127,7 +127,7 @@ class StandardHuman:
         """Every keypoint the segments need (Task 6's contract set).
 
         Every segment is driven and enters its keypoints here; the union over
-        all 55 segments is what a tracker must be able to supply.
+        all 60 segments is what a tracker must be able to supply.
         """
         required: set[str] = set()
         for s in self._segments:
@@ -136,7 +136,7 @@ class StandardHuman:
 
 
 def compose_standard_human(name: str = "standard_human") -> StandardHuman:
-    """The standard 55-segment human: body + both hands + the face."""
+    """The standard 60-segment human: body + both hands + the face (3 VRM bones + 5 face detail)."""
     return StandardHuman(
         name=name,
         parts=(

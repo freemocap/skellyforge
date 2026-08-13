@@ -42,6 +42,14 @@ def _bent_keypoints(reference, *, straight_arms=True):
     # long-axis solves have an endpoint; it is yawed below like head_vertex.
     if "head_center" in keypoints:
         keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
+    # the face-detail segments' long-axis keypoints (ears, mouth corners) have
+    # no schematic rest position either — a live pose supplies them, placed so
+    # each segment's origin→long-axis direction is non-degenerate this frame.
+    if "head_center" in keypoints:
+        keypoints["left_ear"] = keypoints["head_center"] + np.array([0.0, 40.0, 30.0])
+        keypoints["right_ear"] = keypoints["head_center"] + np.array([0.0, -40.0, 30.0])
+        keypoints["left_mouth"] = keypoints["head_center"] + np.array([30.0, 20.0, -20.0])
+        keypoints["right_mouth"] = keypoints["head_center"] + np.array([30.0, -20.0, -20.0])
     # head yaw: nose + head_vertex rotate ~20° about Z around head_center
     if "head_center" in keypoints and "nose" in keypoints:
         origin = keypoints["head_center"]
@@ -70,13 +78,13 @@ def test_every_segment_produces_an_orientation(rig):
     human, reference = rig
     keypoints = _bent_keypoints(reference)
     # The nose rest position is off-chain (no segment placed it) — the fixture
-    # supplies it so the face bones (left_eye/right_eye/jaw) have a long-axis
-    # endpoint to solve against this frame.
+    # supplies it so the face bones (left_eye/right_eye/jaw) and the face-detail
+    # segments have a long-axis endpoint to solve against this frame.
     keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
     result = solve_frame_orientations(
         human, reference.segments, keypoints, timestamp_seconds=1.0
     )
-    assert set(result.world_quaternions) == set(human.segment_names)  # 55 of 55
+    assert set(result.world_quaternions) == set(human.segment_names)  # 60 of 60
 
 
 def test_leaf_segments_are_solvable(rig):

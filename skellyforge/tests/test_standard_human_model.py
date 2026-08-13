@@ -1,4 +1,4 @@
-"""The composed StandardHuman: 55 segments, validators, the driven contract."""
+"""The composed StandardHuman: 60 segments, validators, the driven contract."""
 
 import pytest
 
@@ -14,9 +14,9 @@ from skellyforge.skellymodels.standard_human.standard_human_model import (
 )
 
 
-def test_composed_human_has_55_segments_matching_bone_aliases():
+def test_composed_human_has_60_segments_matching_bone_aliases():
     human = compose_standard_human()
-    assert len(human.segments) == 55
+    assert len(human.segments) == 60
     assert set(human.segment_names) == set(BONE_ALIASES.keys())
 
 
@@ -24,7 +24,9 @@ def test_required_keypoints_include_the_face_bones():
     human = compose_standard_human()
     required = human.required_keypoints()
     assert {"left_eye", "right_eye", "jaw", "nose"} <= required
+    assert {"left_ear", "right_ear", "left_mouth", "right_mouth"} <= required
     assert "left_wrist" in required  # driven: lower_arm/hand
+    assert len(required) == 76
 
 
 def test_two_roots_raise():

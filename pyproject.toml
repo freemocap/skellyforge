@@ -29,14 +29,26 @@ dependencies = [
     "pyyaml>=6.0",
     "pyarrow>=21.0.0",
     "pydantic>=2.13.4",
+    # ── The one sanctioned lateral import ─────────────────────────────────────
+    # skellytracker, BASE package only (no detector extras — no onnxruntime /
+    # mediapipe / torch), is imported for the tracker→standard-human mapping
+    # contract: the model validates the mappings at load time instead of
+    # duplicating the mapping machinery or shipping a stale golden fixture.
+    # The sub-skelly boundary is deliberately leaky here — the slop of
+    # maintaining the alternative is worse than the leak. skellytracker's
+    # extras-based design is what keeps this import lightweight.
+    "skellytracker",
 ]
 
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.13"
 
 dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+
+[tool.uv.sources]
+skellytracker = { git = "https://github.com/freemocap/skellytracker", branch = "development-streaming" }
 
 [tool.pytest.ini_options]
 # The engine suite runs on numpy + pydantic only — no heavy optional dependencies —

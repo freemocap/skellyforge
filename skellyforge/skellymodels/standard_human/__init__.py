@@ -1,6 +1,6 @@
 """Standard human model — VRM-1.0-aligned humanoid skeleton.
 
-The canonical human model is the composed 55-segment human: segments authored
+The canonical human model is the composed 60-segment human: segments authored
 once and expanded into a flat indexed list, with the T-pose reference geometry
 built against it. Aliases (for VRM/VMC wire names, Unreal bone names, etc.)
 live in ``human_bone_aliases.py`` — segments don't carry serialization
@@ -11,7 +11,7 @@ Package structure:
     segment_parts.py        — SegmentPart, compose_parts
     body_part.py            — BODY_MIDLINE_PART, BODY_LIMB_PART
     hand_part.py            — HAND_PART
-    face_part.py            — FACE_PART (driven VRM 1.0 face bones)
+    face_part.py            — FACE_PART (3 driven VRM 1.0 face bones + 5 FreeMoCap face-detail segments)
     reference_geometry.py   — ReferenceGeometry, SegmentReferenceGeometry
     human_bone_aliases.py   — BONE_ALIASES table + resolve_alias()
     human_blendshapes.py    — 52 ARKit blendshape channel declarations
