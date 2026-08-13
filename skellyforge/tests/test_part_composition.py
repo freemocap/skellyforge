@@ -200,3 +200,37 @@ def test_body_part_declares_exactly_the_documented_keypoint_set():
     for segment in body:
         declared |= segment.required_keypoints()
     assert declared == BODY_KEYPOINT_SET
+
+
+from skellyforge.skellymodels.standard_human.body_part import BODY_LIMB_PART, BODY_MIDLINE_PART
+from skellyforge.skellymodels.standard_human.face_part import FACE_PART
+from skellyforge.skellymodels.standard_human.hand_part import HAND_PART
+
+
+def test_hand_part_has_sixteen_segments():
+    assert len(HAND_PART.segments) == 16
+
+
+def test_hand_composes_onto_the_body_by_name_agreement():
+    composed = compose_parts([
+        (BODY_MIDLINE_PART, ""),
+        (BODY_LIMB_PART, "left_"),
+        (BODY_LIMB_PART, "right_"),
+        (HAND_PART, "left_"),
+        (HAND_PART, "right_"),
+    ])
+    assert len(composed) == 52  # 20 body + 2×16 hand
+    left_hand = next(s for s in composed if s.name == "left_hand")
+    assert left_hand.parent == "left_lower_arm"
+    assert any(s.name == "left_lower_arm" for s in composed)
+    assert left_hand.origin_keypoint == "left_wrist"
+    assert left_hand.twist_keypoint == "left_thumb_cmc"
+
+
+def test_face_part_declares_three_driven_face_bones():
+    # The three VRM 1.0 face bones are driven segments (eyes/jaw branch from
+    # the head's ORIGIN), fully inside required_keypoints() like any other.
+    assert {s.name for s in FACE_PART.segments} == {"left_eye", "right_eye", "jaw"}
+    for segment in FACE_PART.segments:
+        assert segment.parent == "head"
+        assert segment.parent_attachment == ParentAttachment.ORIGIN

@@ -41,8 +41,8 @@ from skellyforge.kinematics.quaternion_math import (
 
 if TYPE_CHECKING:
     from numpy import float64
-    from skellyforge.skellymodels.standard_human.human_bones import (
-        BoneReferenceGeometry,
+    from skellyforge.skellymodels.standard_human.reference_geometry import (
+        SegmentReferenceGeometry,
     )
 
 
@@ -183,7 +183,7 @@ def compute_keypoint_world_positions(
     ----------
     local_positions : (M, 3)
         Keypoint positions in the body-local frame (e.g. from
-        ``BoneReferenceGeometry`` at T-pose).
+        ``SegmentReferenceGeometry`` at T-pose).
     quaternions : (N, 4)
         Body orientation at each frame.
     origin_positions : (N, 3)
@@ -236,7 +236,7 @@ class RigidBodyKinematics:
         World-frame position of the body origin at each frame (mm).
     quaternions_wxyz : (N, 4) float64
         Orientation at each frame as [w, x, y, z].
-    reference_geometry : BoneReferenceGeometry or None
+    reference_geometry : SegmentReferenceGeometry or None
         Optional T-pose reference geometry. When provided, enables
         ``keypoint_world_positions`` (propagating the reference
         keypoints to world frame at each frame).
@@ -246,7 +246,7 @@ class RigidBodyKinematics:
     timestamps: NDArray[float64]
     position_xyz: NDArray[float64]
     quaternions_wxyz: NDArray[float64]
-    reference_geometry: "BoneReferenceGeometry | None" = None
+    reference_geometry: "SegmentReferenceGeometry | None" = None
 
     def __post_init__(self) -> None:
         """Validate shapes and normalize quaternions on construction."""
@@ -449,7 +449,7 @@ class RigidBodyKinematics:
         timestamps: NDArray[float64],
         position_xyz: NDArray[float64],
         quaternions_wxyz: NDArray[float64],
-        reference_geometry: "BoneReferenceGeometry | None" = None,
+        reference_geometry: "SegmentReferenceGeometry | None" = None,
     ) -> "RigidBodyKinematics":
         """Construct from raw pose arrays (auto-normalizes quaternions).
 
@@ -460,7 +460,7 @@ class RigidBodyKinematics:
         position_xyz : (N, 3)
         quaternions_wxyz : (N, 4)
             May be un-normalized; normalized on construction.
-        reference_geometry : BoneReferenceGeometry or None
+        reference_geometry : SegmentReferenceGeometry or None
         """
         return cls(
             name=name,

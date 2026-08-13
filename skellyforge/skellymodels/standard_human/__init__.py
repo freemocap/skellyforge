@@ -1,16 +1,21 @@
 """Standard human model — VRM-1.0-aligned humanoid skeleton.
 
-The canonical human model defines every bone in the skeleton with its
-T-pose reference geometry, coordinate frame, and twist resolution policy.
-Aliases (for VRM/VMC wire names, Unreal bone names, etc.) live in
-``human_bone_aliases.py`` — bones don't carry serialization knowledge.
+The canonical human model is the composed 55-segment human: segments authored
+once and expanded into a flat indexed list, with the T-pose reference geometry
+built against it. Aliases (for VRM/VMC wire names, Unreal bone names, etc.)
+live in ``human_bone_aliases.py`` — segments don't carry serialization
+knowledge.
 
 Package structure:
-    human_bones.py           — HumanBone, BoneReferenceGeometry,
-                               CoordinateFrameDefinition, TwistPolicy
-    human_bone_aliases.py    — BONE_ALIASES table + resolve_alias()
-    human_blendshapes.py     — 52 ARKit blendshape channel declarations
-    standard_human_model.py  — StandardHuman model (Pydantic, loaded once)
+    segment_definition.py   — SegmentDefinition (frozen; origin/long/twist)
+    segment_parts.py        — SegmentPart, compose_parts
+    body_part.py            — BODY_MIDLINE_PART, BODY_LIMB_PART
+    hand_part.py            — HAND_PART
+    face_part.py            — FACE_PART (driven VRM 1.0 face bones)
+    reference_geometry.py   — ReferenceGeometry, SegmentReferenceGeometry
+    human_bone_aliases.py   — BONE_ALIASES table + resolve_alias()
+    human_blendshapes.py    — 52 ARKit blendshape channel declarations
+    standard_human_model.py — StandardHuman (composed) + compose_standard_human
 """
 
 from skellyforge.skellymodels.standard_human.human_bone_aliases import (
@@ -24,25 +29,37 @@ from skellyforge.skellymodels.standard_human.human_blendshapes import (
     get_blendshape_count,
     get_blendshape_names,
 )
-from skellyforge.skellymodels.standard_human.human_bones import (
-    BoneReferenceGeometry,
-    CoordinateFrameDefinition,
-    HumanBone,
-    TwistPolicy,
-    TwistTier,
+from skellyforge.skellymodels.standard_human.reference_geometry import (
+    ReferenceGeometry,
+    SegmentReferenceGeometry,
+    build_reference_geometry,
 )
 from skellyforge.skellymodels.standard_human.standard_human_model import (
     StandardHuman,
+    compose_standard_human,
+)
+from skellyforge.skellymodels.standard_human.segment_definition import (
+    ParentAttachment,
+    RotationLimits,
+    SegmentDefinition,
+)
+from skellyforge.skellymodels.standard_human.segment_parts import (
+    SegmentPart,
+    compose_parts,
 )
 
 __all__ = [
-    "HumanBone",
-    "BoneReferenceGeometry",
-    "CoordinateFrameDefinition",
-    "TwistPolicy",
-    "TwistTier",
-    "BlendShapeChannel",
+    "SegmentDefinition",
+    "SegmentPart",
+    "ParentAttachment",
+    "RotationLimits",
+    "compose_parts",
     "StandardHuman",
+    "compose_standard_human",
+    "ReferenceGeometry",
+    "SegmentReferenceGeometry",
+    "build_reference_geometry",
+    "BlendShapeChannel",
     "BONE_ALIASES",
     "resolve_alias",
     "resolve_all_aliases",

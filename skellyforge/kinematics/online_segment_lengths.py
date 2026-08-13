@@ -1,16 +1,16 @@
-"""Rolling-window median bone-length estimation for the realtime rigidifier.
+"""Rolling-window median segment-length estimation, realtime and posthoc.
 
-Each bone keeps a time-windowed buffer of its measured lengths (the last
-``window_s`` seconds) and reports their **median** — the realtime analogue
-of the posthoc pipeline's per-bone median over the whole recording. Until a
-bone has any samples in its window (start-up, or a bone that has been out
-of view longer than the window), it reports its anthropometric seed
-(ratio × height) so the rigidifier always has a length to enforce.
+The ONE length estimator both pipelines use: per-segment median of the
+origin→long-axis distance, NaN-excluded. The only difference is the window —
+a rolling duration for streaming, ``None`` (unbounded) for posthoc, which is
+not degraded to match realtime.
 
-A plain rolling median — no trust region, no agreement gating, no error
+Keyed by **segment name**: length is a property of a segment, so the
+``"parent->child"`` arrow key and its ``split("->")`` parsing are gone. A
+plain rolling median — no trust region, no agreement gating, no error
 weighting, no age decay. The median is inherently robust to the occasional
 mis-triangulated frame, and lengths are measured only from really-observed
-(non-extrapolated) endpoints, so a hidden limb contributes nothing.
+(non-extrapolated) keypoints, so a hidden limb contributes nothing.
 """
 
 from __future__ import annotations
@@ -22,66 +22,70 @@ import numpy as np
 
 
 @dataclass
-class RollingBoneLengths:
-    """Per-bone rolling-window median length estimator.
+class SegmentLengthEstimator:
+    """Per-segment rolling-window median length estimator.
 
-    ``update`` is called once per frame with the current canonical-named 3D
-    positions of **real** (measured, not extrapolated) keypoints; ``lengths``
-    returns the current median length estimate per bone for the rigidifier.
+    ``update`` is called once per frame with the current named keypoint
+    positions; ``lengths`` returns the current median length estimate (mm)
+    per segment.
 
     Parameters
     ----------
-    bone_seeds : dict[str, float]
-        ``"parent->child" → seed length (mm)`` (ratio × height). Defines
-        which bones are tracked and the fallback length used while a bone's
-        window is empty.
-    window_s : float
-        Rolling-window duration (seconds). A measurement is dropped once it
-        is older than ``window_s`` relative to the most recent ``update``
-        timestamp.
+    segment_endpoints : dict[str, tuple[str, str]]
+        ``segment_name → (origin_keypoint, long_axis_keypoint)``. Defines
+        which segments are tracked.
+    segment_seeds : dict[str, float]
+        ``segment_name → seed length (mm)`` (anthropometric ratio × height) —
+        the fallback while a segment's window is empty.
+    window_seconds : float | None
+        Rolling-window duration in seconds; ``None`` = unbounded (posthoc).
+        A measurement is dropped once it is strictly older than
+        ``window_seconds`` relative to the most recent ``update`` timestamp;
+        with ``None`` nothing is ever evicted — the window is the whole
+        recording.
     """
 
-    bone_seeds: dict[str, float]
-    window_s: float
+    segment_endpoints: dict[str, tuple[str, str]]
+    segment_seeds: dict[str, float]
+    window_seconds: float | None
 
-    _endpoints: dict[str, tuple[str, str]] = field(
-        default_factory=dict, init=False, repr=False
-    )
     _windows: dict[str, deque[tuple[float, float]]] = field(
         default_factory=dict, init=False, repr=False
     )
 
     def __post_init__(self) -> None:
-        for bone_key in self.bone_seeds:
-            parent, child = bone_key.split("->", 1)
-            self._endpoints[bone_key] = (parent, child)
-            self._windows[bone_key] = deque()
+        if set(self.segment_endpoints) != set(self.segment_seeds):
+            raise ValueError(
+                "segment_endpoints and segment_seeds must name the same segments"
+            )
+        self._windows = {name: deque() for name in self.segment_endpoints}
 
     @property
     def endpoints(self) -> dict[str, tuple[str, str]]:
-        """``"parent->child" → (parent, child)`` for every tracked bone."""
-        return dict(self._endpoints)
+        """``segment_name → (origin_keypoint, long_axis_keypoint)``."""
+        return dict(self.segment_endpoints)
 
     @property
     def seeds(self) -> dict[str, float]:
-        """Anthropometric seed (mm) per bone — the empty-window fallback."""
-        return dict(self.bone_seeds)
+        """Anthropometric seed (mm) per segment — the empty-window fallback."""
+        return dict(self.segment_seeds)
 
     def update(
         self, positions: dict[str, np.ndarray], *, t: float
     ) -> None:
-        """Append this frame's per-bone length measurements, then age windows.
+        """Append this frame's per-segment length measurements, then age windows.
 
-        A bone is measured only when both endpoints are present. Every
-        window — measured this frame or not — drops samples older than
-        ``window_s`` so a bone that leaves view eventually falls back to
-        its seed.
+        A segment is measured only when both of its keypoints are present.
+        Every window — measured this frame or not — drops samples strictly
+        older than ``window_seconds`` so a segment that leaves view eventually
+        falls back to its seed. With ``window_seconds=None`` nothing is
+        dropped.
         """
-        cutoff = t - self.window_s
-        for bone_key, (parent, child) in self._endpoints.items():
-            window = self._windows[bone_key]
-            p = positions.get(parent)
-            c = positions.get(child)
+        cutoff = None if self.window_seconds is None else t - self.window_seconds
+        for segment_name, (origin_kp, long_kp) in self.segment_endpoints.items():
+            window = self._windows[segment_name]
+            p = positions.get(origin_kp)
+            c = positions.get(long_kp)
             if p is not None and c is not None:
                 length = float(
                     np.linalg.norm(
@@ -91,23 +95,24 @@ class RollingBoneLengths:
                 )
                 if np.isfinite(length) and length > 0.0:
                     window.append((t, length))
-            while window and window[0][0] < cutoff:
-                window.popleft()
+            if cutoff is not None:
+                while window and window[0][0] < cutoff:
+                    window.popleft()
 
     @property
     def lengths(self) -> dict[str, float]:
-        """Current median length estimate (mm) per bone.
+        """Current median length estimate (mm) per segment.
 
-        Returns the seed for any bone whose window is empty.
+        Returns the seed for any segment whose window is empty.
         """
         out: dict[str, float] = {}
-        for bone_key, window in self._windows.items():
+        for segment_name, window in self._windows.items():
             if window:
-                out[bone_key] = float(
+                out[segment_name] = float(
                     np.median([length for _, length in window])
                 )
             else:
-                out[bone_key] = self.bone_seeds[bone_key]
+                out[segment_name] = self.segment_seeds[segment_name]
         return out
 
     def reset(self) -> None:

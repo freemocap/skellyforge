@@ -1,12 +1,12 @@
 """Runtime coordinate-frame construction from live landmark positions.
 
-Where ``human_bones.CoordinateFrameDefinition`` stores the **static**
+Where ``reference_geometry.SegmentReferenceGeometry`` stores the **static**
 T-pose frame (exact axis + approximate axis), this module provides the
 **dynamic** operations that build frames from live data and compute the
 rotations that relate them to the reference.
 
-Used by the orientation solver (SF-SH-4) to produce per-bone quaternions
-from the live skeleton vs the ``BoneReferenceGeometry`` in the standard
+Used by the orientation solver (SF-SH-4) to produce per-segment quaternions
+from the live skeleton vs the ``SegmentReferenceGeometry`` in the standard
 human model.
 
 Operations
@@ -46,9 +46,6 @@ from skellyforge.kinematics.quaternion_math import (
 
 if TYPE_CHECKING:
     from numpy import float64
-    from skellyforge.skellymodels.standard_human.human_bones import (
-        BoneReferenceGeometry,
-    )
 
 
 # ── Basis construction ───────────────────────────────────────────────

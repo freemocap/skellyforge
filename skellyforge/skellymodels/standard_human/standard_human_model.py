@@ -1,323 +1,150 @@
-"""Standard human model — the canonical VRM-1.0-aligned humanoid.
+"""Standard human model — the canonical VRM-1.0-aligned humanoid, composed.
 
-Pydantic ``BaseModel`` holding the full skeleton definition: every bone
-with its reference geometry, the joint hierarchy, T-pose marker positions,
-and blendshape channel declarations. Loaded once at startup, validated,
-then consumed by the orientation solver and streaming schema builder.
+A frozen dataclass holding the composed 55-segment human: parts authored once
+(body midline, body limb, hand ×2, face), expanded into one flat indexed
+segment list at load, with dict-backed name→segment and parent→children
+indices built once (the per-frame O(n) scans of the old model are gone).
 
-The model is a pure data description — it carries no runtime state, no
-per-frame data, and no tracker knowledge (that's SkellyTracker's domain).
+One model describes ONE human (SF-AL A5); multi-subject is a list of models.
 """
 
-from typing import Any
+from __future__ import annotations
 
-import numpy as np
-from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict, model_validator
+from dataclasses import dataclass, field
 
-from skellyforge.skellymodels.standard_human.human_bones import (
-    BoneReferenceGeometry,
-    CoordinateFrameDefinition,
-    HumanBone,
-    TwistPolicy,
-    TwistTier,
+from skellyforge.skellymodels.standard_human.body_part import (
+    BODY_LIMB_PART,
+    BODY_MIDLINE_PART,
 )
+from skellyforge.skellymodels.standard_human.face_part import FACE_PART
+from skellyforge.skellymodels.standard_human.hand_part import HAND_PART
 from skellyforge.skellymodels.standard_human.human_blendshapes import (
-    BlendShapeChannel,
     get_blendshape_names,
 )
+from skellyforge.skellymodels.standard_human.segment_definition import (
+    SegmentDefinition,
+)
+from skellyforge.skellymodels.standard_human.segment_parts import (
+    SegmentPart,
+    compose_parts,
+)
 
 
-class StandardHuman(BaseModel):
-    """The canonical humanoid skeleton.
-
-    A validated, self-consistent definition of every bone in a
-    VRM-1.0-aligned humanoid at T-pose. This is the single source of
-    truth that the orientation solver compares live landmarks against
-    and that the streaming schema enumerates.
-
-    Bones subsume the old ``segment_connections`` concept — every bone
-    carries its proximal/distal joint centers and coordinate frame
-    as part of its ``BoneReferenceGeometry``.
-    """
-
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,  # numpy arrays in HumanBone fields
-        frozen=False,  # mutable for now — may freeze once stable
-    )
+@dataclass(frozen=True)
+class StandardHuman:
+    """The canonical humanoid: one human, composed from parts."""
 
     name: str
-    """Identifier for this model (e.g. ``"standard_human_v1"``)."""
+    parts: tuple[tuple[SegmentPart, str], ...]
+    blendshape_channels: tuple[str, ...] = field(
+        default_factory=lambda: tuple(get_blendshape_names())
+    )
 
-    bones: list[HumanBone]
-    """All bones in hierarchy order (root first)."""
+    _segments: tuple[SegmentDefinition, ...] = field(init=False, repr=False)
+    _segment_by_name: dict[str, SegmentDefinition] = field(init=False, repr=False)
+    _children_by_parent: dict[str, tuple[str, ...]] = field(init=False, repr=False)
 
-    blendshape_channels: list[str]
-    """ARKit blendshape channel names (always 52)."""
+    def __post_init__(self) -> None:
+        segments = tuple(compose_parts(self.parts))
+        by_name = {s.name: s for s in segments}
 
-    subject_height_mm: float = 1700.0
-    """Nominal subject height in millimeters, used to scale bone lengths
-    from anthropometric ratios when T-pose positions are auto-generated.
-    Override for subject-specific models.
-    """
-
-    # ── Validation ─────────────────────────────────────────────────
-
-    @model_validator(mode="after")
-    def validate_bone_hierarchy_is_a_tree(self) -> "StandardHuman":
-        """Ensure bones form a single-rooted tree with no orphans."""
-        bone_names = {b.name for b in self.bones}
-
-        if len(bone_names) != len(self.bones):
+        roots = [s for s in segments if s.parent is None]
+        if len(roots) != 1:
             raise ValueError(
-                f"Duplicate bone names detected. "
-                f"Unique names: {len(bone_names)}, bones: {len(self.bones)}"
+                f"standard human {self.name!r} must have exactly one root segment "
+                f"(parent is None), got {len(roots)}"
             )
 
-        # Every parent reference must point to an existing bone
-        root_count = 0
-        for bone in self.bones:
-            if bone.parent is None:
-                root_count += 1
-            elif bone.parent not in bone_names:
+        for s in segments:
+            if s.parent is not None and s.parent not in by_name:
                 raise ValueError(
-                    f"Bone '{bone.name}' references parent "
-                    f"'{bone.parent}' which is not in the bone list"
+                    f"segment {s.name!r} references parent {s.parent!r}, "
+                    f"which is not in the composed human"
                 )
 
-        if root_count != 1:
-            raise ValueError(
-                f"Skeleton must have exactly one root bone (parent=None), "
-                f"got {root_count}"
-            )
-
-        # No cycles (follow parent chain from each bone to root)
-        for bone in self.bones:
+        # no cycles: every parent chain terminates at the root
+        for s in segments:
             visited: set[str] = set()
-            current = bone.name
+            current: SegmentDefinition | None = s
             while current is not None:
-                if current in visited:
+                if current.name in visited:
                     raise ValueError(
-                        f"Cycle detected in bone hierarchy at '{current}'"
+                        f"cycle detected in segment hierarchy at {current.name!r}"
                     )
-                visited.add(current)
-                parent_bone = self._get_bone_by_name(current)
-                if parent_bone is None:
-                    break
-                current = parent_bone.parent
+                visited.add(current.name)
+                current = by_name[current.parent] if current.parent is not None else None
 
-        return self
+        children: dict[str, tuple[str, ...]] = {name: () for name in by_name}
+        for s in segments:
+            if s.parent is not None:
+                children[s.parent] = (*children[s.parent], s.name)
 
-    @model_validator(mode="after")
-    def validate_twist_sources_exist(self) -> "StandardHuman":
-        """Ensure CHAIN_RESOLVED twist sources reference real bones."""
-        bone_names = {b.name for b in self.bones}
-
-        for bone in self.bones:
-            if bone.twist_policy.tier == TwistTier.CHAIN_RESOLVED:
-                source = bone.twist_policy.twist_source_bone
-                if source is None:
-                    raise ValueError(
-                        f"Bone '{bone.name}' has CHAIN_RESOLVED twist tier "
-                        f"but twist_source_bone is None"
-                    )
-                if source not in bone_names:
-                    raise ValueError(
-                        f"Bone '{bone.name}' references twist source "
-                        f"'{source}' which is not in the bone list"
-                    )
-
-        return self
-
-    @model_validator(mode="after")
-    def validate_required_bones_present(self) -> "StandardHuman":
-        """Ensure all required VRM bones are present."""
-        bone_names = {b.name for b in self.bones}
-        required = {b.name for b in self.bones if b.required}
-
-        missing_required = required - bone_names
-        if missing_required:
-            raise ValueError(
-                f"Required bones missing from model: "
-                f"{sorted(missing_required)}"
-            )
-        # This should never trigger (we just built bone_names from the
-        # bones list), but kept as a structural check for subclasses or
-        # partial models.
-
-        return self
-
-    # ── Accessors ──────────────────────────────────────────────────
-
-    def _get_bone_by_name(self, name: str) -> HumanBone | None:
-        """Look up a bone by canonical name."""
-        for bone in self.bones:
-            if bone.name == name:
-                return bone
-        return None
+        object.__setattr__(self, "_segments", segments)
+        object.__setattr__(self, "_segment_by_name", by_name)
+        object.__setattr__(self, "_children_by_parent", children)
 
     @property
-    def bone_names(self) -> list[str]:
-        """Canonical bone names in declaration order."""
-        return [b.name for b in self.bones]
+    def segments(self) -> tuple[SegmentDefinition, ...]:
+        """All segments in hierarchy order (authoring order)."""
+        return self._segments
+
+    @property
+    def segment_names(self) -> list[str]:
+        return [s.name for s in self._segments]
+
+    @property
+    def segment_parents(self) -> dict[str, str | None]:
+        return {s.name: s.parent for s in self._segments}
 
     @property
     def joint_hierarchy(self) -> dict[str, list[str]]:
-        """Parent → children mapping for the skeleton tree."""
-        hierarchy: dict[str, list[str]] = {}
-        for bone in self.bones:
-            parent_key = bone.parent if bone.parent is not None else "__root__"
-            hierarchy.setdefault(parent_key, []).append(bone.name)
-        return hierarchy
+        """Parent → children over segments."""
+        return {p: list(c) for p, c in self._children_by_parent.items()}
 
     @property
-    def root_bone(self) -> HumanBone:
-        """The single root bone (parent is None)."""
-        for bone in self.bones:
-            if bone.parent is None:
-                return bone
-        raise ValueError("No root bone found — skeleton is invalid")
+    def root_segment(self) -> SegmentDefinition:
+        return self._segments[0]  # authoring order puts the root first
 
-    @property
-    def t_pose_markers(self) -> dict[str, NDArray[np.float64]]:
-        """T-pose joint center positions for every bone.
-
-        Keyed by bone name. Each value is the proximal joint center
-        (i.e. the origin of the bone in the skeleton).
-        """
-        return {
-            bone.name: bone.reference_geometry.proximal_joint_center.copy()
-            for bone in self.bones
-        }
-
-    def get_children(self, bone_name: str) -> list[HumanBone]:
-        """Return the child bones of the named bone."""
+    def get_children(self, segment_name: str) -> list[SegmentDefinition]:
         return [
-            b for b in self.bones
-            if b.parent == bone_name
+            self._segment_by_name[n]
+            for n in self._children_by_parent.get(segment_name, ())
         ]
 
-    def get_bone_chain(
-        self, bone_name: str
-    ) -> list[HumanBone]:
-        """Return the chain from root to the named bone (inclusive)."""
-        chain: list[HumanBone] = []
-        current = self._get_bone_by_name(bone_name)
-        while current is not None:
+    def get_segment_chain(self, segment_name: str) -> list[SegmentDefinition]:
+        """The chain from the root to the named segment (inclusive)."""
+        chain: list[SegmentDefinition] = []
+        current = self._segment_by_name[segment_name]
+        while True:
             chain.append(current)
-            current = (
-                self._get_bone_by_name(current.parent)
-                if current.parent is not None
-                else None
-            )
+            if current.parent is None:
+                break
+            current = self._segment_by_name[current.parent]
         chain.reverse()
         return chain
 
-    # ── Construction ───────────────────────────────────────────────
+    def required_keypoints(self) -> set[str]:
+        """Every keypoint the segments need (Task 6's contract set).
 
-    @classmethod
-    def from_bone_definitions(
-        cls,
-        name: str,
-        bone_defs: list[dict[str, Any]],
-        subject_height_mm: float = 1700.0,
-    ) -> "StandardHuman":
-        """Build from a list of bone definition dicts.
-
-        Each dict must contain the fields needed to construct a
-        ``HumanBone``: ``name``, ``parent``, ``required``,
-        ``proximal_joint``, ``distal_joint``, ``exact_axis``,
-        ``approximate_axis``, ``twist_tier``, and optionally
-        ``twist_source_bone`` and ``twist_time_constant_seconds``.
-
-        This is the primary construction path — bone definitions
-        typically come from a YAML config or a programmatic builder.
+        Every segment is driven and enters its keypoints here; the union over
+        all 55 segments is what a tracker must be able to supply.
         """
-        bones: list[HumanBone] = []
-        for bd in bone_defs:
-            proximal = np.array(bd["proximal_joint"], dtype=np.float64)
-            distal = np.array(bd["distal_joint"], dtype=np.float64)
-            exact = np.array(bd["exact_axis"], dtype=np.float64)
-            approx = np.array(bd["approximate_axis"], dtype=np.float64)
-
-            ref_geom = BoneReferenceGeometry(
-                proximal_joint_center=proximal,
-                distal_joint_center=distal,
-                coordinate_frame=CoordinateFrameDefinition(
-                    exact_axis=exact,
-                    approximate_axis=approx,
-                ),
-            )
-
-            twist_tier = TwistTier(bd["twist_tier"])
-            twist_policy_fields: dict[str, Any] = {
-                "tier": twist_tier,
-                "twist_source_bone": bd.get("twist_source_bone"),
-            }
-            if "twist_time_constant_seconds" in bd:
-                twist_policy_fields["twist_time_constant_seconds"] = float(
-                    bd["twist_time_constant_seconds"]
-                )
-            twist = TwistPolicy(**twist_policy_fields)
-
-            bones.append(HumanBone(
-                name=bd["name"],
-                parent=bd.get("parent"),
-                required=bd.get("required", True),
-                reference_geometry=ref_geom,
-                twist_policy=twist,
-            ))
-
-        return cls(
-            name=name,
-            bones=bones,
-            blendshape_channels=get_blendshape_names(),
-            subject_height_mm=subject_height_mm,
-        )
+        required: set[str] = set()
+        for s in self._segments:
+            required |= s.required_keypoints()
+        return required
 
 
-# ── Anthropometric seed data ───────────────────────────────────────────
-#
-# Bone-length-to-height ratios from Winter (2009) and Drillis & Contini
-# (1966), copied from the existing canonical_body.yaml. Used to seed
-# T-pose joint centers when no explicit coordinates are provided.
-#
-# Ratios are bone_length / total_standing_height.
-
-_BONE_LENGTH_RATIOS: dict[str, float] = {
-    # Arms (Winter 2009)
-    "shoulder_to_upper_arm": 0.186,   # clavicle length ≈ upper arm
-    "upper_arm_to_lower_arm": 0.146,
-    "lower_arm_to_hand": 0.108,       # hand length
-
-    # Legs (Winter 2009)
-    "hip_to_upper_leg": 0.245,        # thigh
-    "upper_leg_to_lower_leg": 0.246,  # shank
-    "lower_leg_to_foot": 0.039,       # foot height (ankle→toe)
-    "hip_half_width": 0.057,
-
-    # Torso (Winter 2009, approximate)
-    "hips_to_spine": 0.145,
-    "spine_to_chest": 0.100,
-    "chest_to_upper_chest": 0.055,
-    "upper_chest_to_neck": 0.090,     # neck base → head center
-    "neck_to_head": 0.040,            # head center → top
-
-    # Shoulder width
-    "shoulder_half_width": 0.117,     # neck_center → shoulder (half biacromial)
-
-    # Hand finger ratios (Buryanov & Kotiuk 2010, scaled to height)
-    "hand_root": 0.108,               # hand length / height
-    "thumb_metacarpal": 0.015,
-    "thumb_proximal": 0.018,
-    "thumb_distal": 0.017,
-    "finger_proximal": 0.028,
-    "finger_intermediate": 0.018,
-    "finger_distal": 0.014,
-    "finger_metacarpal": 0.050,       # wrist → MCP
-}
-"""Anthropometric bone-length-to-height ratios.
-
-Keys use a ``parent_to_child`` naming convention for lookup during
-T-pose construction. Values are dimensionless ratios.
-"""
+def compose_standard_human(name: str = "standard_human") -> StandardHuman:
+    """The standard 55-segment human: body + both hands + the face."""
+    return StandardHuman(
+        name=name,
+        parts=(
+            (BODY_MIDLINE_PART, ""),
+            (BODY_LIMB_PART, "left_"),
+            (BODY_LIMB_PART, "right_"),
+            (HAND_PART, "left_"),
+            (HAND_PART, "right_"),
+            (FACE_PART, ""),
+        ),
+    )
