@@ -80,7 +80,9 @@ class TreeRigidifier:
         self,
         positions: dict[str, np.ndarray],
         bone_lengths: dict[str, float],
-    ) -> dict[str, np.ndarray]:
+        *,
+        return_directions: bool = False,
+    ) -> dict[str, np.ndarray] | tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
         """Rigidify one frame of observed joint positions.
 
         Parameters
@@ -90,16 +92,29 @@ class TreeRigidifier:
             simply absent from the dict — they are gap-filled along
             the last-good direction.
         bone_lengths : dict[str, float]
-            ``"parent->child" → length (mm)`` to enforce. Bones without
-            a positive length are skipped (their subtree is not placed).
+            ``node_name → length (mm)`` — the length to enforce FOR the
+            named node, keyed by the node's name (the parent is known from
+            the hierarchy). Bones without a positive length are skipped
+            (their subtree is not placed).
+        return_directions : bool
+            When ``False`` (default), returns only the corrected positions
+            (backwards-compatible). When ``True``, returns ``(corrected,
+            directions)`` where ``directions`` maps each CHILD node name
+            to the unit direction actually used this frame (observed-
+            normalized, else last-good/fallback).
 
         Returns
         -------
         dict[str, (3,) ndarray]
             Rigidified positions for every joint reachable from a
             present root.
+        tuple[dict[str, (3,) ndarray], dict[str, (3,) ndarray]]
+            When ``return_directions`` is ``True``: the corrected positions
+            plus the per-edge unit directions used this frame (keyed by the
+            child node's name).
         """
         corrected: dict[str, np.ndarray] = {}
+        directions: dict[str, np.ndarray] = {}
         for root in self._roots:
             obs = positions.get(root)
             if obs is not None:
@@ -109,11 +124,10 @@ class TreeRigidifier:
             parent_pos = corrected.get(parent)
             if parent_pos is None:
                 continue
-            length = bone_lengths.get(f"{parent}->{child}")
+            length = bone_lengths.get(child)
             if length is None or length <= 0.0:
                 continue
 
-            bone_key = f"{parent}->{child}"
             direction: np.ndarray | None = None
             child_obs = positions.get(child)
             if child_obs is not None:
@@ -121,14 +135,17 @@ class TreeRigidifier:
                 norm = float(np.linalg.norm(vector))
                 if math.isfinite(norm) and norm > 1e-6:
                     direction = vector / norm
-                    self._last_direction[bone_key] = direction
+                    self._last_direction[child] = direction
             if direction is None:
                 direction = self._last_direction.get(
-                    bone_key, _FALLBACK_DIRECTION
+                    child, _FALLBACK_DIRECTION
                 )
 
+            directions[child] = direction
             corrected[child] = parent_pos + direction * length
 
+        if return_directions:
+            return corrected, directions
         return corrected
 
     def reset(self) -> None:
