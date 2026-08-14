@@ -28,6 +28,8 @@ from __future__ import annotations
 import math
 
 from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
     ParentAttachment,
     SegmentDefinition,
 )
@@ -69,42 +71,50 @@ FACE_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="left_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="left_eye", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("left_eye", "nose"), origin_keypoint="left_eye",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "left_eye", "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="right_eye", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("right_eye", "nose"), origin_keypoint="right_eye",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "right_eye", "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="jaw", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="jaw", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("jaw", "nose"), origin_keypoint="jaw",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "jaw", "nose"),),
             rest_rotation=_JAW_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="nose", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="head_center", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("head_center", "nose"), origin_keypoint="head_center",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "head_center", "nose"),),
             rest_rotation=_NOSE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="left_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="head_center", long_axis_keypoint="left_ear", twist_keypoint=None,
+            rigid_points=("head_center", "left_ear"), origin_keypoint="head_center",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "head_center", "left_ear"),),
             rest_rotation=_EAR_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="head_center", long_axis_keypoint="right_ear", twist_keypoint=None,
+            rigid_points=("head_center", "right_ear"), origin_keypoint="head_center",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "head_center", "right_ear"),),
             rest_rotation=_EAR_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="left_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="left_mouth", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("left_mouth", "nose"), origin_keypoint="left_mouth",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "left_mouth", "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="right_mouth", long_axis_keypoint="nose", twist_keypoint=None,
+            rigid_points=("right_mouth", "nose"), origin_keypoint="right_mouth",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "right_mouth", "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
     ),

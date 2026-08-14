@@ -17,7 +17,10 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+from skellyforge.kinematics.coordinate_frame_ops import build_orthonormal_basis
 from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
     SegmentDefinition,
 )
 
@@ -40,6 +43,18 @@ _TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = {
     "toes": np.array([0.0, 1.0, 0.0]),        # small toe — lateral (left side)
 }
 _DEFAULT_APPROXIMATE = np.array([0.0, 0.0, 1.0])  # twist-less segments
+
+
+def _exact_axis(segment: SegmentDefinition) -> AxisDefinition:
+    """The segment's exact axis declaration (the defining direction)."""
+    return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
+
+
+def _approximate_axis(segment: SegmentDefinition) -> AxisDefinition | None:
+    """The segment's approximate axis declaration, or ``None`` if twist-less."""
+    return next(
+        (a for a in segment.axes if a.kind is AxisKind.APPROXIMATE), None
+    )
 
 
 def _unprefixed(name: str) -> str:
@@ -69,15 +84,13 @@ def _rest_direction(rest_rotation: tuple[float, float, float]) -> NDArray[np.flo
 def _build_basis(
     long_axis: NDArray[np.float64], approximate: NDArray[np.float64]
 ) -> NDArray[np.float64]:
-    """Rows [long, approximate orthonormalized, third] — right-handed."""
-    approx_orth = approximate - np.dot(approximate, long_axis) * long_axis
-    norm = float(np.linalg.norm(approx_orth))
-    if norm < 1e-10:
-        raise ValueError("approximate axis is collinear with the long axis")
-    approx_orth = approx_orth / norm
-    third = np.cross(long_axis, approx_orth)
-    third = third / np.linalg.norm(third)
-    return np.stack([long_axis, approx_orth, third])
+    """Rows [long, approximate orthonormalized, third] — right-handed.
+
+    The Gram-Schmidt + cross-product construction is shared with the live
+    solver via ``build_orthonormal_basis`` — only the rest-specific direction
+    resolution (``_rest_approximate_axis``) differs between the two.
+    """
+    return build_orthonormal_basis(long_axis, approximate)
 
 
 @dataclass(frozen=True)
@@ -147,7 +160,7 @@ def build_reference_geometry(
             origin = keypoints.get(segment.origin_keypoint, origins[segment.parent])
         origins[segment.name] = origin
         keypoints[segment.origin_keypoint] = origin.copy()
-        keypoints[segment.long_axis_keypoint] = (
+        keypoints[_exact_axis(segment).to_keypoint] = (
             origin + rest_dirs[segment.name] * length
         )
 
@@ -181,13 +194,19 @@ def _rest_approximate_axis(
     rest_dirs: dict[str, NDArray[np.float64]],
     keypoints: dict[str, NDArray[np.float64]],
 ) -> NDArray[np.float64]:
-    """The twist reference at rest: derived from the twist keypoint's rest
-    position where it exists and is off-axis, else the override table, else
-    the default perpendicular. Fail loudly if the result is still collinear.
+    """The approximate axis at rest: derived from the APPROXIMATE axis
+    declaration's ``to_keypoint`` rest position where it exists and is
+    off-axis, else the override table, else the default perpendicular. Fail
+    loudly if the result is still collinear.
     """
     candidate: NDArray[np.float64] | None = None
-    if segment.twist_keypoint is not None and segment.twist_keypoint in keypoints:
-        vec = keypoints[segment.twist_keypoint] - origins[segment.name]
+    # The direction reference is from = from_keypoint → to_keypoint; the
+    # published parts author the approximate axis as (origin_keypoint, twist),
+    # whose from coincides with the segment's rest origin. Resolve against the
+    # origin position to reproduce the original origin→twist vector exactly.
+    approx = _approximate_axis(segment)
+    if approx is not None and approx.to_keypoint in keypoints:
+        vec = keypoints[approx.to_keypoint] - origins[segment.name]
         norm = float(np.linalg.norm(vec))
         if norm > 1e-10:
             vec = vec / norm

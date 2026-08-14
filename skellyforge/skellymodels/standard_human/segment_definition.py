@@ -1,9 +1,30 @@
 """The authored unit of the standard human: one rigid-body segment.
 
-A segment is an **origin**, an **orientation**, and a **length**. All three are
-declared here as named keypoints plus a rest pose, and this one
-declaration is evaluated twice — against the T-pose to build the reference
-geometry, and against each frame to read the live pose.
+A segment is an **origin**, an **orientation**, and a **length**. Its RIGID
+POINT SET is declared explicitly (``rigid_points``: every keypoint rigid on the
+segment), plus a tuple of tagged **axis declarations** built from that set:
+
+- An EXACT axis ``(from, to)`` — the segment's defining direction, resolved
+  directly from two keypoints' positions every frame. Its endpoints must be
+  rigid on the segment.
+- An APPROXIMATE axis ``(from, to)`` — a *direction reference* for the second
+  basis axis, Gram-Schmidt'd against the exact axis. May reference keypoints
+  *outside* the rigid set (see ``AxisDefinition``'s docstring for the physical
+  rationale); a segment with no approximate axis falls to the damped
+  minimal-roll tier (the twist-less fallback).
+
+The tags (``EXACT`` / ``APPROXIMATE``) — not the axis names — carry the roles.
+
+Rationale for the generality: a rigid body is a point set with fixed pairwise
+distances. A 2-point segment is the degenerate case — one invariant (its
+length and its one axis); 3+ points open the full rigid-body fit (a graded
+capacity that lets future trackers enrich any segment by adding points, with
+no new concepts).
+
+The T-pose rest fields (``rest_rotation``, ``rest_roll``) stay exactly as
+authored — they define the REST frame. The axis declarations define the LIVE
+frame: the exact axis is the segment's own geometry, while an approximate axis
+is allowed to reference keypoints *outside* the rigid set.
 
 Keypoint names are side-agnostic within a part; composition prefixes them.
 """
@@ -24,6 +45,42 @@ class ParentAttachment(str, Enum):
 
     DISTAL = "distal"
     """Continue from the parent's distal end — the common case."""
+
+
+class AxisKind(str, Enum):
+    """How a declared axis feeds the frame construction (the role, not the name)."""
+
+    EXACT = "exact"
+    """A hard direction from the segment's own rigid geometry; its keypoints
+    must be in ``rigid_points``."""
+
+    APPROXIMATE = "approximate"
+    """A soft direction reference, Gram-Schmidt-projected; MAY reference
+    keypoints outside the rigid set."""
+
+
+@dataclass(frozen=True)
+class AxisDefinition:
+    """One declared axis of the segment's local frame (identity == T-pose).
+
+    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z").
+    ``kind`` is how the direction feeds the Gram-Schmidt construction: EXACT axes
+    are hard directions from the segment's own rigid geometry (their keypoints
+    must be in ``rigid_points``); APPROXIMATE axes are soft direction references
+    (Gram-Schmidt-projected) and MAY reference keypoints outside the rigid set —
+    e.g. the upper arm's twist reference ``wrist`` is not rigid with the upper arm.
+    """
+
+    axis: str
+    kind: AxisKind
+    from_keypoint: str
+    to_keypoint: str
+
+    def __post_init__(self) -> None:
+        if self.axis not in ("x", "y", "z"):
+            raise ValueError(
+                f"axis must be one of {{'x','y','z'}}, got {self.axis!r}"
+            )
 
 
 @dataclass(frozen=True)
@@ -59,9 +116,14 @@ class SegmentDefinition:
     name: str
     parent: str | None
     parent_attachment: ParentAttachment
+    rigid_points: tuple[str, ...]
     origin_keypoint: str
-    long_axis_keypoint: str
-    twist_keypoint: str | None
+    axes: tuple[AxisDefinition, ...]
+    """Tagged axis declarations, in construction order. **The first axis must be
+    EXACT** — it is the segment's long axis (the defining direction), resolved
+    first and used to seed the frame. Authored order is construction order:
+    indexed ``axes[0]`` is the long axis everywhere. Additional EXACT axes and
+    APPROXIMATE direction references follow it."""
     rest_rotation: tuple[float, float, float]
     rest_roll: float
     length_ratio: float
@@ -71,19 +133,80 @@ class SegmentDefinition:
         if not self.name or self.name != self.name.lower() or " " in self.name:
             raise ValueError(f"segment name must be snake_case, got {self.name!r}")
 
-        if self.origin_keypoint == self.long_axis_keypoint:
+        rigid = self.rigid_points
+        if len(rigid) < 2:
             raise ValueError(
-                f"segment {self.name!r}: origin_keypoint and long_axis_keypoint are both "
-                f"{self.origin_keypoint!r}. The segment vector would be zero-length and no "
-                f"orientation could be resolved from it."
+                f"segment {self.name!r}: rigid_points needs at least 2 keypoints "
+                f"(a rigid body has at least one defining vector), got {rigid!r}"
+            )
+        if len(set(rigid)) != len(rigid):
+            raise ValueError(
+                f"segment {self.name!r}: rigid_points must be distinct, got {rigid!r}"
+            )
+        if any(not p or not isinstance(p, str) for p in rigid):
+            raise ValueError(
+                f"segment {self.name!r}: rigid_points entries must be non-empty "
+                f"strings, got {rigid!r}"
             )
 
-        if self.twist_keypoint is not None and self.twist_keypoint == self.long_axis_keypoint:
+        if self.origin_keypoint not in rigid:
             raise ValueError(
-                f"segment {self.name!r}: twist_keypoint is {self.twist_keypoint!r}, the same as "
-                f"long_axis_keypoint. A twist reference collinear with the long axis resolves "
-                f"nothing."
+                f"segment {self.name!r}: origin_keypoint {self.origin_keypoint!r} "
+                f"is not in rigid_points {rigid!r}"
             )
+
+        # ── axis-declaration validation (fail-loud) ────────────────────────
+        axes = self.axes
+        if not 1 <= len(axes) <= 3:
+            raise ValueError(
+                f"segment {self.name!r}: must declare 1–3 axes, got {len(axes)}"
+            )
+        names = [a.axis for a in axes]
+        if len(set(names)) != len(names):
+            raise ValueError(
+                f"segment {self.name!r}: axis names must be distinct, got {names!r}"
+            )
+        if any(n not in ("x", "y", "z") for n in names):
+            raise ValueError(
+                f"segment {self.name!r}: axis names must be in {{'x','y','z'}}, "
+                f"got {names!r}"
+            )
+        if not any(a.kind is AxisKind.EXACT for a in axes):
+            raise ValueError(
+                f"segment {self.name!r}: at least one axis must be EXACT, got {axes!r}"
+            )
+        if axes[0].kind is not AxisKind.EXACT:
+            raise ValueError(
+                f"segment {self.name!r}: the first declared axis must be EXACT — "
+                f"it is the segment's long axis (axes[0]), got {axes[0]!r}"
+            )
+
+        for a in axes:
+            if not a.from_keypoint or not isinstance(a.from_keypoint, str):
+                raise ValueError(
+                    f"segment {self.name!r}: axis {a.axis!r} has a non-empty-string "
+                    f"from_keypoint requirement, got {a.from_keypoint!r}"
+                )
+            if not a.to_keypoint or not isinstance(a.to_keypoint, str):
+                raise ValueError(
+                    f"segment {self.name!r}: axis {a.axis!r} has a non-empty-string "
+                    f"to_keypoint requirement, got {a.to_keypoint!r}"
+                )
+            if a.from_keypoint == a.to_keypoint:
+                raise ValueError(
+                    f"segment {self.name!r}: axis {a.axis!r} is {a.from_keypoint!r} "
+                    f"for both ends. A segment vector from a point to itself would "
+                    f"be zero-length and no direction could be resolved from it."
+                )
+            if a.kind is AxisKind.EXACT:
+                outside = [n for n in (a.from_keypoint, a.to_keypoint) if n not in rigid]
+                if outside:
+                    raise ValueError(
+                        f"segment {self.name!r}: EXACT axis {a.axis!r} references "
+                        f"{outside!r}, which are not in rigid_points {rigid!r}. The "
+                        f"exact axis is the segment's own geometry — its endpoints "
+                        f"must be rigid on the segment."
+                    )
 
         if not math.isfinite(self.length_ratio) or self.length_ratio <= 0.0:
             raise ValueError(
@@ -92,16 +215,31 @@ class SegmentDefinition:
 
     @property
     def resolves_twist(self) -> bool:
-        """Whether this segment's roll is determined by its own keypoints.
+        """Whether this segment's roll is determined by a declared direction.
 
-        ``False`` means the twist falls back to the critically damped minimal-twist
-        solve — the tier is a *consequence* of the declaration, not a separate policy.
+        ``True`` when an APPROXIMATE direction reference is declared (a second
+        basis axis exists → the roll resolves). ``False`` means the twist falls
+        back to the critically damped minimal-twist solve — the tier is a
+        *consequence* of the declaration, not a separate policy.
+
+        Equivalent to the pre-tagging ``y_axis is not None``: the approximate
+        axis *is* what the old ``y_axis`` named, and a segment with no
+        approximate axis has no twist source.
         """
-        return self.twist_keypoint is not None
+        return any(a.kind is AxisKind.APPROXIMATE for a in self.axes)
 
     def required_keypoints(self) -> set[str]:
-        """Every keypoint this segment needs to be solvable."""
-        names = {self.origin_keypoint, self.long_axis_keypoint}
-        if self.twist_keypoint is not None:
-            names.add(self.twist_keypoint)
+        """Every keypoint this segment needs to be solvable.
+
+        The union over every field that references a keypoint by name:
+        ``rigid_points ∪ {origin_keypoint} ∪ all axis keypoints``. EXACT axes'
+        keypoints are already a subset of ``rigid_points`` (enforced at load);
+        APPROXIMATE axes may add keypoints outside the rigid set — required
+        regardless.
+        """
+        names = set(self.rigid_points)
+        names.add(self.origin_keypoint)
+        for a in self.axes:
+            names.add(a.from_keypoint)
+            names.add(a.to_keypoint)
         return names

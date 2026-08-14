@@ -96,7 +96,7 @@ def test_leaf_segments_are_solvable(rig):
         assert name in result.world_quaternions
 
 
-def test_multi_child_segment_uses_its_declared_long_axis_keypoint(rig):
+def test_multi_child_segment_uses_its_declared_x_axis(rig):
     human, reference = rig
     keypoints = _bent_keypoints(reference)
     # move trunk_center forward: hips' declared long axis is trunk_center, not
@@ -125,19 +125,22 @@ def test_coincident_live_keypoints_skip_the_segment_not_raise(rig):
 
 def test_degenerate_declaration_raises_at_load_not_at_solve():
     from skellyforge.skellymodels.standard_human.segment_definition import (
+        AxisDefinition,
+        AxisKind,
         ParentAttachment,
         SegmentDefinition,
     )
 
-    with pytest.raises(ValueError, match="origin_keypoint and long_axis_keypoint"):
+    with pytest.raises(ValueError, match="zero-length"):
         SegmentDefinition(
             name="bad", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="same", long_axis_keypoint="same", twist_keypoint=None,
+            rigid_points=("same", "other"), origin_keypoint="same",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "same", "same"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         )
 
 
-def test_declared_twist_keypoint_resolves_roll_undamped(rig):
+def test_declared_y_axis_resolves_roll_undamped(rig):
     human, reference = rig
     keypoints = _bent_keypoints(reference, straight_arms=False)
     result = solve_frame_orientations(

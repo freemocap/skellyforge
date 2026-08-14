@@ -1,13 +1,15 @@
 """Per-segment orientation solver: declared keypoints → segment orientations.
 
 Reads the composed StandardHuman's segment declarations: each segment names
-its origin, long-axis and (optionally) twist keypoints, and the solver
+its origin and a tuple of tagged axis declarations (an exact defining
+direction, optionally an approximate direction reference), and the solver
 resolves its orientation from THIS FRAME's keypoint positions against the
 T-pose reference geometry (identity == T-pose).
 
 Twist is two-tier, and the declaration IS the policy:
-1. A declared twist keypoint, usable this frame (not occluded, not within
-   ~5° of the long axis — the singularity gate) → the roll resolves from it.
+1. A declared APPROXIMATE direction reference, usable this frame (not occluded,
+   not within ~5° of the long axis — the singularity gate) → the roll
+   resolves from it.
 2. Otherwise → damped minimal roll: the reference approximate axis carried
    by the swing rotation, critically damped (the D3/D4 filter).
 
@@ -26,6 +28,7 @@ from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
     build_orthonormal_basis,
+    build_segment_frame,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
 )
@@ -119,13 +122,22 @@ def solve_frame_orientations(
         if ref_geom is None:
             continue  # no reference geometry — nothing to solve against
         origin = keypoints.get(segment.origin_keypoint)
-        long_pos = keypoints.get(segment.long_axis_keypoint)
-        if origin is None or long_pos is None:
+        if origin is None:
             continue  # occluded this frame
 
-        live_vec = np.asarray(long_pos, dtype=np.float64) - np.asarray(
-            origin, dtype=np.float64
-        )
+        live_vec = None
+        if segment.axes:
+            # axes[0] is guaranteed EXACT (the segment's long axis) by the
+            # SegmentDefinition load-time validation; reads the same long axis
+            # that build_segment_frame resolves via its first EXACT axis.
+            long_from = keypoints.get(segment.axes[0].from_keypoint)
+            long_to = keypoints.get(segment.axes[0].to_keypoint)
+            if long_from is not None and long_to is not None:
+                live_vec = np.asarray(long_to, dtype=np.float64) - np.asarray(
+                    long_from, dtype=np.float64
+                )
+        if live_vec is None:
+            continue  # occluded this frame (no usable long-axis keypoints)
         norm = float(np.linalg.norm(live_vec))
         if norm < 1e-10:
             continue  # numerically coincident this frame — data, not a declaration error
@@ -133,25 +145,18 @@ def solve_frame_orientations(
         live_long = live_vec / norm
         swing = rotation_between_vectors(ref_geom.basis[0], live_long)
 
-        # ── twist: declared keypoint (gated) or damped minimal ─────
-        twist_dir: NDArray[float64] | None = None
-        if segment.twist_keypoint is not None:
-            twist_pos = keypoints.get(segment.twist_keypoint)
-            if twist_pos is not None:
-                candidate = np.asarray(twist_pos, dtype=np.float64) - np.asarray(
-                    origin, dtype=np.float64
-                )
-                candidate_norm = float(np.linalg.norm(candidate))
-                if candidate_norm > 1e-10:
-                    candidate = candidate / candidate_norm
-                    if (
-                        abs(float(np.dot(live_long, candidate)))
-                        <= _SINGULARITY_DOT_THRESHOLD
-                    ):
-                        twist_dir = candidate
+        # ── twist: declared direction reference (gated) or damped minimal ─────
+        # ``build_segment_frame`` builds the LIVE frame from the tagged axis
+        # declarations directly from this frame's keypoints. Its internal
+        # singularity gate (collinearity_threshold) reproduces the solver's ~5°
+        # gate: the APPROXIMATE axis resolvoes the roll only when non-collinear.
+        live_basis, resolved = build_segment_frame(
+            segment.axes,
+            keypoints,
+            collinearity_threshold=_SINGULARITY_DOT_THRESHOLD,
+        )
 
-        if twist_dir is not None:
-            live_basis = build_orthonormal_basis(live_long, twist_dir)
+        if resolved:
             world_quats[segment.name] = compute_rotation_from_live_basis(
                 live_basis, ref_geom.basis
             )

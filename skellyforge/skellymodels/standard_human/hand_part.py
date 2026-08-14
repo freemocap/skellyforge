@@ -19,8 +19,8 @@ Value provenance, per the plan's §7 honesty rules:
   table.
 - ``rest_roll`` 0.0 and ``rotation_limits`` None — Task 5 pins the local-frame
   convention (same rationale as the body part).
-- Fingers carry ``twist_keypoint=None``: they fall to the damped minimal-roll
-  tier (the addon gives them no LockedTrack either).
+- Fingers carry a single exact axis (no approximate axis): they fall to the
+  damped minimal-roll tier (the addon gives them no LockedTrack either).
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ from __future__ import annotations
 import math
 
 from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
     ParentAttachment,
     SegmentDefinition,
 )
@@ -60,20 +62,29 @@ def _finger_segments(
     return (
         SegmentDefinition(
             name=f"{finger}_proximal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint=f"{keypoint_prefix}_mcp", long_axis_keypoint=f"{keypoint_prefix}_pip",
-            twist_keypoint=None,
+            rigid_points=(f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
+            origin_keypoint=f"{keypoint_prefix}_mcp",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
+            ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_PROX,
         ),
         SegmentDefinition(
             name=f"{finger}_intermediate", parent=f"{finger}_proximal", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint=f"{keypoint_prefix}_pip", long_axis_keypoint=f"{keypoint_prefix}_dip",
-            twist_keypoint=None,
+            rigid_points=(f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
+            origin_keypoint=f"{keypoint_prefix}_pip",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
+            ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_INT,
         ),
         SegmentDefinition(
             name=f"{finger}_distal", parent=f"{finger}_intermediate", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint=f"{keypoint_prefix}_dip", long_axis_keypoint=f"{keypoint_prefix}_tip",
-            twist_keypoint=None,
+            rigid_points=(f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
+            origin_keypoint=f"{keypoint_prefix}_dip",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
+            ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_DIST,
         ),
     )
@@ -84,26 +95,35 @@ HAND_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="wrist", long_axis_keypoint="middle_finger_mcp",
-            twist_keypoint="thumb_cmc",
+            rigid_points=("wrist", "middle_finger_mcp"), origin_keypoint="wrist",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, "wrist", "middle_finger_mcp"),
+                AxisDefinition("y", AxisKind.APPROXIMATE, "wrist", "thumb_cmc"),
+            ),
             rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_HAND,
         ),
         SegmentDefinition(
             name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="thumb_cmc", long_axis_keypoint="thumb_mcp",
-            twist_keypoint=None,
+            rigid_points=("thumb_cmc", "thumb_mcp"), origin_keypoint="thumb_cmc",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, "thumb_cmc", "thumb_mcp"),
+            ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_MC,
         ),
         SegmentDefinition(
             name="thumb_proximal", parent="thumb_metacarpal", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="thumb_mcp", long_axis_keypoint="thumb_ip",
-            twist_keypoint=None,
+            rigid_points=("thumb_mcp", "thumb_ip"), origin_keypoint="thumb_mcp",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, "thumb_mcp", "thumb_ip"),
+            ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_PROX,
         ),
         SegmentDefinition(
             name="thumb_distal", parent="thumb_proximal", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="thumb_ip", long_axis_keypoint="thumb_tip",
-            twist_keypoint=None,
+            rigid_points=("thumb_ip", "thumb_tip"), origin_keypoint="thumb_ip",
+            axes=(
+                AxisDefinition("x", AxisKind.EXACT, "thumb_ip", "thumb_tip"),
+            ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_DIST,
         ),
         *_finger_segments("index", "index_finger", _FAN_INDEX),

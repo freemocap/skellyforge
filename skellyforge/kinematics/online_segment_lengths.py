@@ -1,7 +1,7 @@
 """Rolling-window median segment-length estimation, realtime and posthoc.
 
 The ONE length estimator both pipelines use: per-segment median of the
-origin→long-axis distance, NaN-excluded. The only difference is the window —
+origin→distal distance, NaN-excluded. The only difference is the window —
 a rolling duration for streaming, ``None`` (unbounded) for posthoc, which is
 not degraded to match realtime.
 
@@ -32,8 +32,8 @@ class SegmentLengthEstimator:
     Parameters
     ----------
     segment_endpoints : dict[str, tuple[str, str]]
-        ``segment_name → (origin_keypoint, long_axis_keypoint)``. Defines
-        which segments are tracked.
+        ``segment_name → (origin, distal)``. Defines which segments are
+        tracked, as the two keypoints whose distance is the segment length.
     segment_seeds : dict[str, float]
         ``segment_name → seed length (mm)`` (anthropometric ratio × height) —
         the fallback while a segment's window is empty.
@@ -62,7 +62,7 @@ class SegmentLengthEstimator:
 
     @property
     def endpoints(self) -> dict[str, tuple[str, str]]:
-        """``segment_name → (origin_keypoint, long_axis_keypoint)``."""
+        """``segment_name → (origin, distal)``."""
         return dict(self.segment_endpoints)
 
     @property

@@ -11,6 +11,8 @@ human model.
 
 Operations
 ----------
+- ``build_segment_frame`` — construct a segment's frame from its tagged axis
+  declarations + positions (the ONE builder; dispatch on 1/2/3 axes).
 - ``build_orthonormal_basis`` — construct a right-handed frame from two
   direction vectors (Gram-Schmidt + cross product).
 - ``rotation_between_vectors`` — shortest rotation that aligns one unit
@@ -46,9 +48,137 @@ from skellyforge.kinematics.quaternion_math import (
 
 if TYPE_CHECKING:
     from numpy import float64
+    from skellyforge.skellymodels.standard_human.segment_definition import (
+        AxisDefinition,
+    )
 
 
 # ── Basis construction ───────────────────────────────────────────────
+
+
+def build_segment_frame(
+    axes: tuple["AxisDefinition", ...],
+    positions: dict[str, NDArray[float64]],
+    *,
+    collinearity_threshold: float = 0.9998,
+) -> tuple[NDArray[float64] | None, bool]:
+    """Build a segment's local frame from its tagged axis declarations + positions.
+
+    The ONE builder used to construct a segment frame from declared axes — the
+    tags (``AxisKind``), not the axis names, carry the roles.
+
+    Dispatch table (axes in authored order; all directions are ``to − from``
+    normalized from ``positions``):
+
+    ========  =================================================================
+    Count     Behaviour
+    ========  =================================================================
+    1 axis    The sole (exact) axis gives ``x̂``. INCOMPLETE frame — roll is not
+    (exact)   resolved (``resolved=False``); the damped minimal-roll tier takes
+              over.
+    2 axes    ``x̂`` = the first exact axis's direction. ``ŷ`` = Gram-Schmidt
+    (exact +  projection of the second (approximate) direction against ``x̂``;
+    approx)   ``ẑ`` = ``x̂ × ŷ``. Mirrors ``build_orthonormal_basis``.
+    2 axes    Same projection math as exact + approximate, BUT if the second
+    (exact +  exact direction is collinear with ``x̂`` at build time (rest or
+    exact)    live), RAISE — an exact declaration that cannot distinguish
+              anything is a wrong declaration.
+    3 axes    ``x̂``, ``ŷ`` as the 2-axis case; ``ẑ`` = ``x̂ × ŷ``. The third
+              declaration's direction is used ONLY to resolve ``ẑ``'s sign
+              (dot-product consistency: if the dot is negative, flip ``ẑ``) —
+              the Z-flip precedent, structural now.
+    ========  =================================================================
+
+    Parameters
+    ----------
+    axes :
+        The segment's tagged axis declarations (1–3 of them, already validated).
+    positions :
+        ``{keypoint_name: (3,) position}`` — rest positions for reference
+        geometry, live positions for the solver. A keypoint missing from this
+        map makes its axis unusable (see ``resolved``/``raises`` below).
+    collinearity_threshold :
+        Dot-product bound beyond which an APPROXIMATE direction is treated as
+        collinear (hence unresolved → ``(None, False)``) rather than a hard
+        error. The solver passes the ~5° singularity-gate threshold (``0.996``);
+        the reference geometry passes the stiffer ~1° ``0.9998``. EXACT-axis
+        collinearity ALWAYS raises regardless of this threshold.
+
+    Returns
+    -------
+    (basis, resolved)
+        ``basis`` is a right-handed ``(3, 3)`` frame with rows
+        [x̂, ŷ, ẑ] when ``resolved`` is ``True``; ``None`` otherwise.
+        ``resolved`` is ``False`` when the frame is incomplete (1 exact axis) or
+        the approximate direction is unusable/collinear this build; the caller
+        (the solver's damped-minimal tier) supplies the roll then.
+    """
+    if not axes:
+        raise ValueError("build_segment_frame needs at least one axis")
+
+    # 1 axis → incomplete frame (roll unresolved)
+    if len(axes) == 1:
+        return None, False
+
+    exact = [a for a in axes if a.kind.value == "exact"]
+    if not exact:
+        raise ValueError("build_segment_frame: no EXACT axis among the declarations")
+
+    x_axis_def = exact[0]
+    x_from = positions.get(x_axis_def.from_keypoint)
+    x_to = positions.get(x_axis_def.to_keypoint)
+    if x_from is None or x_to is None:
+        return None, False
+    x_hat = np.asarray(x_to, dtype=np.float64) - np.asarray(x_from, dtype=np.float64)
+    x_norm = float(np.linalg.norm(x_hat))
+    if x_norm < 1e-10:
+        return None, False
+    x_hat = x_hat / x_norm
+
+    second = axes[1]
+    s_from = positions.get(second.from_keypoint)
+    s_to = positions.get(second.to_keypoint)
+    if s_from is None or s_to is None:
+        return None, False
+    s_dir = np.asarray(s_to, dtype=np.float64) - np.asarray(s_from, dtype=np.float64)
+    s_norm = float(np.linalg.norm(s_dir))
+    if s_norm < 1e-10:
+        return None, False
+    s_dir = s_dir / s_norm
+
+    dot = float(np.dot(x_hat, s_dir))
+    if abs(dot) > collinearity_threshold:
+        if second.kind.value == "exact":
+            # 2 exact axes, collinear at build time → fail loud
+            raise ValueError(
+                "build_segment_frame: the second EXACT axis is collinear with "
+                f"the first exact axis (|dot| = {abs(dot):.6f}). An exact "
+                "declaration that cannot distinguish anything is a wrong "
+                "declaration."
+            )
+        # APPROXIMATE direction collinear → soft degradation (the singularity
+        # gate): the roll does not resolve this build.
+        return None, False
+
+    basis = build_orthonormal_basis(x_hat, s_dir)
+
+    # 3 axes → use the third declaration's direction only to resolve ẑ's sign
+    if len(axes) >= 3:
+        third = axes[2]
+        t_from = positions.get(third.from_keypoint)
+        t_to = positions.get(third.to_keypoint)
+        if t_from is not None and t_to is not None:
+            t_dir = np.asarray(t_to, dtype=np.float64) - np.asarray(
+                t_from, dtype=np.float64
+            )
+            t_norm = float(np.linalg.norm(t_dir))
+            if t_norm > 1e-10:
+                t_dir = t_dir / t_norm
+                if float(np.dot(t_dir, basis[2])) < 0.0:
+                    basis = basis.copy()
+                    basis[2] = -basis[2]
+
+    return basis, True
 
 
 def build_orthonormal_basis(

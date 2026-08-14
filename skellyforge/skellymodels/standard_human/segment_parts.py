@@ -17,7 +17,10 @@ import dataclasses
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from skellyforge.skellymodels.standard_human.segment_definition import SegmentDefinition
+from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    SegmentDefinition,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,20 @@ def _prefixed(value: str | None, prefix: str) -> str | None:
     return None if value is None else f"{prefix}{value}"
 
 
+def _prefixed_axis(
+    axes: tuple[AxisDefinition, ...], prefix: str
+) -> tuple[AxisDefinition, ...]:
+    return tuple(
+        AxisDefinition(
+            axis=a.axis,
+            kind=a.kind,
+            from_keypoint=f"{prefix}{a.from_keypoint}",
+            to_keypoint=f"{prefix}{a.to_keypoint}",
+        )
+        for a in axes
+    )
+
+
 def instantiate_part(part: SegmentPart, prefix: str) -> list[SegmentDefinition]:
     """Expand one part under *prefix*, prefixing names, keypoints and parents."""
     return [
@@ -39,9 +56,9 @@ def instantiate_part(part: SegmentPart, prefix: str) -> list[SegmentDefinition]:
             segment,
             name=f"{prefix}{segment.name}",
             parent=_prefixed(segment.parent, prefix),
+            rigid_points=tuple(f"{prefix}{p}" for p in segment.rigid_points),
             origin_keypoint=f"{prefix}{segment.origin_keypoint}",
-            long_axis_keypoint=f"{prefix}{segment.long_axis_keypoint}",
-            twist_keypoint=_prefixed(segment.twist_keypoint, prefix),
+            axes=_prefixed_axis(segment.axes, prefix),
         )
         for segment in part.segments
     ]
@@ -113,7 +130,15 @@ def _resolve_midline_references(
 
     return dataclasses.replace(
         segment,
+        rigid_points=tuple(resolved(p) for p in segment.rigid_points),
         origin_keypoint=resolved(segment.origin_keypoint),
-        long_axis_keypoint=resolved(segment.long_axis_keypoint),
-        twist_keypoint=resolved(segment.twist_keypoint),
+        axes=tuple(
+            AxisDefinition(
+                axis=a.axis,
+                kind=a.kind,
+                from_keypoint=resolved(a.from_keypoint),
+                to_keypoint=resolved(a.to_keypoint),
+            )
+            for a in segment.axes
+        ),
     )

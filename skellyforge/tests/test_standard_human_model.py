@@ -4,6 +4,8 @@ import pytest
 
 from skellyforge.skellymodels.standard_human.human_bone_aliases import BONE_ALIASES
 from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
     ParentAttachment,
     SegmentDefinition,
 )
@@ -33,12 +35,14 @@ def test_two_roots_raise():
     two_roots = SegmentPart(name="two_roots", segments=(
         SegmentDefinition(
             name="a", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="a", long_axis_keypoint="b", twist_keypoint=None,
+            rigid_points=("a", "b"), origin_keypoint="a",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            origin_keypoint="b", long_axis_keypoint="a", twist_keypoint=None,
+            rigid_points=("b", "a"), origin_keypoint="b",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "b", "a"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -50,8 +54,9 @@ def _root(name: str) -> SegmentDefinition:
     """A minimal valid root segment (parent is None)."""
     return SegmentDefinition(
         name=name, parent=None, parent_attachment=ParentAttachment.ORIGIN,
-        origin_keypoint=f"{name}_origin", long_axis_keypoint=f"{name}_distal",
-        twist_keypoint=None,
+        rigid_points=(f"{name}_origin", f"{name}_distal"),
+        origin_keypoint=f"{name}_origin",
+        axes=(AxisDefinition("x", AxisKind.EXACT, f"{name}_origin", f"{name}_distal"),),
         rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
     )
 
@@ -64,7 +69,8 @@ def test_missing_parent_raises():
         _root("r"),
         SegmentDefinition(
             name="a", parent="ghost", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="a", long_axis_keypoint="b", twist_keypoint=None,
+            rigid_points=("a", "b"), origin_keypoint="a",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -79,12 +85,14 @@ def test_cycle_raises():
         _root("r"),
         SegmentDefinition(
             name="a", parent="b", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="a", long_axis_keypoint="c", twist_keypoint=None,
+            rigid_points=("a", "c"), origin_keypoint="a",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent="a", parent_attachment=ParentAttachment.DISTAL,
-            origin_keypoint="b", long_axis_keypoint="c", twist_keypoint=None,
+            rigid_points=("b", "c"), origin_keypoint="b",
+            axes=(AxisDefinition("x", AxisKind.EXACT, "b", "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -105,3 +113,64 @@ def test_hierarchy_accessors_agree():
             assert child in human.get_children(parent.name)
     # segment_parents agrees with the segments' own parent references
     assert human.segment_parents == {s.name: s.parent for s in human.segments}
+
+
+def test_head_rigid_points_is_exactly_the_seven_name_skull_set():
+    human = compose_standard_human()
+    head = next(s for s in human.segments if s.name == "head")
+    assert head.rigid_points == (
+        "head_center", "head_vertex", "nose", "left_eye", "right_eye",
+        "left_ear", "right_ear",
+    )
+
+
+def test_every_two_point_segment_exact_axis_matches_its_origin_long_pair():
+    # for 2-point segments the exact axis is simply (origin, distal): the
+    # authored origin→long_axis direction. Spot-check a few across the body,
+    # hand and face.
+    human = compose_standard_human()
+    expected = {
+        "hips": (("hips_center", "trunk_center"), "hips_center"),
+        "left_upper_arm": (("left_shoulder", "left_elbow"), "left_shoulder"),
+        "left_foot": (("left_ankle", "left_foot_ball"), "left_ankle"),
+        "left_middle_proximal": (("left_middle_finger_mcp", "left_middle_finger_pip"), "left_middle_finger_mcp"),
+        "left_thumb_distal": (("left_thumb_ip", "left_thumb_tip"), "left_thumb_ip"),
+        "nose": (("head_center", "nose"), "head_center"),
+        "left_mouth": (("left_mouth", "nose"), "left_mouth"),
+    }
+    for name, (x_axis, origin) in expected.items():
+        seg = next(s for s in human.segments if s.name == name)
+        exact = next(a for a in seg.axes if a.kind is AxisKind.EXACT)
+        assert (exact.from_keypoint, exact.to_keypoint) == x_axis, name
+        assert exact.from_keypoint == seg.origin_keypoint == origin, name
+        assert len(seg.rigid_points) == 2, name
+
+
+def test_required_keypoints_is_unchanged_after_the_reshape():
+    # The reshape renames fields and enriches the head's rigid set; the set of
+    # keypoints the whole model requires a tracker to supply must be byte-for-
+    # byte identical to the pre-reshape contract (76 names).
+    human = compose_standard_human()
+    assert sorted(human.required_keypoints()) == [
+        "head_center", "head_vertex", "hips_center", "jaw", "left_ankle",
+        "left_big_toe", "left_ear", "left_elbow", "left_eye", "left_foot_ball",
+        "left_heel", "left_hip", "left_index_finger_dip", "left_index_finger_mcp",
+        "left_index_finger_pip", "left_index_finger_tip", "left_knee",
+        "left_middle_finger_dip", "left_middle_finger_mcp", "left_middle_finger_pip",
+        "left_middle_finger_tip", "left_mouth", "left_pinky_dip", "left_pinky_mcp",
+        "left_pinky_pip", "left_pinky_tip", "left_ring_finger_dip",
+        "left_ring_finger_mcp", "left_ring_finger_pip", "left_ring_finger_tip",
+        "left_shoulder", "left_small_toe", "left_sternoclavicular", "left_thumb_cmc",
+        "left_thumb_ip", "left_thumb_mcp", "left_thumb_tip", "left_wrist",
+        "mid_sternum", "neck_center", "nose", "right_ankle", "right_big_toe",
+        "right_ear", "right_elbow", "right_eye", "right_foot_ball", "right_heel",
+        "right_hip", "right_index_finger_dip", "right_index_finger_mcp",
+        "right_index_finger_pip", "right_index_finger_tip", "right_knee",
+        "right_middle_finger_dip", "right_middle_finger_mcp",
+        "right_middle_finger_pip", "right_middle_finger_tip", "right_mouth",
+        "right_pinky_dip", "right_pinky_mcp", "right_pinky_pip", "right_pinky_tip",
+        "right_ring_finger_dip", "right_ring_finger_mcp", "right_ring_finger_pip",
+        "right_ring_finger_tip", "right_shoulder", "right_small_toe",
+        "right_sternoclavicular", "right_thumb_cmc", "right_thumb_ip",
+        "right_thumb_mcp", "right_thumb_tip", "right_wrist", "trunk_center",
+    ]

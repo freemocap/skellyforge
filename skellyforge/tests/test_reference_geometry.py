@@ -78,3 +78,16 @@ def test_origin_keypoint_positions_agree_with_segment_origins():
         seg_geom = geometry.segments[segment.name]
         kp_pos = geometry.keypoints[segment.origin_keypoint]
         assert np.allclose(seg_geom.origin, kp_pos, atol=1e-9), segment.name
+
+
+def test_head_skull_rigid_points_build_a_rest_map():
+    # The head's 7-point skull set needs NO new rest-position logic: every name
+    # except `nose` is another segment's (long-axis/origin) keypoint, so the
+    # existing rest-map rules already place it. `nose` is the one off-chain
+    # keypoint — deliberately left out of the reference pose (the solver and
+    # face bones supply it per frame).
+    human = compose_standard_human()
+    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    for skull in ("head_center", "head_vertex", "left_eye", "right_eye", "left_ear", "right_ear"):
+        assert skull in geometry.keypoints, skull
+    assert "nose" not in geometry.keypoints  # off-chain, as before the reshape

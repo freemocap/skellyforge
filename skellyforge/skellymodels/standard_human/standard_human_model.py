@@ -136,7 +136,13 @@ class StandardHuman:
 
 
 def compose_standard_human(name: str = "standard_human") -> StandardHuman:
-    """The standard 60-segment human: body + both hands + the face (3 VRM bones + 5 face detail)."""
+    """The standard 60-segment human: body + both hands + the face (3 VRM bones + 5 face detail).
+
+    The head carries the 7-point skull rigid set (``head_center``,
+    ``head_vertex``, ``nose``, ``left_eye``, ``right_eye``, ``left_ear``,
+    ``right_ear``) — the full rigid body; the jaw and mouth corners are NOT in
+    it (they articulate).
+    """
     return StandardHuman(
         name=name,
         parts=(

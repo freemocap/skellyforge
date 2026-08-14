@@ -20,6 +20,7 @@ Package structure:
 from skellyforge.kinematics.coordinate_frame_ops import (
     align_point_sets_kabsch,
     build_orthonormal_basis,
+    build_segment_frame,
     compute_live_bone_basis,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
@@ -45,6 +46,11 @@ from skellyforge.kinematics.quaternion_math import (
     rotate_vectors_batch,
     slerp_batch,
     slerp_resample,
+)
+from skellyforge.kinematics.rigid_point_set import (
+    RigidPointTemplate,
+    embed_distance_matrix,
+    fit_template_to_observed,
 )
 from skellyforge.kinematics.rigid_body_kinematics import (
     RigidBodyKinematics,
@@ -89,9 +95,14 @@ __all__ = [
     # coordinate_frame_ops
     "align_point_sets_kabsch",
     "build_orthonormal_basis",
+    "build_segment_frame",
     "compute_live_bone_basis",
     "compute_rotation_from_live_basis",
     "rotation_between_vectors",
+    # rigid_point_set
+    "RigidPointTemplate",
+    "embed_distance_matrix",
+    "fit_template_to_observed",
     # rigid_body_kinematics
     "RigidBodyKinematics",
     "compute_angular_acceleration",
