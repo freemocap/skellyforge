@@ -135,27 +135,26 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
         SegmentDefinition(
             name="bad", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("same", "other"), origin_keypoint="same",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "same", "same"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "same"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         )
 
 
-def test_declared_y_axis_resolves_roll_undamped(rig):
+def test_declared_approximate_axis_resolves_roll_undamped(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference, straight_arms=False)
+    keypoints = _bent_keypoints(reference)
+    # supply a heel off the foot's long axis: the foot's roll is resolved from
+    # its declared approximate target (heel) — measured, not damped
+    ankle = keypoints["left_ankle"]
+    keypoints["left_heel"] = ankle + np.array([-10.0, 0.0, -30.0])
     result = solve_frame_orientations(
         human, reference.segments, keypoints, timestamp_seconds=1.0
     )
-    # the bent elbow moves the wrist off the humerus axis: upper_arm's roll is
-    # resolved from the declared twist keypoint — measured, not damped
-    assert "left_upper_arm" not in result.damping_states
-    q = RotationQuaternion(*result.world_quaternions["left_upper_arm"].tolist())
-    ref = reference.segments["left_upper_arm"]
-    origin = keypoints["left_shoulder"]
-    live_long = keypoints["left_elbow"] - origin
+    assert "left_foot" not in result.damping_states
+    q = RotationQuaternion(*result.world_quaternions["left_foot"].tolist())
+    ref = reference.segments["left_foot"]
+    live_long = keypoints["left_foot_ball"] - ankle
     live_long = live_long / np.linalg.norm(live_long)
-    live_twist = keypoints["left_wrist"] - origin
-    live_twist = live_twist / np.linalg.norm(live_twist)
     # the solved rotation carries the reference basis onto the live basis
     assert np.allclose(q.rotate_vector(ref.basis[0]), live_long, atol=1e-9)
 
@@ -265,31 +264,59 @@ def test_identity_at_t_pose(rig):
 
 
 def test_singularity_gate_threshold_boundary(rig):
-    # The gate switches at ~5° between the long axis and the twist direction.
-    # The long axis of a raised arm is +Y, so rotating the wrist about Z through
-    # the elbow deflects the wrist-vs-long-axis direction at ~0.44x the bend —
-    # the gate crossing is a bend of ~11.4°, NOT 5°. A 10° bend keeps the wrist
-    # direction inside the gate → damped; a 13° bend moves it outside → the
-    # declared twist keypoint resolves the roll (matches the comments).
+    # The gate switches at ~5° between the long axis and the approximate-axis
+    # direction. The foot's long axis is ankle → foot_ball; rotating the heel
+    # off that axis through the ankle deflects the heel-vs-long-axis direction
+    # by the same angle. A heel within ~5° of the long axis (collinear) keeps
+    # the foot in the damped tier; a heel further out resolves the roll from
+    # the declared approximate target.
     from skellyforge.kinematics.orientation_solver import (
         _SINGULARITY_THRESHOLD_RAD,
     )
 
     human, reference = rig
 
-    def _solve_with_bend(bend_deg: float):
+    def _solve_with_heel_angle(angle_deg: float):
         keypoints = {n: p.copy() for n, p in reference.keypoints.items()}
-        origin = keypoints["left_elbow"]
-        theta = np.deg2rad(bend_deg)
-        rot = np.array([[np.cos(theta), -np.sin(theta), 0.0],
-                        [np.sin(theta), np.cos(theta), 0.0], [0.0, 0.0, 1.0]])
-        keypoints["left_wrist"] = origin + rot @ (keypoints["left_wrist"] - origin)
+        ankle = keypoints["left_ankle"]
+        theta = np.deg2rad(angle_deg)
+        keypoints["left_heel"] = ankle + np.array(
+            [np.cos(theta), np.sin(theta), 0.0]
+        ) * 50.0
         return solve_frame_orientations(
             human, reference.segments, keypoints, timestamp_seconds=1.0
         )
 
-    inside = _solve_with_bend(10.0)   # within ~5° → gated
-    outside = _solve_with_bend(13.0)  # outside ~5° → declared twist resolves
+    inside = _solve_with_heel_angle(2.0)    # within ~5° → gated
+    outside = _solve_with_heel_angle(13.0)  # outside ~5° → declared twist resolves
     assert np.isclose(_SINGULARITY_THRESHOLD_RAD, np.deg2rad(5.0))
-    assert "left_upper_arm" in inside.damping_states
-    assert "left_upper_arm" not in outside.damping_states
+    assert "left_foot" in inside.damping_states
+    assert "left_foot" not in outside.damping_states
+
+
+def test_head_solves_to_identity_with_anterior_nose(rig):
+    # doc 14 §4 for the head specifically. `test_identity_at_t_pose` feeds
+    # `reference.keypoints`, which omits the off-chain `nose`, so the head has
+    # no usable approximate target and degrades to the damped tier — returning
+    # identity TRIVIALLY, blind to a corrupted reference forward axis. At
+    # runtime the skull fit supplies a real anterior `nose`, driving the head
+    # through the RESOLVED tier against its reference frame. Feed that here: the
+    # head must still be identity at the T-pose (world AND local).
+    human, reference = rig
+    keypoints = {name: pos.copy() for name, pos in reference.keypoints.items()}
+    keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
+    result = solve_frame_orientations(
+        human, reference.segments, keypoints, timestamp_seconds=1.0
+    )
+    assert "head" not in result.damping_states  # resolved tier, not damped
+    identity = np.array([1.0, 0.0, 0.0, 0.0])
+    q_world = result.world_quaternions["head"]
+    dev_world = min(
+        np.linalg.norm(q_world - identity), np.linalg.norm(q_world + identity)
+    )
+    assert dev_world < 1e-9, f"head world deviates from identity by {dev_world}"
+    q_local = result.local_quaternions["head"]
+    dev_local = min(
+        np.linalg.norm(q_local - identity), np.linalg.norm(q_local + identity)
+    )
+    assert dev_local < 1e-9, f"head local deviates from identity by {dev_local}"

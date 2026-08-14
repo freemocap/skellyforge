@@ -19,8 +19,9 @@ Value provenance, per the plan's §7 honesty rules:
   table.
 - ``rest_roll`` 0.0 and ``rotation_limits`` None — Task 5 pins the local-frame
   convention (same rationale as the body part).
-- Fingers carry a single exact axis (no approximate axis): they fall to the
-  damped minimal-roll tier (the addon gives them no LockedTrack either).
+- Every hand segment carries a single exact axis (no approximate axis): they
+  fall to the damped minimal-roll tier (the addon gives them no LockedTrack
+  either).
 """
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ def _finger_segments(
             rigid_points=(f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
             origin_keypoint=f"{keypoint_prefix}_mcp",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_pip"),
             ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_PROX,
         ),
@@ -74,7 +75,7 @@ def _finger_segments(
             rigid_points=(f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
             origin_keypoint=f"{keypoint_prefix}_pip",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_dip"),
             ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_INT,
         ),
@@ -83,7 +84,7 @@ def _finger_segments(
             rigid_points=(f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
             origin_keypoint=f"{keypoint_prefix}_dip",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
+                AxisDefinition("x", AxisKind.EXACT, f"{keypoint_prefix}_tip"),
             ),
             rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_DIST,
         ),
@@ -97,8 +98,7 @@ HAND_PART = SegmentPart(
             name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("wrist", "middle_finger_mcp"), origin_keypoint="wrist",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "wrist", "middle_finger_mcp"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "wrist", "thumb_cmc"),
+                AxisDefinition("x", AxisKind.EXACT, "middle_finger_mcp"),
             ),
             rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_HAND,
         ),
@@ -106,7 +106,7 @@ HAND_PART = SegmentPart(
             name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("thumb_cmc", "thumb_mcp"), origin_keypoint="thumb_cmc",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "thumb_cmc", "thumb_mcp"),
+                AxisDefinition("x", AxisKind.EXACT, "thumb_mcp"),
             ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_MC,
         ),
@@ -114,7 +114,7 @@ HAND_PART = SegmentPart(
             name="thumb_proximal", parent="thumb_metacarpal", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("thumb_mcp", "thumb_ip"), origin_keypoint="thumb_mcp",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "thumb_mcp", "thumb_ip"),
+                AxisDefinition("x", AxisKind.EXACT, "thumb_ip"),
             ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_PROX,
         ),
@@ -122,7 +122,7 @@ HAND_PART = SegmentPart(
             name="thumb_distal", parent="thumb_proximal", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("thumb_ip", "thumb_tip"), origin_keypoint="thumb_ip",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "thumb_ip", "thumb_tip"),
+                AxisDefinition("x", AxisKind.EXACT, "thumb_tip"),
             ),
             rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_DIST,
         ),

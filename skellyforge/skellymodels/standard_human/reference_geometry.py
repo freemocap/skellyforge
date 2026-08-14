@@ -26,23 +26,19 @@ from skellyforge.skellymodels.standard_human.segment_definition import (
 
 _COLLINEARITY_DOT = 0.9998  # cos(1°) — stiffer than the solver's ~5° gate
 
-# Rest approximate axes for segments whose twist reference cannot be derived
-# from rest keypoint positions: either the twist keypoint is collinear with
-# the long axis at the T-pose (upper_arm ← wrist, upper_leg ← ankle), or the
-# twist keypoint is off every chain and has no rest position (nose, heel,
-# small_toe). Authored for the LEFT side; mirroring flips Y for the right.
+# Rest approximate axes for segments whose approximate axis references a point
+# of its own rigid set that has no rest position (or coincides with the origin)
+# at the T-pose: the nose (head), the heel (foot), small_toe (toes), and the
+# hip joints (hips, whose lateral pair coincide with the origin — no widths are
+# declared). An authored direction supplies the rest value. Authored for the
+# LEFT side; mirroring flips Y for the right.
 _TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = {
     "hips": np.array([1.0, 0.0, 0.0]),        # right_hip coincides with the origin
-    "spine": np.array([1.0, 0.0, 0.0]),       # right_hip coincides with the origin
-    "neck": np.array([1.0, 0.0, 0.0]),        # nose — anterior
     "head": np.array([1.0, 0.0, 0.0]),        # nose — anterior
-    "upper_arm": np.array([0.0, 0.0, 1.0]),   # elbow flexion axis
-    "upper_leg": np.array([0.0, 1.0, 0.0]),   # knee flexion axis
     "foot": np.array([0.0, 0.0, 1.0]),        # up — the foot points +X, so its
                                              # roll/pitch reference is vertical
     "toes": np.array([0.0, 1.0, 0.0]),        # small toe — lateral (left side)
 }
-_DEFAULT_APPROXIMATE = np.array([0.0, 0.0, 1.0])  # twist-less segments
 
 
 def _exact_axis(segment: SegmentDefinition) -> AxisDefinition:
@@ -160,7 +156,7 @@ def build_reference_geometry(
             origin = keypoints.get(segment.origin_keypoint, origins[segment.parent])
         origins[segment.name] = origin
         keypoints[segment.origin_keypoint] = origin.copy()
-        keypoints[_exact_axis(segment).to_keypoint] = (
+        keypoints[_exact_axis(segment).target_keypoint] = (
             origin + rest_dirs[segment.name] * length
         )
 
@@ -194,33 +190,48 @@ def _rest_approximate_axis(
     rest_dirs: dict[str, NDArray[np.float64]],
     keypoints: dict[str, NDArray[np.float64]],
 ) -> NDArray[np.float64]:
-    """The approximate axis at rest: derived from the APPROXIMATE axis
-    declaration's ``to_keypoint`` rest position where it exists and is
-    off-axis, else the override table, else the default perpendicular. Fail
-    loudly if the result is still collinear.
+    """The approximate axis at rest: the authored override table where one
+    exists (AUTHORITATIVE — see below), else the APPROXIMATE axis declaration's
+    ``target_keypoint`` rest position (``origin → target_keypoint``) where it
+    exists and is off-axis, else the default perpendicular. Fail loudly if the
+    result is still collinear.
     """
     candidate: NDArray[np.float64] | None = None
-    # The direction reference is from = from_keypoint → to_keypoint; the
-    # published parts author the approximate axis as (origin_keypoint, twist),
-    # whose from coincides with the segment's rest origin. Resolve against the
-    # origin position to reproduce the original origin→twist vector exactly.
-    approx = _approximate_axis(segment)
-    if approx is not None and approx.to_keypoint in keypoints:
-        vec = keypoints[approx.to_keypoint] - origins[segment.name]
-        norm = float(np.linalg.norm(vec))
-        if norm > 1e-10:
-            vec = vec / norm
-            if abs(float(np.dot(rest_dirs[segment.name], vec))) <= _COLLINEARITY_DOT:
-                candidate = vec
+    # An authored override is the rest twist wherever the schematic geometry
+    # can't be trusted, and it takes PRECEDENCE over the target-position branch.
+    # Overrides exist precisely for approximate targets that are off-chain or
+    # degenerate at the T-pose: `hips`' lateral pair coincides with the origin,
+    # and `foot`/`toes`' twist keypoints (heel/small_toe) have no schematic rest
+    # position — their target branch already yields nothing. `head` is the
+    # dangerous case: its target `nose` is off-chain, YET written (last-writer-
+    # wins) by the five other segments that share it as their exact-axis target,
+    # so it holds a non-degenerate but meaningless position that would otherwise
+    # pre-empt the authored anterior override and roll the head's frame off
+    # forward. Override-first keeps `head` anterior; `hips`/`foot`/`toes` are
+    # unchanged (their target branch never resolved a value anyway).
+    override = _TWIST_OVERRIDES.get(_unprefixed(segment.name))
+    if override is not None:
+        candidate = override.copy()
+        if segment.name.startswith("right_"):
+            candidate = _mirror(candidate)
+
+    # No override: derive the rest twist from the approximate target's rest
+    # position (origin → target_keypoint) when it exists and is off-axis.
+    if candidate is None:
+        approx = _approximate_axis(segment)
+        if approx is not None and approx.target_keypoint in keypoints:
+            vec = keypoints[approx.target_keypoint] - origins[segment.name]
+            norm = float(np.linalg.norm(vec))
+            if norm > 1e-10:
+                vec = vec / norm
+                if abs(float(np.dot(rest_dirs[segment.name], vec))) <= _COLLINEARITY_DOT:
+                    candidate = vec
 
     if candidate is None:
-        override = _TWIST_OVERRIDES.get(_unprefixed(segment.name))
-        if override is not None:
-            candidate = override.copy()
-            if segment.name.startswith("right_"):
-                candidate = _mirror(candidate)
-    if candidate is None:
-        candidate = _DEFAULT_APPROXIMATE.copy()
+        # twist-less segments: a deterministic placeholder direction orthogonal
+        # to the long axis, carried by the damped minimal-roll tier. Picked from
+        # a canonical reference so it is never collinear with any long axis.
+        candidate = _default_perpendicular(rest_dirs[segment.name])
 
     if abs(float(np.dot(rest_dirs[segment.name], candidate))) > _COLLINEARITY_DOT:
         raise ValueError(
@@ -228,3 +239,23 @@ def _rest_approximate_axis(
             f"its long axis — author an override"
         )
     return candidate
+
+
+def _default_perpendicular(long_dir: NDArray[np.float64]) -> NDArray[np.float64]:
+    """A deterministic unit direction orthogonal to *long_dir*.
+
+    Orthogonalizes a canonical reference (``+X`` unless the long axis is near
+    ``+X``, then ``+Y``) against *long_dir*, so the result is never collinear
+    with it.
+    """
+    ref = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+    if abs(float(np.dot(long_dir, ref))) > 0.9:
+        ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    perp = ref - float(np.dot(ref, long_dir)) * long_dir
+    norm = float(np.linalg.norm(perp))
+    if norm < 1e-10:
+        # long_dir is ±X and ±Y simultaneously is impossible given the branch,
+        # but keep a hard fallback for numerical safety.
+        perp = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        norm = 1.0
+    return perp / norm

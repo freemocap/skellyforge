@@ -91,3 +91,20 @@ def test_head_skull_rigid_points_build_a_rest_map():
     for skull in ("head_center", "head_vertex", "left_eye", "right_eye", "left_ear", "right_ear"):
         assert skull in geometry.keypoints, skull
     assert "nose" not in geometry.keypoints  # off-chain, as before the reshape
+
+
+def test_head_reference_forward_axis_is_anterior():
+    # `nose` is the exact-axis target of SIX segments (the `nose` segment plus
+    # both eyes, `jaw`, and both mouth corners). The schematic builder writes
+    # the shared `nose` slot once per such segment, so it is last-writer-wins
+    # (authoring order -> `right_mouth`), leaving `nose` in a NON-anterior
+    # direction. The head's approximate axis must therefore resolve from its
+    # authored anterior override, not that overwritten schematic position —
+    # otherwise the head's reference frame is rolled off anatomical forward and
+    # `identity == T-pose` breaks for the head at runtime (where a real
+    # anterior nose is supplied). Long axis is +Z (up); forward is +X.
+    human = compose_standard_human()
+    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    head = geometry.segments["head"]
+    assert np.allclose(head.basis[0], (0.0, 0.0, 1.0), atol=1e-9), head.basis[0]
+    assert np.allclose(head.basis[1], (1.0, 0.0, 0.0), atol=1e-6), head.basis[1]

@@ -59,6 +59,7 @@ if TYPE_CHECKING:
 def build_segment_frame(
     axes: tuple["AxisDefinition", ...],
     positions: dict[str, NDArray[float64]],
+    origin_keypoint: str,
     *,
     collinearity_threshold: float = 0.9998,
 ) -> tuple[NDArray[float64] | None, bool]:
@@ -67,8 +68,11 @@ def build_segment_frame(
     The ONE builder used to construct a segment frame from declared axes — the
     tags (``AxisKind``), not the axis names, carry the roles.
 
-    Dispatch table (axes in authored order; all directions are ``to − from``
-    normalized from ``positions``):
+    Every axis direction is ``positions[target_keypoint] −
+    positions[origin_keypoint]`` — the segment's origin to a point of its own
+    rigid geometry, normalized.
+
+    Dispatch table (axes in authored order):
 
     ========  =================================================================
     Count     Behaviour
@@ -85,8 +89,7 @@ def build_segment_frame(
               anything is a wrong declaration.
     3 axes    ``x̂``, ``ŷ`` as the 2-axis case; ``ẑ`` = ``x̂ × ŷ``. The third
               declaration's direction is used ONLY to resolve ``ẑ``'s sign
-              (dot-product consistency: if the dot is negative, flip ``ẑ``) —
-              the Z-flip precedent, structural now.
+              (dot-product consistency: if the dot is negative, flip ``ẑ``).
     ========  =================================================================
 
     Parameters
@@ -97,6 +100,8 @@ def build_segment_frame(
         ``{keypoint_name: (3,) position}`` — rest positions for reference
         geometry, live positions for the solver. A keypoint missing from this
         map makes its axis unusable (see ``resolved``/``raises`` below).
+    origin_keypoint :
+        The segment's origin keypoint — the start of every axis direction.
     collinearity_threshold :
         Dot-product bound beyond which an APPROXIMATE direction is treated as
         collinear (hence unresolved → ``(None, False)``) rather than a hard
@@ -124,23 +129,26 @@ def build_segment_frame(
     if not exact:
         raise ValueError("build_segment_frame: no EXACT axis among the declarations")
 
-    x_axis_def = exact[0]
-    x_from = positions.get(x_axis_def.from_keypoint)
-    x_to = positions.get(x_axis_def.to_keypoint)
-    if x_from is None or x_to is None:
+    origin = positions.get(origin_keypoint)
+    if origin is None:
         return None, False
-    x_hat = np.asarray(x_to, dtype=np.float64) - np.asarray(x_from, dtype=np.float64)
+    origin = np.asarray(origin, dtype=np.float64)
+
+    x_axis_def = exact[0]
+    x_to = positions.get(x_axis_def.target_keypoint)
+    if x_to is None:
+        return None, False
+    x_hat = np.asarray(x_to, dtype=np.float64) - origin
     x_norm = float(np.linalg.norm(x_hat))
     if x_norm < 1e-10:
         return None, False
     x_hat = x_hat / x_norm
 
     second = axes[1]
-    s_from = positions.get(second.from_keypoint)
-    s_to = positions.get(second.to_keypoint)
-    if s_from is None or s_to is None:
+    s_to = positions.get(second.target_keypoint)
+    if s_to is None:
         return None, False
-    s_dir = np.asarray(s_to, dtype=np.float64) - np.asarray(s_from, dtype=np.float64)
+    s_dir = np.asarray(s_to, dtype=np.float64) - origin
     s_norm = float(np.linalg.norm(s_dir))
     if s_norm < 1e-10:
         return None, False
@@ -165,12 +173,9 @@ def build_segment_frame(
     # 3 axes → use the third declaration's direction only to resolve ẑ's sign
     if len(axes) >= 3:
         third = axes[2]
-        t_from = positions.get(third.from_keypoint)
-        t_to = positions.get(third.to_keypoint)
-        if t_from is not None and t_to is not None:
-            t_dir = np.asarray(t_to, dtype=np.float64) - np.asarray(
-                t_from, dtype=np.float64
-            )
+        t_to = positions.get(third.target_keypoint)
+        if t_to is not None:
+            t_dir = np.asarray(t_to, dtype=np.float64) - origin
             t_norm = float(np.linalg.norm(t_dir))
             if t_norm > 1e-10:
                 t_dir = t_dir / t_norm

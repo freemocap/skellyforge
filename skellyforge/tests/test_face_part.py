@@ -56,15 +56,15 @@ def test_five_face_detail_segments_exist_with_authored_declaration():
         assert seg.rotation_limits is None
 
     assert _by_name("nose").origin_keypoint == "head_center"
-    assert _by_name("nose").axes[0].to_keypoint == "nose"
+    assert _by_name("nose").axes[0].target_keypoint == "nose"
     assert _by_name("left_ear").origin_keypoint == "head_center"
-    assert _by_name("left_ear").axes[0].to_keypoint == "left_ear"
+    assert _by_name("left_ear").axes[0].target_keypoint == "left_ear"
     assert _by_name("right_ear").origin_keypoint == "head_center"
-    assert _by_name("right_ear").axes[0].to_keypoint == "right_ear"
+    assert _by_name("right_ear").axes[0].target_keypoint == "right_ear"
     assert _by_name("left_mouth").origin_keypoint == "left_mouth"
-    assert _by_name("left_mouth").axes[0].to_keypoint == "nose"
+    assert _by_name("left_mouth").axes[0].target_keypoint == "nose"
     assert _by_name("right_mouth").origin_keypoint == "right_mouth"
-    assert _by_name("right_mouth").axes[0].to_keypoint == "nose"
+    assert _by_name("right_mouth").axes[0].target_keypoint == "nose"
 
 
 def test_rest_directions_pin_the_head_axes():

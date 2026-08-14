@@ -129,12 +129,12 @@ def solve_frame_orientations(
         if segment.axes:
             # axes[0] is guaranteed EXACT (the segment's long axis) by the
             # SegmentDefinition load-time validation; reads the same long axis
-            # that build_segment_frame resolves via its first EXACT axis.
-            long_from = keypoints.get(segment.axes[0].from_keypoint)
-            long_to = keypoints.get(segment.axes[0].to_keypoint)
-            if long_from is not None and long_to is not None:
+            # that build_segment_frame resolves via its first EXACT axis: origin
+            # → target_keypoint.
+            long_to = keypoints.get(segment.axes[0].target_keypoint)
+            if origin is not None and long_to is not None:
                 live_vec = np.asarray(long_to, dtype=np.float64) - np.asarray(
-                    long_from, dtype=np.float64
+                    origin, dtype=np.float64
                 )
         if live_vec is None:
             continue  # occluded this frame (no usable long-axis keypoints)
@@ -149,10 +149,11 @@ def solve_frame_orientations(
         # ``build_segment_frame`` builds the LIVE frame from the tagged axis
         # declarations directly from this frame's keypoints. Its internal
         # singularity gate (collinearity_threshold) reproduces the solver's ~5°
-        # gate: the APPROXIMATE axis resolvoes the roll only when non-collinear.
+        # gate: the APPROXIMATE axis resolves the roll only when non-collinear.
         live_basis, resolved = build_segment_frame(
             segment.axes,
             keypoints,
+            segment.origin_keypoint,
             collinearity_threshold=_SINGULARITY_DOT_THRESHOLD,
         )
 

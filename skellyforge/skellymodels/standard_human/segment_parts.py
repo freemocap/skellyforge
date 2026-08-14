@@ -42,8 +42,7 @@ def _prefixed_axis(
         AxisDefinition(
             axis=a.axis,
             kind=a.kind,
-            from_keypoint=f"{prefix}{a.from_keypoint}",
-            to_keypoint=f"{prefix}{a.to_keypoint}",
+            target_keypoint=f"{prefix}{a.target_keypoint}",
         )
         for a in axes
     )
@@ -136,8 +135,7 @@ def _resolve_midline_references(
             AxisDefinition(
                 axis=a.axis,
                 kind=a.kind,
-                from_keypoint=resolved(a.from_keypoint),
-                to_keypoint=resolved(a.to_keypoint),
+                target_keypoint=resolved(a.target_keypoint),
             )
             for a in segment.axes
         ),

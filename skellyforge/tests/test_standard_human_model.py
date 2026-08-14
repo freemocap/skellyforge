@@ -36,13 +36,13 @@ def test_two_roots_raise():
         SegmentDefinition(
             name="a", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("a", "b"), origin_keypoint="a",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "b"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("b", "a"), origin_keypoint="b",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "b", "a"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "a"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -56,7 +56,7 @@ def _root(name: str) -> SegmentDefinition:
         name=name, parent=None, parent_attachment=ParentAttachment.ORIGIN,
         rigid_points=(f"{name}_origin", f"{name}_distal"),
         origin_keypoint=f"{name}_origin",
-        axes=(AxisDefinition("x", AxisKind.EXACT, f"{name}_origin", f"{name}_distal"),),
+        axes=(AxisDefinition("x", AxisKind.EXACT, f"{name}_distal"),),
         rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
     )
 
@@ -70,7 +70,7 @@ def test_missing_parent_raises():
         SegmentDefinition(
             name="a", parent="ghost", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("a", "b"), origin_keypoint="a",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "b"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -86,13 +86,13 @@ def test_cycle_raises():
         SegmentDefinition(
             name="a", parent="b", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("a", "c"), origin_keypoint="a",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "a", "c"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent="a", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("b", "c"), origin_keypoint="b",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "b", "c"),),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
     ))
@@ -124,26 +124,83 @@ def test_head_rigid_points_is_exactly_the_seven_name_skull_set():
     )
 
 
-def test_every_two_point_segment_exact_axis_matches_its_origin_long_pair():
-    # for 2-point segments the exact axis is simply (origin, distal): the
-    # authored origin→long_axis direction. Spot-check a few across the body,
+def test_head_axes_are_unchanged_exact_vertex_approximate_nose():
+    human = compose_standard_human()
+    head = next(s for s in human.segments if s.name == "head")
+    exact = next(a for a in head.axes if a.kind is AxisKind.EXACT)
+    approx = next(a for a in head.axes if a.kind is AxisKind.APPROXIMATE)
+    assert exact.axis == "x" and exact.target_keypoint == "head_vertex"
+    assert approx.axis == "y" and approx.target_keypoint == "nose"
+    assert head.resolves_twist is True
+
+
+def test_foot_toes_hips_rigid_sets_are_the_full_bodies():
+    human = compose_standard_human()
+    by_name = {s.name: s for s in human.segments}
+    assert by_name["hips"].rigid_points == (
+        "hips_center", "trunk_center", "left_hip", "right_hip",
+    )
+    for side in ("left_", "right_"):
+        foot = by_name[f"{side}foot"]
+        toes = by_name[f"{side}toes"]
+        assert foot.rigid_points == (f"{side}ankle", f"{side}foot_ball", f"{side}heel")
+        assert toes.rigid_points == (f"{side}foot_ball", f"{side}big_toe", f"{side}small_toe")
+        # the axis targets stay inside the segment's own rigid set
+        for a in foot.axes:
+            assert a.target_keypoint in foot.rigid_points
+        for a in toes.axes:
+            assert a.target_keypoint in toes.rigid_points
+
+
+_DROP_LIST = (
+    "upper_arm", "lower_arm", "shoulder", "neck", "upper_leg", "lower_leg",
+)
+
+
+def test_drop_list_segments_declare_exactly_one_exact_axis_and_no_twist():
+    human = compose_standard_human()
+    # the six 2-point limb/torso segments resolve roll through the damped
+    # minimal tier: exactly one EXACT axis, no approximate, no twist source.
+    for name in ("neck", "left_upper_arm", "right_upper_arm", "left_lower_arm",
+                 "right_lower_arm", "left_shoulder", "right_shoulder",
+                 "left_upper_leg", "right_upper_leg", "left_lower_leg",
+                 "right_lower_leg"):
+        seg = next(s for s in human.segments if s.name == name)
+        assert len(seg.axes) == 1, name
+        assert seg.axes[0].kind is AxisKind.EXACT, name
+        assert seg.resolves_twist is False, name
+
+
+def test_every_two_point_segment_exact_axis_target_is_its_distal_point():
+    # for 2-point segments the exact axis target is the distal point: the
+    # authored origin→long-axis direction. Spot-check a few across the body,
     # hand and face.
     human = compose_standard_human()
     expected = {
-        "hips": (("hips_center", "trunk_center"), "hips_center"),
-        "left_upper_arm": (("left_shoulder", "left_elbow"), "left_shoulder"),
-        "left_foot": (("left_ankle", "left_foot_ball"), "left_ankle"),
-        "left_middle_proximal": (("left_middle_finger_mcp", "left_middle_finger_pip"), "left_middle_finger_mcp"),
-        "left_thumb_distal": (("left_thumb_ip", "left_thumb_tip"), "left_thumb_ip"),
-        "nose": (("head_center", "nose"), "head_center"),
-        "left_mouth": (("left_mouth", "nose"), "left_mouth"),
+        "hips": ("trunk_center", "hips_center"),
+        "left_upper_arm": ("left_elbow", "left_shoulder"),
+        "left_foot": ("left_foot_ball", "left_ankle"),
+        "left_middle_proximal": ("left_middle_finger_pip", "left_middle_finger_mcp"),
+        "left_thumb_distal": ("left_thumb_tip", "left_thumb_ip"),
+        "nose": ("nose", "head_center"),
+        "left_mouth": ("nose", "left_mouth"),
     }
-    for name, (x_axis, origin) in expected.items():
+    for name, (target, origin) in expected.items():
         seg = next(s for s in human.segments if s.name == name)
         exact = next(a for a in seg.axes if a.kind is AxisKind.EXACT)
-        assert (exact.from_keypoint, exact.to_keypoint) == x_axis, name
-        assert exact.from_keypoint == seg.origin_keypoint == origin, name
-        assert len(seg.rigid_points) == 2, name
+        assert exact.target_keypoint == target, name
+        assert seg.origin_keypoint == origin, name
+        assert exact.target_keypoint in seg.rigid_points, name
+
+
+def test_hips_exact_is_trunk_center_approximate_is_right_hip():
+    human = compose_standard_human()
+    hips = next(s for s in human.segments if s.name == "hips")
+    exact = next(a for a in hips.axes if a.kind is AxisKind.EXACT)
+    approx = next(a for a in hips.axes if a.kind is AxisKind.APPROXIMATE)
+    assert exact.target_keypoint == "trunk_center"
+    assert approx.target_keypoint == "right_hip"
+    assert hips.resolves_twist is True
 
 
 def test_required_keypoints_is_unchanged_after_the_reshape():

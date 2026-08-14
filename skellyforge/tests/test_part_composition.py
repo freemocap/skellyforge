@@ -11,10 +11,10 @@ def _hand_part() -> SegmentPart:
         segments=(
             SegmentDefinition(
                 name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
-                rigid_points=("wrist", "middle_finger_mcp"), origin_keypoint="wrist",
+                rigid_points=("wrist", "middle_finger_mcp", "thumb_cmc"), origin_keypoint="wrist",
                 axes=(
-                    AxisDefinition("x", AxisKind.EXACT, "wrist", "middle_finger_mcp"),
-                    AxisDefinition("y", AxisKind.APPROXIMATE, "wrist", "thumb_cmc"),
+                    AxisDefinition("x", AxisKind.EXACT, "middle_finger_mcp"),
+                    AxisDefinition("y", AxisKind.APPROXIMATE, "thumb_cmc"),
                 ),
                 rest_rotation=(0.0, math.radians(90.0), 0.0), rest_roll=math.radians(90.0),
                 length_ratio=0.0505,
@@ -22,7 +22,7 @@ def _hand_part() -> SegmentPart:
             SegmentDefinition(
                 name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
                 rigid_points=("thumb_cmc", "thumb_mcp"), origin_keypoint="thumb_cmc",
-                axes=(AxisDefinition("x", AxisKind.EXACT, "thumb_cmc", "thumb_mcp"),),
+                axes=(AxisDefinition("x", AxisKind.EXACT, "thumb_mcp"),),
                 rest_rotation=(0.0, math.radians(90.0), math.radians(-45.0)), rest_roll=0.0,
                 length_ratio=0.0194,
             ),
@@ -38,8 +38,8 @@ def test_instantiating_a_part_prefixes_keypoint_names():
     hand = next(s for s in composed if s.name == "left_hand")
     assert hand.origin_keypoint == "left_wrist"
     exact, approx = hand.axes
-    assert (exact.from_keypoint, exact.to_keypoint) == ("left_wrist", "left_middle_finger_mcp")
-    assert (approx.from_keypoint, approx.to_keypoint) == ("left_wrist", "left_thumb_cmc")
+    assert exact.target_keypoint == "left_middle_finger_mcp"
+    assert approx.target_keypoint == "left_thumb_cmc"
 
 def test_instantiating_a_part_prefixes_parent_references_within_the_part():
     composed = compose_parts([(_hand_part(), "left_")])
@@ -79,10 +79,7 @@ def test_root_parent_none_survives_prefixing():
     root = SegmentDefinition(
         name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
         rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
-        axes=(
-            AxisDefinition("x", AxisKind.EXACT, "hips_center", "trunk_center"),
-            AxisDefinition("y", AxisKind.APPROXIMATE, "hips_center", "right_hip"),
-        ),
+        axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
         rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.145,
     )
     part = SegmentPart(name="midline", segments=(root,))
@@ -112,39 +109,31 @@ def test_midline_references_fall_back_to_unprefixed_names():
         SegmentDefinition(
             name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
-            axes=(
-                AxisDefinition("x", AxisKind.EXACT, "hips_center", "trunk_center"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "hips_center", "right_hip"),
-            ),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.145,
         ),
         SegmentDefinition(
             name="upper_chest", parent="hips", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("mid_sternum", "neck_center"), origin_keypoint="mid_sternum",
-            axes=(
-                AxisDefinition("x", AxisKind.EXACT, "mid_sternum", "neck_center"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "mid_sternum", "right_shoulder"),
-            ),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "neck_center"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.055,
         ),
     ))
     limb = SegmentPart(name="limb", segments=(
         SegmentDefinition(
             name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("sternoclavicular", "shoulder"), origin_keypoint="sternoclavicular",
+            rigid_points=("sternoclavicular", "shoulder", "neck_center"),
+            origin_keypoint="sternoclavicular",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "sternoclavicular", "shoulder"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "sternoclavicular", "neck_center"),
+                AxisDefinition("x", AxisKind.EXACT, "shoulder"),
+                AxisDefinition("y", AxisKind.APPROXIMATE, "neck_center"),
             ),
             rest_rotation=(-math.pi / 2, 0.0, 0.0), rest_roll=0.0, length_ratio=0.103,
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("hip", "knee"), origin_keypoint="hip",
-            axes=(
-                AxisDefinition("x", AxisKind.EXACT, "hip", "knee"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "hip", "ankle"),
-            ),
+            axes=(AxisDefinition("x", AxisKind.EXACT, "knee"),),
             rest_rotation=(math.pi, 0.0, 0.0), rest_roll=0.0, length_ratio=0.245,
         ),
     ))
@@ -153,7 +142,7 @@ def test_midline_references_fall_back_to_unprefixed_names():
     upper_leg = next(s for s in composed if s.name == "left_upper_leg")
     assert shoulder.parent == "upper_chest"
     _, approx = shoulder.axes
-    assert (approx.from_keypoint, approx.to_keypoint) == ("left_sternoclavicular", "neck_center")
+    assert approx.target_keypoint == "neck_center"
     assert upper_leg.parent == "hips"
 
 
@@ -177,7 +166,7 @@ BODY_KEYPOINT_SET = {
 for _side in ("left_", "right_"):
     BODY_KEYPOINT_SET |= {
         f"{_side}sternoclavicular", f"{_side}shoulder", f"{_side}elbow",
-        f"{_side}wrist", f"{_side}middle_finger_mcp", f"{_side}hip",
+        f"{_side}wrist", f"{_side}hip",
         f"{_side}knee", f"{_side}ankle", f"{_side}foot_ball", f"{_side}heel",
         f"{_side}big_toe", f"{_side}small_toe",
     }
@@ -251,8 +240,9 @@ def test_hand_composes_onto_the_body_by_name_agreement():
     assert left_hand.parent == "left_lower_arm"
     assert any(s.name == "left_lower_arm" for s in composed)
     assert left_hand.origin_keypoint == "left_wrist"
-    _, approx = left_hand.axes
-    assert (approx.from_keypoint, approx.to_keypoint) == ("left_wrist", "left_thumb_cmc")
+    (exact,) = left_hand.axes
+    assert exact.target_keypoint == "left_middle_finger_mcp"
+    assert left_hand.resolves_twist is False
 
 
 def test_face_part_declares_eight_face_segments():
