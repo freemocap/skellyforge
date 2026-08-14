@@ -13,8 +13,8 @@ def _foot_like(**overrides) -> SegmentDefinition:
         name="foot",
         parent="lower_leg",
         parent_attachment=ParentAttachment.DISTAL,
-        rigid_points=("ankle", "foot_ball", "heel"),
-        origin_keypoint="ankle",
+        landmarks=("ankle", "foot_ball", "heel"),
+        origin_landmark="ankle",
         axes=(
             AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
             AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
@@ -27,15 +27,15 @@ def _foot_like(**overrides) -> SegmentDefinition:
     return SegmentDefinition(**kwargs)
 
 
-def test_required_keypoints_is_exactly_the_rigid_set():
-    assert _foot_like().required_keypoints() == {"ankle", "foot_ball", "heel"}
+def test_required_landmarks_is_exactly_the_rigid_set():
+    assert _foot_like().required_landmarks() == {"ankle", "foot_ball", "heel"}
 
 
-def test_required_keypoints_omits_absent_twist_source():
+def test_required_landmarks_omits_absent_twist_source():
     single = _foot_like(
         axes=(AxisDefinition("x", AxisKind.EXACT, "foot_ball"),)
     )
-    assert single.required_keypoints() == {"ankle", "foot_ball", "heel"}
+    assert single.required_landmarks() == {"ankle", "foot_ball", "heel"}
 
 
 def test_resolves_twist_is_true_only_when_an_approximate_axis_is_declared():
@@ -69,7 +69,7 @@ def test_approximate_axis_target_must_not_be_the_origin():
 def test_axis_target_must_be_a_rigid_point():
     # Every axis direction is origin → target; the target must be rigid on the
     # segment. This holds for BOTH kinds.
-    with pytest.raises(ValueError, match="not in rigid_points"):
+    with pytest.raises(ValueError, match="not in landmarks"):
         _foot_like(
             axes=(
                 AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
@@ -81,7 +81,7 @@ def test_axis_target_must_be_a_rigid_point():
 def test_approximate_axis_target_must_be_a_rigid_point():
     # The core rule: a segment's frame is a function of its own points only —
     # the approximate target leaving the rigid set is a load-time error.
-    with pytest.raises(ValueError, match="not in rigid_points"):
+    with pytest.raises(ValueError, match="not in landmarks"):
         _foot_like(
             axes=(
                 AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
@@ -151,24 +151,24 @@ def test_approximate_axis_may_precede_exact_in_the_tuple():
     assert seg.resolves_twist is True
 
 
-def test_rigid_points_must_have_at_least_two_keypoints():
+def test_landmarks_must_have_at_least_two_landmarks():
     with pytest.raises(ValueError, match="at least 2"):
-        _foot_like(rigid_points=("ankle",))
+        _foot_like(landmarks=("ankle",))
 
 
-def test_rigid_points_must_be_distinct():
+def test_landmarks_must_be_distinct():
     with pytest.raises(ValueError, match="distinct"):
-        _foot_like(rigid_points=("ankle", "ankle", "heel"))
+        _foot_like(landmarks=("ankle", "ankle", "heel"))
 
 
-def test_rigid_points_must_be_non_empty_strings():
+def test_landmarks_must_be_non_empty_strings():
     with pytest.raises(ValueError, match="non-empty"):
-        _foot_like(rigid_points=("ankle", "", "heel"))
+        _foot_like(landmarks=("ankle", "", "heel"))
 
 
-def test_origin_keypoint_must_be_in_the_rigid_set():
-    with pytest.raises(ValueError, match="origin_keypoint"):
-        _foot_like(origin_keypoint="wrist")
+def test_origin_landmark_must_be_in_the_rigid_set():
+    with pytest.raises(ValueError, match="origin_landmark"):
+        _foot_like(origin_landmark="wrist")
 
 
 def test_name_must_be_snake_case():

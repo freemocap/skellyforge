@@ -11,7 +11,7 @@ def _hand_part() -> SegmentPart:
         segments=(
             SegmentDefinition(
                 name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
-                rigid_points=("wrist", "middle_finger_mcp", "thumb_cmc"), origin_keypoint="wrist",
+                landmarks=("wrist", "middle_finger_mcp", "thumb_cmc"), origin_landmark="wrist",
                 axes=(
                     AxisDefinition("x", AxisKind.EXACT, "middle_finger_mcp"),
                     AxisDefinition("y", AxisKind.APPROXIMATE, "thumb_cmc"),
@@ -21,7 +21,7 @@ def _hand_part() -> SegmentPart:
             ),
             SegmentDefinition(
                 name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
-                rigid_points=("thumb_cmc", "thumb_mcp"), origin_keypoint="thumb_cmc",
+                landmarks=("thumb_cmc", "thumb_mcp"), origin_landmark="thumb_cmc",
                 axes=(AxisDefinition("x", AxisKind.EXACT, "thumb_mcp"),),
                 rest_rotation=(0.0, math.radians(90.0), math.radians(-45.0)), rest_roll=0.0,
                 length_ratio=0.0194,
@@ -33,13 +33,13 @@ def test_instantiating_a_part_prefixes_segment_names():
     composed = compose_parts([(_hand_part(), "left_")])
     assert {s.name for s in composed} == {"left_hand", "left_thumb_metacarpal"}
 
-def test_instantiating_a_part_prefixes_keypoint_names():
+def test_instantiating_a_part_prefixes_landmark_names():
     composed = compose_parts([(_hand_part(), "left_")])
     hand = next(s for s in composed if s.name == "left_hand")
-    assert hand.origin_keypoint == "left_wrist"
+    assert hand.origin_landmark == "left_wrist"
     exact, approx = hand.axes
-    assert exact.target_keypoint == "left_middle_finger_mcp"
-    assert approx.target_keypoint == "left_thumb_cmc"
+    assert exact.target_landmark == "left_middle_finger_mcp"
+    assert approx.target_landmark == "left_thumb_cmc"
 
 def test_instantiating_a_part_prefixes_parent_references_within_the_part():
     composed = compose_parts([(_hand_part(), "left_")])
@@ -72,13 +72,13 @@ def test_empty_prefix_leaves_midline_part_names_unchanged():
     assert {s.name for s in composed} == {"hand", "thumb_metacarpal"}
     hand = next(s for s in composed if s.name == "hand")
     assert hand.parent == "lower_arm"
-    assert hand.origin_keypoint == "wrist"
+    assert hand.origin_landmark == "wrist"
 
 
 def test_root_parent_none_survives_prefixing():
     root = SegmentDefinition(
         name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-        rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
+        landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
         axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
         rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.145,
     )
@@ -90,14 +90,14 @@ def test_root_parent_none_survives_prefixing():
     assert composed_prefixed[0].parent is None
 
 
-def test_required_keypoints_are_fully_prefixed_after_composition():
+def test_required_landmarks_are_fully_prefixed_after_composition():
     # The tracker-mapping boundary contract (Task 6) keys on these names —
-    # a missed prefix here would silently break the model's required-keypoint set.
+    # a missed prefix here would silently break the model's required-landmark set.
     composed = compose_parts([(_hand_part(), "left_")])
     hand = next(s for s in composed if s.name == "left_hand")
     thumb = next(s for s in composed if s.name == "left_thumb_metacarpal")
-    assert hand.required_keypoints() == {"left_wrist", "left_middle_finger_mcp", "left_thumb_cmc"}
-    assert thumb.required_keypoints() == {"left_thumb_cmc", "left_thumb_mcp"}
+    assert hand.required_landmarks() == {"left_wrist", "left_middle_finger_mcp", "left_thumb_cmc"}
+    assert thumb.required_landmarks() == {"left_thumb_cmc", "left_thumb_mcp"}
 
 
 def test_midline_references_fall_back_to_unprefixed_names():
@@ -108,13 +108,13 @@ def test_midline_references_fall_back_to_unprefixed_names():
     midline = SegmentPart(name="midline", segments=(
         SegmentDefinition(
             name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
+            landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.145,
         ),
         SegmentDefinition(
             name="upper_chest", parent="hips", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("mid_sternum", "neck_center"), origin_keypoint="mid_sternum",
+            landmarks=("mid_sternum", "neck_center"), origin_landmark="mid_sternum",
             axes=(AxisDefinition("x", AxisKind.EXACT, "neck_center"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.055,
         ),
@@ -122,8 +122,8 @@ def test_midline_references_fall_back_to_unprefixed_names():
     limb = SegmentPart(name="limb", segments=(
         SegmentDefinition(
             name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("sternoclavicular", "shoulder", "neck_center"),
-            origin_keypoint="sternoclavicular",
+            landmarks=("sternoclavicular", "shoulder", "neck_center"),
+            origin_landmark="sternoclavicular",
             axes=(
                 AxisDefinition("x", AxisKind.EXACT, "shoulder"),
                 AxisDefinition("y", AxisKind.APPROXIMATE, "neck_center"),
@@ -132,7 +132,7 @@ def test_midline_references_fall_back_to_unprefixed_names():
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("hip", "knee"), origin_keypoint="hip",
+            landmarks=("hip", "knee"), origin_landmark="hip",
             axes=(AxisDefinition("x", AxisKind.EXACT, "knee"),),
             rest_rotation=(math.pi, 0.0, 0.0), rest_roll=0.0, length_ratio=0.245,
         ),
@@ -142,7 +142,7 @@ def test_midline_references_fall_back_to_unprefixed_names():
     upper_leg = next(s for s in composed if s.name == "left_upper_leg")
     assert shoulder.parent == "upper_chest"
     _, approx = shoulder.axes
-    assert approx.target_keypoint == "neck_center"
+    assert approx.target_landmark == "neck_center"
     assert upper_leg.parent == "hips"
 
 
@@ -153,18 +153,18 @@ from skellyforge.skellymodels.standard_human.body_part import compose_body_parts
 # is checked AGAINST (Task 6 keys the tracker-mapping completeness contract on
 # this set). Deriving it from the body would make the test tautological — a
 # typo in the authored data must fail it, not reproduce in the expected set.
-BODY_KEYPOINT_SET = {
+BODY_LANDMARK_SET = {
     # midline
     "hips_center", "trunk_center", "neck_center", "head_center", "nose",
     "mid_sternum", "head_vertex", "right_hip", "right_shoulder",
     # the head's 7-point skull rigid set (nose/head_vertex above) — eyes and
     # ears are rigid with the skull, hence body-required, but they are FACE
-    # segments' authored long-axis/keypoint targets, named in the body only
-    # because the head's rigid_points name them.
+    # segments' authored long-axis/landmark targets, named in the body only
+    # because the head's landmarks name them.
     "left_eye", "right_eye", "left_ear", "right_ear",
 }
 for _side in ("left_", "right_"):
-    BODY_KEYPOINT_SET |= {
+    BODY_LANDMARK_SET |= {
         f"{_side}sternoclavicular", f"{_side}shoulder", f"{_side}elbow",
         f"{_side}wrist", f"{_side}hip",
         f"{_side}knee", f"{_side}ankle", f"{_side}foot_ball", f"{_side}heel",
@@ -210,12 +210,12 @@ def test_body_part_every_segment_reaches_the_root():
         assert current.name == "hips", f"{segment.name} terminates at {current.name}, not hips"
 
 
-def test_body_part_declares_exactly_the_documented_keypoint_set():
+def test_body_part_declares_exactly_the_documented_landmark_set():
     body = compose_body_parts()
     declared: set[str] = set()
     for segment in body:
-        declared |= segment.required_keypoints()
-    assert declared == BODY_KEYPOINT_SET
+        declared |= segment.required_landmarks()
+    assert declared == BODY_LANDMARK_SET
 
 
 from skellyforge.skellymodels.standard_human.body_part import BODY_LIMB_PART, BODY_MIDLINE_PART
@@ -239,16 +239,16 @@ def test_hand_composes_onto_the_body_by_name_agreement():
     left_hand = next(s for s in composed if s.name == "left_hand")
     assert left_hand.parent == "left_lower_arm"
     assert any(s.name == "left_lower_arm" for s in composed)
-    assert left_hand.origin_keypoint == "left_wrist"
+    assert left_hand.origin_landmark == "left_wrist"
     (exact,) = left_hand.axes
-    assert exact.target_keypoint == "left_middle_finger_mcp"
+    assert exact.target_landmark == "left_middle_finger_mcp"
     assert left_hand.resolves_twist is False
 
 
 def test_face_part_declares_eight_face_segments():
     # The three VRM 1.0 face bones (eyes/jaw) plus the five FreeMoCap
     # face-detail segments (nose/ears/mouth corners) — all driven segments
-    # branching from the head's ORIGIN, fully inside required_keypoints().
+    # branching from the head's ORIGIN, fully inside required_landmarks().
     assert {s.name for s in FACE_PART.segments} == {
         "left_eye", "right_eye", "jaw",
         "nose", "left_ear", "right_ear", "left_mouth", "right_mouth",

@@ -22,9 +22,9 @@ def test_composed_human_has_60_segments_matching_bone_aliases():
     assert set(human.segment_names) == set(BONE_ALIASES.keys())
 
 
-def test_required_keypoints_include_the_face_bones():
+def test_required_landmarks_include_the_face_bones():
     human = compose_standard_human()
-    required = human.required_keypoints()
+    required = human.required_landmarks()
     assert {"left_eye", "right_eye", "jaw", "nose"} <= required
     assert {"left_ear", "right_ear", "left_mouth", "right_mouth"} <= required
     assert "left_wrist" in required  # driven: lower_arm/hand
@@ -35,13 +35,13 @@ def test_two_roots_raise():
     two_roots = SegmentPart(name="two_roots", segments=(
         SegmentDefinition(
             name="a", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("a", "b"), origin_keypoint="a",
+            landmarks=("a", "b"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("b", "a"), origin_keypoint="b",
+            landmarks=("b", "a"), origin_landmark="b",
             axes=(AxisDefinition("x", AxisKind.EXACT, "a"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
@@ -54,8 +54,8 @@ def _root(name: str) -> SegmentDefinition:
     """A minimal valid root segment (parent is None)."""
     return SegmentDefinition(
         name=name, parent=None, parent_attachment=ParentAttachment.ORIGIN,
-        rigid_points=(f"{name}_origin", f"{name}_distal"),
-        origin_keypoint=f"{name}_origin",
+        landmarks=(f"{name}_origin", f"{name}_distal"),
+        origin_landmark=f"{name}_origin",
         axes=(AxisDefinition("x", AxisKind.EXACT, f"{name}_distal"),),
         rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
     )
@@ -69,7 +69,7 @@ def test_missing_parent_raises():
         _root("r"),
         SegmentDefinition(
             name="a", parent="ghost", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("a", "b"), origin_keypoint="a",
+            landmarks=("a", "b"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
@@ -85,13 +85,13 @@ def test_cycle_raises():
         _root("r"),
         SegmentDefinition(
             name="a", parent="b", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("a", "c"), origin_keypoint="a",
+            landmarks=("a", "c"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent="a", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("b", "c"), origin_keypoint="b",
+            landmarks=("b", "c"), origin_landmark="b",
             axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         ),
@@ -115,10 +115,10 @@ def test_hierarchy_accessors_agree():
     assert human.segment_parents == {s.name: s.parent for s in human.segments}
 
 
-def test_head_rigid_points_is_exactly_the_seven_name_skull_set():
+def test_head_landmarks_is_exactly_the_seven_name_skull_set():
     human = compose_standard_human()
     head = next(s for s in human.segments if s.name == "head")
-    assert head.rigid_points == (
+    assert head.landmarks == (
         "head_center", "head_vertex", "nose", "left_eye", "right_eye",
         "left_ear", "right_ear",
     )
@@ -131,27 +131,27 @@ def test_head_axes_exact_vertex_on_y_approximate_nose_on_z():
     approx = next(a for a in head.axes if a.kind is AxisKind.APPROXIMATE)
     # the head's exact axis is +Y toward its child-less apex (up); the
     # approximate axis is +Z toward the nose (the face direction).
-    assert exact.axis == "y" and exact.target_keypoint == "head_vertex"
-    assert approx.axis == "z" and approx.target_keypoint == "nose"
+    assert exact.axis == "y" and exact.target_landmark == "head_vertex"
+    assert approx.axis == "z" and approx.target_landmark == "nose"
     assert head.resolves_twist is True
 
 
 def test_foot_toes_hips_rigid_sets_are_the_full_bodies():
     human = compose_standard_human()
     by_name = {s.name: s for s in human.segments}
-    assert by_name["hips"].rigid_points == (
+    assert by_name["hips"].landmarks == (
         "hips_center", "trunk_center", "left_hip", "right_hip",
     )
     for side in ("left_", "right_"):
         foot = by_name[f"{side}foot"]
         toes = by_name[f"{side}toes"]
-        assert foot.rigid_points == (f"{side}ankle", f"{side}foot_ball", f"{side}heel")
-        assert toes.rigid_points == (f"{side}foot_ball", f"{side}big_toe", f"{side}small_toe")
+        assert foot.landmarks == (f"{side}ankle", f"{side}foot_ball", f"{side}heel")
+        assert toes.landmarks == (f"{side}foot_ball", f"{side}big_toe", f"{side}small_toe")
         # the axis targets stay inside the segment's own rigid set
         for a in foot.axes:
-            assert a.target_keypoint in foot.rigid_points
+            assert a.target_landmark in foot.landmarks
         for a in toes.axes:
-            assert a.target_keypoint in toes.rigid_points
+            assert a.target_landmark in toes.landmarks
 
 
 _DROP_LIST = (
@@ -190,9 +190,9 @@ def test_every_two_point_segment_exact_axis_target_is_its_distal_point():
     for name, (target, origin) in expected.items():
         seg = next(s for s in human.segments if s.name == name)
         exact = next(a for a in seg.axes if a.kind is AxisKind.EXACT)
-        assert exact.target_keypoint == target, name
-        assert seg.origin_keypoint == origin, name
-        assert exact.target_keypoint in seg.rigid_points, name
+        assert exact.target_landmark == target, name
+        assert seg.origin_landmark == origin, name
+        assert exact.target_landmark in seg.landmarks, name
 
 
 def test_hips_exact_is_trunk_center_approximate_is_right_hip():
@@ -200,17 +200,17 @@ def test_hips_exact_is_trunk_center_approximate_is_right_hip():
     hips = next(s for s in human.segments if s.name == "hips")
     exact = next(a for a in hips.axes if a.kind is AxisKind.EXACT)
     approx = next(a for a in hips.axes if a.kind is AxisKind.APPROXIMATE)
-    assert exact.target_keypoint == "trunk_center"
-    assert approx.target_keypoint == "right_hip"
+    assert exact.target_landmark == "trunk_center"
+    assert approx.target_landmark == "right_hip"
     assert hips.resolves_twist is True
 
 
-def test_required_keypoints_is_unchanged_after_the_reshape():
+def test_required_landmarks_is_unchanged_after_the_reshape():
     # The reshape renames fields and enriches the head's rigid set; the set of
-    # keypoints the whole model requires a tracker to supply must be byte-for-
+    # landmarks the whole model requires a tracker to supply must be byte-for-
     # byte identical to the pre-reshape contract (76 names).
     human = compose_standard_human()
-    assert sorted(human.required_keypoints()) == [
+    assert sorted(human.required_landmarks()) == [
         "head_center", "head_vertex", "hips_center", "jaw", "left_ankle",
         "left_big_toe", "left_ear", "left_elbow", "left_eye", "left_foot_ball",
         "left_heel", "left_hip", "left_index_finger_dip", "left_index_finger_mcp",

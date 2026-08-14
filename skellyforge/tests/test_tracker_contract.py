@@ -1,6 +1,6 @@
 """The tracker→standard-human mapping completeness contract.
 
-The standard human declares ``required_keypoints()`` (76 names). Every
+The standard human declares ``required_landmarks()`` (76 names). Every
 tracker family (rtmpose / mediapipe, each a body + hand mapping pair) must
 produce the full required set, verified live at load time by ``tracker_contract``
 — the replacement for the deleted golden-fixture snapshot.
@@ -30,7 +30,7 @@ from skellytracker.core.io.tracker_mapping import TrackerMapping
 
 
 def test_all_four_mappings_cover_the_required_set() -> None:
-    """The four live mapping YAMLs produce every required keypoint.
+    """The four live mapping YAMLs produce every required landmark.
 
     This is the old golden-fixture contract, now checked against the parsed
     mappings (not a stale snapshot) at load time.
@@ -41,7 +41,7 @@ def test_all_four_mappings_cover_the_required_set() -> None:
 def test_gap_raises_with_the_missing_names() -> None:
     """A family that cannot produce every required name fails loudly.
 
-    The ValueError must name the missing required keypoints (sorted).
+    The ValueError must name the missing required landmarks (sorted).
     """
     human = compose_standard_human()
     body_mapping = TrackerMapping(
@@ -78,7 +78,7 @@ def test_validate_all_names_the_failing_family(monkeypatch: pytest.MonkeyPatch) 
     message = str(exc_info.value)
     assert "[rtmpose]" in message
     # The missing-names detail is preserved underneath the prefix.
-    assert "does not produce every required standard-human keypoint" in message
+    assert "does not produce every required standard-human landmark" in message
 
 
 def test_hand_names_instantiated_under_both_sides() -> None:
@@ -99,7 +99,7 @@ def test_hand_names_instantiated_under_both_sides() -> None:
     # The hand wrist is produced under both sides — no complaint about either.
     assert "left_wrist" not in message
     assert "right_wrist" not in message
-    # A finger keypoint (side-instantiated) is still missing.
+    # A finger landmark (side-instantiated) is still missing.
     assert "left_index_finger_mcp" in message
     assert "right_index_finger_mcp" in message
 

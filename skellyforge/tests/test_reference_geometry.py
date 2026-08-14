@@ -69,29 +69,29 @@ def test_right_side_mirrors_positions_and_rebuilds_frames():
         assert np.isclose(np.linalg.det(right_geom.basis), 1.0), right_name
 
 
-def test_origin_keypoint_positions_agree_with_segment_origins():
+def test_origin_landmark_positions_agree_with_segment_origins():
     # The consistency Fix-1 buys: a segment's rest origin and its origin
-    # keypoint's rest position are the same point. This is what makes the
+    # landmark's rest position are the same point. This is what makes the
     # solver's identity-at-T-pose contract hold.
     human = compose_standard_human()
     geometry = build_reference_geometry(list(human.segments), _lengths(human))
     for segment in human.segments:
         seg_geom = geometry.segments[segment.name]
-        kp_pos = geometry.keypoints[segment.origin_keypoint]
+        kp_pos = geometry.landmarks[segment.origin_landmark]
         assert np.allclose(seg_geom.origin, kp_pos, atol=1e-9), segment.name
 
 
-def test_head_skull_rigid_points_build_a_rest_map():
+def test_head_skull_landmarks_build_a_rest_map():
     # The head's 7-point skull set needs NO new rest-position logic: every name
-    # except `nose` is another segment's (long-axis/origin) keypoint, so the
+    # except `nose` is another segment's (long-axis/origin) landmark, so the
     # existing rest-map rules already place it. `nose` is the one off-chain
-    # keypoint — deliberately left out of the reference pose (the solver and
+    # landmark — deliberately left out of the reference pose (the solver and
     # face bones supply it per frame).
     human = compose_standard_human()
     geometry = build_reference_geometry(list(human.segments), _lengths(human))
     for skull in ("head_center", "head_vertex", "left_eye", "right_eye", "left_ear", "right_ear"):
-        assert skull in geometry.keypoints, skull
-    assert "nose" not in geometry.keypoints  # off-chain, as before the reshape
+        assert skull in geometry.landmarks, skull
+    assert "nose" not in geometry.landmarks  # off-chain, as before the reshape
 
 
 def test_head_reference_forward_axis_is_anterior():
@@ -136,7 +136,7 @@ def test_toward_child_rule_holds_for_every_body_segment():
         ]
         if not child_origins:
             # leaf — the exact-axis target is the toward-child point
-            target = geometry.keypoints[exact.target_keypoint]
+            target = geometry.landmarks[exact.target_landmark]
             expected = target - geometry.segments[segment.name].origin
         else:
             # VRM: +Y toward the child bone — the FIRST child's origin

@@ -1,9 +1,9 @@
-"""Per-segment orientation solver: declared keypoints → segment orientations.
+"""Per-segment orientation solver: declared landmarks → segment orientations.
 
 Reads the composed StandardHuman's segment declarations: each segment names
 its origin and a tuple of tagged axis declarations (an exact defining
 direction, optionally an approximate direction reference), and the solver
-resolves its orientation from THIS FRAME's keypoint positions against the
+resolves its orientation from THIS FRAME's landmark positions against the
 T-pose reference geometry (identity == T-pose).
 
 Twist is two-tier, and the declaration IS the policy:
@@ -17,7 +17,7 @@ The EXACT axis is the segment's defining direction; its name (x/y/z) picks the
 reference geometry basis vector the swing maps to the live exact direction.
 Every tier keys off the declared axes by name.
 
-Segments whose keypoints are missing or numerically coincident this frame are
+Segments whose landmarks are missing or numerically coincident this frame are
 skipped — occlusion is data, and the load-time validation (segment_definition)
 makes a *declared* coincidence impossible.
 """
@@ -112,7 +112,7 @@ class FrameOrientationResult:
 def solve_frame_orientations(
     standard_human: "StandardHuman",
     reference_geometry: dict[str, "SegmentReferenceGeometry"],
-    keypoints: dict[str, NDArray[float64]],
+    landmarks: dict[str, NDArray[float64]],
     *,
     timestamp_seconds: float,
     previous_result: FrameOrientationResult | None = None,
@@ -144,7 +144,7 @@ def solve_frame_orientations(
         ref_geom = reference_geometry.get(segment.name)
         if ref_geom is None:
             continue  # no reference geometry — nothing to solve against
-        origin = keypoints.get(segment.origin_keypoint)
+        origin = landmarks.get(segment.origin_landmark)
         if origin is None:
             continue  # occluded this frame
 
@@ -153,15 +153,15 @@ def solve_frame_orientations(
             # The EXACT axis is the segment's defining direction, declared on
             # whichever local axis (x/y/z) the author chose — no positional
             # read. The solver resolves the same direction build_segment_frame
-            # derives from the EXACT declaration: origin → target_keypoint.
+            # derives from the EXACT declaration: origin → target_landmark.
             exact_axis = segment.exact_axis
-            exact_to = keypoints.get(exact_axis.target_keypoint)
+            exact_to = landmarks.get(exact_axis.target_landmark)
             if origin is not None and exact_to is not None:
                 live_vec = np.asarray(exact_to, dtype=np.float64) - np.asarray(
                     origin, dtype=np.float64
                 )
         if live_vec is None:
-            continue  # occluded this frame (no usable exact-axis keypoints)
+            continue  # occluded this frame (no usable exact-axis landmarks)
         norm = float(np.linalg.norm(live_vec))
         if norm < 1e-10:
             continue  # numerically coincident this frame — data, not a declaration error
@@ -174,13 +174,14 @@ def solve_frame_orientations(
 
         # ── twist: declared direction reference (gated) or damped minimal ─────
         # ``build_segment_frame`` builds the LIVE frame from the tagged axis
-        # declarations directly from this frame's keypoints. Its internal
-        # singularity gate (collinearity_threshold) reproduces the solver's ~5°
-        # gate: the APPROXIMATE axis resolves the roll only when non-collinear.
+        # declarations directly from this frame's landmark positions. Its
+        # internal singularity gate (collinearity_threshold) reproduces the
+        # solver's ~5° gate: the APPROXIMATE axis resolves the roll only when
+        # non-collinear.
         live_basis, resolved = build_segment_frame(
             segment.axes,
-            keypoints,
-            segment.origin_keypoint,
+            landmarks,
+            segment.origin_landmark,
             collinearity_threshold=_SINGULARITY_DOT_THRESHOLD,
         )
 

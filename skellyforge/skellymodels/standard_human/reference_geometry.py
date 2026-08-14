@@ -90,10 +90,10 @@ class SegmentReferenceGeometry:
 
 @dataclass(frozen=True)
 class ReferenceGeometry:
-    """The whole human's T-pose: per-segment geometry + rest keypoint positions."""
+    """The whole human's T-pose: per-segment geometry + rest landmark positions."""
 
     segments: dict[str, SegmentReferenceGeometry]
-    keypoints: dict[str, NDArray[np.float64]]
+    landmarks: dict[str, NDArray[np.float64]]
 
 
 def build_reference_geometry(
@@ -110,7 +110,7 @@ def build_reference_geometry(
     by_name = {s.name: s for s in segments}
     origins: dict[str, NDArray[np.float64]] = {}
     rest_dirs: dict[str, NDArray[np.float64]] = {}
-    keypoints: dict[str, NDArray[np.float64]] = {}
+    landmarks: dict[str, NDArray[np.float64]] = {}
 
     # pass 1: rest directions of the EXACT axis (right side mirrored)
     for segment in segments:
@@ -127,7 +127,7 @@ def build_reference_geometry(
             + ", ".join(sorted(missing))
         )
 
-    # pass 2: origins + rest keypoint positions
+    # pass 2: origins + rest landmark positions
     for segment in segments:
         length = measured_lengths[segment.name]
         if segment.parent is None:
@@ -138,45 +138,45 @@ def build_reference_geometry(
                 + rest_dirs[segment.parent] * measured_lengths[segment.parent]
             )
         else:  # ORIGIN — branch from the parent's origin
-            # Name agreement: if this segment's origin keypoint was already
+            # Name agreement: if this segment's origin landmark was already
             # positioned by an earlier declaration (e.g. the middle finger's
             # mcp, which is the hand's exact-axis endpoint), that position is
             # authoritative. Otherwise the branch point is the parent's origin
             # (e.g. a hip joint, the spine) — the reference pose is schematic;
             # no wrist→mcp fan geometry is declared.
-            origin = keypoints.get(segment.origin_keypoint, origins[segment.parent])
+            origin = landmarks.get(segment.origin_landmark, origins[segment.parent])
         origins[segment.name] = origin
-        keypoints[segment.origin_keypoint] = origin.copy()
-        keypoints[segment.exact_axis.target_keypoint] = (
+        landmarks[segment.origin_landmark] = origin.copy()
+        landmarks[segment.exact_axis.target_landmark] = (
             origin + rest_dirs[segment.name] * length
         )
 
-    # pass 3: bases (approximate axes need the completed keypoint map)
+    # pass 3: bases (approximate axes need the completed landmark map)
     geometries: dict[str, SegmentReferenceGeometry] = {}
     for segment in segments:
-        basis = _rest_basis(segment, origins, rest_dirs, keypoints)
+        basis = _rest_basis(segment, origins, rest_dirs, landmarks)
         geometries[segment.name] = SegmentReferenceGeometry(
             origin=origins[segment.name],
             basis=basis,
             length=measured_lengths[segment.name],
         )
 
-    # ``nose`` is an off-chain keypoint: several driven segments (head, neck,
+    # ``nose`` is an off-chain landmark: several driven segments (head, neck,
     # and the three face bones) name it as their exact axis, but it has no
     # single standard rest position — the three face bones point different
     # ways from the head origin and cannot share one schematic point. The
     # tracker (or a live-pose fixture) supplies it per frame; the reference
     # pose leaves it out so the face bones solve only when it is present.
-    keypoints.pop("nose", None)
+    landmarks.pop("nose", None)
 
-    return ReferenceGeometry(segments=geometries, keypoints=keypoints)
+    return ReferenceGeometry(segments=geometries, landmarks=landmarks)
 
 
 def _rest_basis(
     segment: SegmentDefinition,
     origins: dict[str, NDArray[np.float64]],
     rest_dirs: dict[str, NDArray[np.float64]],
-    keypoints: dict[str, NDArray[np.float64]],
+    landmarks: dict[str, NDArray[np.float64]],
 ) -> NDArray[np.float64]:
     """The segment's rest orthonormal frame (rows [x̂, ŷ, ẑ]).
 
@@ -205,7 +205,7 @@ def _rest_basis(
 
     approx_idx = _AXIS_TO_INDEX[approx.axis]
     approx_dir = _rest_approximate_direction(
-        segment, approx, origins, rest_dirs, keypoints
+        segment, approx, origins, rest_dirs, landmarks
     )
 
     # Gram-Schmidt the approximate direction against the exact direction
@@ -228,13 +228,13 @@ def _rest_approximate_direction(
     approx: "AxisDefinition",
     origins: dict[str, NDArray[np.float64]],
     rest_dirs: dict[str, NDArray[np.float64]],
-    keypoints: dict[str, NDArray[np.float64]],
+    landmarks: dict[str, NDArray[np.float64]],
 ) -> NDArray[np.float64]:
     """The approximate axis at rest, as the rest frame's approximate (named) vector.
 
     The authored override table is AUTHORITATIVE where one exists (see module
-    docstring); otherwise the APPROXIMATE axis declaration's ``target_keypoint``
-    rest position (``origin → target_keypoint``); else the default perpendicular.
+    docstring); otherwise the APPROXIMATE axis declaration's ``target_landmark``
+    rest position (``origin → target_landmark``); else the default perpendicular.
     Fails loudly if the result is still collinear with the exact axis.
     """
     exact_dir = rest_dirs[segment.name]
@@ -247,8 +247,8 @@ def _rest_approximate_direction(
             candidate = _mirror(candidate)
 
     if candidate is None:
-        if approx.target_keypoint in keypoints:
-            vec = keypoints[approx.target_keypoint] - origins[segment.name]
+        if approx.target_landmark in landmarks:
+            vec = landmarks[approx.target_landmark] - origins[segment.name]
             norm = float(np.linalg.norm(vec))
             if norm > 1e-10:
                 vec = vec / norm

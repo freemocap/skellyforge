@@ -15,7 +15,7 @@ FreeMoCap face-detail segments, beyond the VRM humanoid set. They exist because
 the face's tracked keypoints give real head-axis references (the anterior
 ``nose``, the lateral ``left_ear``/``right_ear``, and the mouth corners) that
 VRM 1.0's humanoid has no bones for. They branch from the head's ORIGIN (the
-head-center line) and each enters ``required_keypoints()`` like any other
+head-center line) and each enters ``required_landmarks()`` like any other
 segment.
 
 The 52 ARKit blendshape channels compose alongside the skeleton (SF-AL A4),
@@ -53,16 +53,25 @@ from skellyforge.skellymodels.standard_human.segment_parts import SegmentPart
 # offsets (their corner/chin directions), encoded in the same +Z-extruded euler.
 _EYE_REST = (0.0, math.pi / 2, 0.0)                    # gaze: +Z → +X (anterior)
 _NOSE_REST = (0.0, math.pi / 2, 0.0)                   # forward: +Z → +X
-# jaw: derived from the jaw-offset design — nose→jaw ≈ 0.9·eye-width down,
-# 0.2·eye-width posterior, so jaw→nose ≈ (0.217, 0, 0.976); the restoring angle
-# from +Z (toward +X) is asin(0.2 / sqrt(0.2² + 0.9²)).
+
+# The jaw and mouth-corner rest directions are AUTHORED here, from the
+# facial-proportions canon (eye width as the facial-third unit), independent of
+# any tracker mapping:
+#   · nose → jaw        ≈ 0.9·eye-width down, 0.2·eye-width posterior;
+#   · nose → mouth corner ≈ 0.35·eye-width down, 0.2·eye-width posterior,
+#                           ±0.3·eye-width lateral (left/right).
+# ESTIMATED, not published — refine if a sourced value appears. The tracker
+# mappings derive the same named points (jaw, mouth corners) from the same
+# canon on their side of the boundary; the two runtime sides are independent by
+# design, and their numeric agreement is pinned by the consistency test
+# (test_face_mapping_consistency.py), not by a shared constant.
+# jaw→nose: (0.2, 0, 0.9)/√(0.2²+0.9²) anterior/down; the restoring angle from
+# +Z (toward +X) is asin(0.2 / sqrt(0.2² + 0.9²)).
 _JAW_REST = (0.0, math.asin(0.2 / math.sqrt(0.2**2 + 0.9**2)), 0.0)
 
-# corner→nose unit direction: (0.2, ∓0.3, 0.35)/√(0.2²+0.3²+0.35²) — derived
-# from the mapping's mouth-corner offsets (posterior 0.2 / lateral 0.3 / down
-# 0.35 × eye_width), the facial-proportions canon estimate (same provenance as
-# the jaw). ESTIMATED — refine if a sourced value appears. The SAME ratios as
-# the mapping's mouth-corner anatomical_offsets — change one, change the other.
+# corner→nose unit direction: (0.2, ∓0.3, 0.35)/√(0.2²+0.3²+0.35²) — anterior
+# 0.2 / lateral 0.3 / down 0.35 × eye_width, the facial-proportions canon
+# estimate (same provenance as the jaw).
 _MOUTH_BETA = math.asin(0.2 / math.sqrt(0.2**2 + 0.3**2 + 0.35**2))
 _MOUTH_ALPHA = math.asin(0.3 / (math.sqrt(0.2**2 + 0.3**2 + 0.35**2) * math.cos(_MOUTH_BETA)))
 # left mouth corner sits at +Y, so nose − left_mouth has −Y: −cos β · sin α < 0 ⇒ α > 0.
@@ -84,49 +93,49 @@ FACE_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="left_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("left_eye", "nose"), origin_keypoint="left_eye",
+            landmarks=("left_eye", "nose"), origin_landmark="left_eye",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("right_eye", "nose"), origin_keypoint="right_eye",
+            landmarks=("right_eye", "nose"), origin_landmark="right_eye",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="jaw", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("jaw", "nose"), origin_keypoint="jaw",
+            landmarks=("jaw", "nose"), origin_landmark="jaw",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_JAW_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="nose", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("head_center", "nose"), origin_keypoint="head_center",
+            landmarks=("head_center", "nose"), origin_landmark="head_center",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_NOSE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="left_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("head_center", "left_ear"), origin_keypoint="head_center",
+            landmarks=("head_center", "left_ear"), origin_landmark="head_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "left_ear"),),
             rest_rotation=_EAR_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("head_center", "right_ear"), origin_keypoint="head_center",
+            landmarks=("head_center", "right_ear"), origin_landmark="head_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "right_ear"),),
             rest_rotation=_EAR_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="left_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("left_mouth", "nose"), origin_keypoint="left_mouth",
+            landmarks=("left_mouth", "nose"), origin_landmark="left_mouth",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("right_mouth", "nose"), origin_keypoint="right_mouth",
+            landmarks=("right_mouth", "nose"), origin_landmark="right_mouth",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),

@@ -26,7 +26,7 @@ skellyforge/
 └── kinematics/
     ├── quaternion_math.py        # RotationQuaternion (wxyz) + vectorized ops
     ├── coordinate_frame_ops.py   # basis construction, Kabsch, rotation_between_vectors
-    ├── orientation_solver.py     # solve_frame_orientations — keypoint-declared two-tier twist
+    ├── orientation_solver.py     # solve_frame_orientations — landmark-declared two-tier twist
     ├── critically_damped_orientation.py  # the D3/D4 filter (per-segment state, time-constant based)
     ├── online_segment_lengths.py # SegmentLengthEstimator (window_seconds=None = unbounded posthoc)
     └── … (rigid_body_kinematics, skeleton_rigidifier, segment_lengths, inertial/)
@@ -59,5 +59,8 @@ default env either (no lint gate here yet).
   onnxruntime/mediapipe extras) to validate the tracker→standard-human completeness contract at load
   time. The boundary deliberately leaks in exactly that one module; nothing else in skellyforge may
   import skellytracker, and `skellyforge/__init__.py` must NOT import `tracker_contract`.
-- Vocabulary: **keypoint / segment** only. "Landmark" and "canonical" are retired (MediaPipe's own
-  `PoseLandmarker`-style product names are the only exception).
+- Vocabulary: **keypoint / landmark / segment**. A **keypoint** is tracker-side — a point measured by
+  a detector, triangulated to 3D. A **landmark** is model-side — a named point in a segment's local
+  frame with a static rest definition and a per-frame world hydration (the mapping hydrates its name
+  from tracker keypoints). A **segment** is a VRM-1.0-aligned rigid body (origin / orientation /
+  length) whose landmarks are declared explicitly.

@@ -10,7 +10,7 @@ Keyed by **segment name**: length is a property of a segment, so the
 plain rolling median — no trust region, no agreement gating, no error
 weighting, no age decay. The median is inherently robust to the occasional
 mis-triangulated frame, and lengths are measured only from really-observed
-(non-extrapolated) keypoints, so a hidden limb contributes nothing.
+(non-extrapolated) landmarks, so a hidden limb contributes nothing.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import numpy as np
 class SegmentLengthEstimator:
     """Per-segment rolling-window median length estimator.
 
-    ``update`` is called once per frame with the current named keypoint
+    ``update`` is called once per frame with the current named landmark
     positions; ``lengths`` returns the current median length estimate (mm)
     per segment.
 
@@ -33,7 +33,7 @@ class SegmentLengthEstimator:
     ----------
     segment_endpoints : dict[str, tuple[str, str]]
         ``segment_name → (origin, distal)``. Defines which segments are
-        tracked, as the two keypoints whose distance is the segment length.
+        tracked, as the two landmarks whose distance is the segment length.
     segment_seeds : dict[str, float]
         ``segment_name → seed length (mm)`` (anthropometric ratio × height) —
         the fallback while a segment's window is empty.
@@ -75,7 +75,7 @@ class SegmentLengthEstimator:
     ) -> None:
         """Append this frame's per-segment length measurements, then age windows.
 
-        A segment is measured only when both of its keypoints are present.
+        A segment is measured only when both of its landmarks are present.
         Every window — measured this frame or not — drops samples strictly
         older than ``window_seconds`` so a segment that leaves view eventually
         falls back to its seed. With ``window_seconds=None`` nothing is

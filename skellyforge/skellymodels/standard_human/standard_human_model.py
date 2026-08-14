@@ -125,15 +125,15 @@ class StandardHuman:
         chain.reverse()
         return chain
 
-    def required_keypoints(self) -> set[str]:
-        """Every keypoint the segments need (Task 6's contract set).
+    def required_landmarks(self) -> set[str]:
+        """Every landmark the segments need (Task 6's contract set).
 
-        Every segment is driven and enters its keypoints here; the union over
-        all 60 segments is what a tracker must be able to supply.
+        Every segment is driven and enters its landmarks here; the union over
+        all 60 segments is what a tracker's mappings must be able to hydrate.
         """
         required: set[str] = set()
         for s in self._segments:
-            required |= s.required_keypoints()
+            required |= s.required_landmarks()
         return required
 
 

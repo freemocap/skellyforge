@@ -1,19 +1,19 @@
 """The authored unit of the standard human: one rigid-body segment.
 
 A segment is an **origin**, an **orientation**, and a **length**. Its RIGID
-POINT SET is declared explicitly (``rigid_points``: every keypoint rigid on the
+POINT SET is declared explicitly (``landmarks``: every landmark rigid on the
 segment), plus a tuple of tagged **axis declarations** built from that set:
 
 - An EXACT axis — the segment's defining direction, resolved directly from a
-  keypoint's position every frame, on whichever local axis (x/y/z) the author
-  declares. Its target keypoint must be rigid on the segment.
+  landmark's position every frame, on whichever local axis (x/y/z) the author
+  declares. Its target landmark must be rigid on the segment.
 - An APPROXIMATE axis — a *direction reference* for a second basis axis,
-  Gram-Schmidt'd against the exact axis. Its target keypoint must also be rigid
+  Gram-Schmidt'd against the exact axis. Its target landmark must also be rigid
   on the segment; a segment with no approximate axis falls to the damped
   minimal-roll tier (the twist-less fallback).
 
-Every axis direction is ``positions[target_keypoint] − positions[origin
-keypoint]``. The origin keypoint is the segment's, so an axis direction always
+Every axis direction is ``positions[target_landmark] − positions[origin
+landmark]``. The origin landmark is the segment's, so an axis direction always
 starts at the segment's own origin and ends at another point of the segment's
 own rigid geometry: a segment's frame is a function of its own points only.
 
@@ -48,7 +48,7 @@ not a global "+X". Each segment's ``rest_rotation`` extrudes the declared axis
 name through its euler triple so that the rest frame's named vector equals that
 authored direction.
 
-Keypoint names are side-agnostic within a part; composition prefixes them.
+Landmark names are side-agnostic within a part; composition prefixes them.
 """
 
 from __future__ import annotations
@@ -74,12 +74,12 @@ class AxisKind(str, Enum):
     """How a declared axis feeds the frame construction (the role, not the name)."""
 
     EXACT = "exact"
-    """A hard direction from the segment's own rigid geometry; its keypoints
-    must be in ``rigid_points``."""
+    """A hard direction from the segment's own rigid geometry; its landmarks
+    must be in ``landmarks``."""
 
     APPROXIMATE = "approximate"
-    """A soft direction reference, Gram-Schmidt-projected; its keypoint must
-    be in ``rigid_points``."""
+    """A soft direction reference, Gram-Schmidt-projected; its landmark must
+    be in ``landmarks``."""
 
 
 @dataclass(frozen=True)
@@ -92,14 +92,14 @@ class AxisDefinition:
     how the direction feeds the Gram-Schmidt construction: EXACT axes are hard
     directions from the segment's own rigid geometry; APPROXIMATE axes are soft
     direction references (Gram-Schmidt-projected). Both kinds resolve their
-    direction as ``positions[target_keypoint] − positions[origin keypoint]``;
-    ``target_keypoint`` names the point this axis points toward, and must be a
-    member of the segment's ``rigid_points``.
+    direction as ``positions[target_landmark] − positions[origin landmark]``;
+    ``target_landmark`` names the point this axis points toward, and must be a
+    member of the segment's ``landmarks``.
     """
 
     axis: Literal["x", "y", "z"]
     kind: AxisKind
-    target_keypoint: str
+    target_landmark: str
 
 
 @dataclass(frozen=True)
@@ -135,16 +135,16 @@ class SegmentDefinition:
     name: str
     parent: str | None
     parent_attachment: ParentAttachment
-    rigid_points: tuple[str, ...]
-    origin_keypoint: str
+    landmarks: tuple[str, ...]
+    origin_landmark: str
     axes: tuple[AxisDefinition, ...]
     """Tagged axis declarations, in construction order. The EXACT axis is the
     segment's defining direction, declared on whichever local axis the author
     chooses; construction order is the basis order (x, y, z), not this tuple's
     order. At least one axis (any position) must be EXACT; additional EXACT
     axes and APPROXIMATE direction references follow by name. Every axis
-    resolves from the segment's own rigid geometry: ``positions[target_keypoint]
-    − positions[origin_keypoint]``."""
+    resolves from the segment's own rigid geometry: ``positions[target_landmark]
+    − positions[origin_landmark]``."""
     rest_rotation: tuple[float, float, float]
     rest_roll: float
     length_ratio: float
@@ -154,26 +154,26 @@ class SegmentDefinition:
         if not self.name or self.name != self.name.lower() or " " in self.name:
             raise ValueError(f"segment name must be snake_case, got {self.name!r}")
 
-        rigid = self.rigid_points
+        rigid = self.landmarks
         if len(rigid) < 2:
             raise ValueError(
-                f"segment {self.name!r}: rigid_points needs at least 2 keypoints "
+                f"segment {self.name!r}: landmarks needs at least 2 landmarks "
                 f"(a rigid body has at least one defining vector), got {rigid!r}"
             )
         if len(set(rigid)) != len(rigid):
             raise ValueError(
-                f"segment {self.name!r}: rigid_points must be distinct, got {rigid!r}"
+                f"segment {self.name!r}: landmarks must be distinct, got {rigid!r}"
             )
         if any(not p or not isinstance(p, str) for p in rigid):
             raise ValueError(
-                f"segment {self.name!r}: rigid_points entries must be non-empty "
+                f"segment {self.name!r}: landmarks entries must be non-empty "
                 f"strings, got {rigid!r}"
             )
 
-        if self.origin_keypoint not in rigid:
+        if self.origin_landmark not in rigid:
             raise ValueError(
-                f"segment {self.name!r}: origin_keypoint {self.origin_keypoint!r} "
-                f"is not in rigid_points {rigid!r}"
+                f"segment {self.name!r}: origin_landmark {self.origin_landmark!r} "
+                f"is not in landmarks {rigid!r}"
             )
 
         # ── axis-declaration validation (fail-loud) ────────────────────────
@@ -193,22 +193,22 @@ class SegmentDefinition:
             )
 
         for a in axes:
-            if not a.target_keypoint or not isinstance(a.target_keypoint, str):
+            if not a.target_landmark or not isinstance(a.target_landmark, str):
                 raise ValueError(
                     f"segment {self.name!r}: axis {a.axis!r} has a non-empty-string "
-                    f"target_keypoint requirement, got {a.target_keypoint!r}"
+                    f"target_landmark requirement, got {a.target_landmark!r}"
                 )
-            if a.target_keypoint == self.origin_keypoint:
+            if a.target_landmark == self.origin_landmark:
                 raise ValueError(
-                    f"segment {self.name!r}: axis {a.axis!r} target_keypoint is "
-                    f"the origin keypoint {a.target_keypoint!r}. A segment vector "
+                    f"segment {self.name!r}: axis {a.axis!r} target_landmark is "
+                    f"the origin landmark {a.target_landmark!r}. A segment vector "
                     f"from the origin to itself would be zero-length and no "
                     f"direction could be resolved from it."
                 )
-            if a.target_keypoint not in rigid:
+            if a.target_landmark not in rigid:
                 raise ValueError(
                     f"segment {self.name!r}: axis {a.axis!r} ({a.kind.value}) "
-                    f"target_keypoint {a.target_keypoint!r} is not in rigid_points "
+                    f"target_landmark {a.target_landmark!r} is not in landmarks "
                     f"{rigid!r}. A segment's frame is a function of its own rigid "
                     f"geometry only — every axis target must be rigid on the segment."
                 )
@@ -250,17 +250,17 @@ class SegmentDefinition:
             (a for a in self.axes if a.kind is AxisKind.APPROXIMATE), None
         )
 
-    def required_keypoints(self) -> set[str]:
-        """Every keypoint this segment needs to be solvable.
+    def required_landmarks(self) -> set[str]:
+        """Every landmark this segment needs to be solvable.
 
-        The union over every field that references a keypoint by name:
-        ``rigid_points ∪ {origin_keypoint} ∪ all axis targets``. Every axis's
-        ``target_keypoint`` and the ``origin_keypoint`` are already members of
-        ``rigid_points`` (enforced at load), so the set is exactly
-        ``rigid_points``.
+        The union over every field that references a landmark by name:
+        ``landmarks ∪ {origin_landmark} ∪ all axis targets``. Every axis's
+        ``target_landmark`` and the ``origin_landmark`` are already members of
+        ``landmarks`` (enforced at load), so the set is exactly
+        ``landmarks``.
         """
-        names = set(self.rigid_points)
-        names.add(self.origin_keypoint)
+        names = set(self.landmarks)
+        names.add(self.origin_landmark)
         for a in self.axes:
-            names.add(a.target_keypoint)
+            names.add(a.target_landmark)
         return names

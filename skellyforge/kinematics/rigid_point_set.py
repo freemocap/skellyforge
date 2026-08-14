@@ -1,11 +1,11 @@
 """Multi-point rigid-body fit: MDS template construction + per-frame Procrustes.
 
-A segment with ``rigid_points`` of size ≥ 3 is a rigid body in the ordinary
+A segment with ``landmarks`` of size ≥ 3 is a rigid body in the ordinary
 mechanical sense: the pairwise distances between its points are invariant
 under any motion.  This module is the numeric core of the *full* rigid-body
 fit — build an invariant template once (from a distance matrix, either
 measured or authored), then, per frame, find the best rigid placement of that
-template onto the observed keypoints.
+template onto the observed landmarks.
 
 The template is built by Classical Multi-Dimensional Scaling (MDS):
 double-center the squared distance matrix and take the leading eigenvectors.
@@ -239,7 +239,7 @@ def fit_template_to_observed(
     *,
     anchor_name: str | None = None,
 ) -> dict[str, NDArray[np.float64]]:
-    """Place the template onto observed keypoints with a closed-form rigid fit.
+    """Place the template onto observed landmarks with a closed-form rigid fit.
 
     The common points are the template names present in ``observed`` with all
     finite values.  With fewer than 3 of them the rigid fit is
@@ -267,7 +267,7 @@ def fit_template_to_observed(
     template :
         The invariant rigid geometry to place.
     observed :
-        ``{name: (3,) position}`` for the observed keypoints.
+        ``{name: (3,) position}`` for the observed landmarks.
     anchor_name :
         When given and among the common points, pin the corrected position at
         this anchor exactly and solve rotation only.

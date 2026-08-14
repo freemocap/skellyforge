@@ -1,4 +1,4 @@
-"""The keypoint-declared solver: every driven segment solvable, twist tiers."""
+"""The landmark-declared solver: every driven segment solvable, twist tiers."""
 
 import numpy as np
 import pytest
@@ -27,14 +27,14 @@ _HEIGHT_MM = 1700.0
 
 @pytest.fixture(scope="module")
 def rig():
-    """The composed human + its T-pose reference + the rest keypoint map."""
+    """The composed human + its T-pose reference + the rest landmark map."""
     human = compose_standard_human()
     lengths = {s.name: s.length_ratio * _HEIGHT_MM for s in human.segments}
     reference = build_reference_geometry(list(human.segments), lengths)
     return human, reference
 
 
-def _bent_keypoints(reference, *, straight_arms=True):
+def _bent_landmarks(reference, *, straight_arms=True):
     """A plausible standing pose: the rest pose with a few joints moved.
 
     Differential, deliberately: the elbows bend (forearm rotated), the knees
@@ -43,53 +43,53 @@ def _bent_keypoints(reference, *, straight_arms=True):
     (doc 14 §2). With ``straight_arms`` the elbows stay collinear to exercise
     the singularity gate.
     """
-    keypoints = {name: pos.copy() for name, pos in reference.keypoints.items()}
-    # nose is an off-chain keypoint with no schematic rest position — a live
+    landmarks = {name: pos.copy() for name, pos in reference.landmarks.items()}
+    # nose is an off-chain landmark with no schematic rest position — a live
     # pose supplies it (anterior of head_center), so the head/neck/face
     # long-axis solves have an endpoint; it is yawed below like head_vertex.
-    if "head_center" in keypoints:
-        keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
-    # the face-detail segments' long-axis keypoints (ears, mouth corners) have
+    if "head_center" in landmarks:
+        landmarks["nose"] = landmarks["head_center"] + np.array([60.0, 0.0, 0.0])
+    # the face-detail segments' long-axis landmarks (ears, mouth corners) have
     # no schematic rest position either — a live pose supplies them, placed so
     # each segment's origin→long-axis direction is non-degenerate this frame.
-    if "head_center" in keypoints:
-        keypoints["left_ear"] = keypoints["head_center"] + np.array([0.0, 40.0, 30.0])
-        keypoints["right_ear"] = keypoints["head_center"] + np.array([0.0, -40.0, 30.0])
-        keypoints["left_mouth"] = keypoints["head_center"] + np.array([30.0, 20.0, -20.0])
-        keypoints["right_mouth"] = keypoints["head_center"] + np.array([30.0, -20.0, -20.0])
+    if "head_center" in landmarks:
+        landmarks["left_ear"] = landmarks["head_center"] + np.array([0.0, 40.0, 30.0])
+        landmarks["right_ear"] = landmarks["head_center"] + np.array([0.0, -40.0, 30.0])
+        landmarks["left_mouth"] = landmarks["head_center"] + np.array([30.0, 20.0, -20.0])
+        landmarks["right_mouth"] = landmarks["head_center"] + np.array([30.0, -20.0, -20.0])
     # head yaw: nose + head_vertex rotate ~20° about Z around head_center
-    if "head_center" in keypoints and "nose" in keypoints:
-        origin = keypoints["head_center"]
+    if "head_center" in landmarks and "nose" in landmarks:
+        origin = landmarks["head_center"]
         theta = np.deg2rad(20.0)
         rot = np.array([[np.cos(theta), -np.sin(theta), 0],
                         [np.sin(theta), np.cos(theta), 0], [0, 0, 1]])
         for name in ("nose", "head_vertex"):
-            if name in keypoints:
-                keypoints[name] = origin + rot @ (keypoints[name] - origin)
+            if name in landmarks:
+                landmarks[name] = origin + rot @ (landmarks[name] - origin)
     if not straight_arms:
         for side in ("left", "right"):
             elbow = f"{side}_elbow"
             wrist = f"{side}_wrist"
-            if elbow in keypoints and wrist in keypoints:
+            if elbow in landmarks and wrist in landmarks:
                 # rotate the forearm +30° about the local anterior axis:
                 # approximate with a rotation of the wrist about Z through the elbow
-                origin = keypoints[elbow]
+                origin = landmarks[elbow]
                 theta = np.deg2rad(30.0)
                 rot = np.array([[np.cos(theta), -np.sin(theta), 0],
                                 [np.sin(theta), np.cos(theta), 0], [0, 0, 1]])
-                keypoints[wrist] = origin + rot @ (keypoints[wrist] - origin)
-    return keypoints
+                landmarks[wrist] = origin + rot @ (landmarks[wrist] - origin)
+    return landmarks
 
 
 def test_every_segment_produces_an_orientation(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference)
+    landmarks = _bent_landmarks(reference)
     # The nose rest position is off-chain (no segment placed it) — the fixture
     # supplies it so the face bones (left_eye/right_eye/jaw) and the face-detail
     # segments have a long-axis endpoint to solve against this frame.
-    keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
+    landmarks["nose"] = landmarks["head_center"] + np.array([60.0, 0.0, 0.0])
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     assert set(result.world_quaternions) == set(human.segment_names)  # 60 of 60
 
@@ -97,7 +97,7 @@ def test_every_segment_produces_an_orientation(rig):
 def test_leaf_segments_are_solvable(rig):
     human, reference = rig
     result = solve_frame_orientations(
-        human, reference.segments, _bent_keypoints(reference), timestamp_seconds=1.0
+        human, reference.segments, _bent_landmarks(reference), timestamp_seconds=1.0
     )
     for name in ("head", "left_hand", "left_toes"):
         assert name in result.world_quaternions
@@ -105,15 +105,15 @@ def test_leaf_segments_are_solvable(rig):
 
 def test_multi_child_segment_uses_its_declared_exact_axis(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference)
+    landmarks = _bent_landmarks(reference)
     # move trunk_center forward: hips' declared exact axis is trunk_center, not
     # its first child (spine); the exact axis is declared on y (basis row 1).
-    keypoints["trunk_center"] = keypoints["trunk_center"] + np.array([40.0, 0.0, 0.0])
+    landmarks["trunk_center"] = landmarks["trunk_center"] + np.array([40.0, 0.0, 0.0])
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     q = RotationQuaternion(*result.world_quaternions["hips"].tolist())
-    live_dir = keypoints["trunk_center"] - keypoints["hips_center"]
+    live_dir = landmarks["trunk_center"] - landmarks["hips_center"]
     live_dir = live_dir / np.linalg.norm(live_dir)
     # the swing maps the reference basis vector NAMED by the exact axis (y →
     # row 1) to the live exact direction.
@@ -126,19 +126,19 @@ def test_solver_swing_is_name_driven(rig):
     # live exact direction; a z-exact segment maps basis[2] (ẑ). This is the
     # name-driven correspondence: never a positional read of basis[0].
     human, reference = rig
-    keypoints = _bent_keypoints(reference)
+    landmarks = _bent_landmarks(reference)
     # hips — exact on y: mapping basis[1]
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     q_hips = RotationQuaternion(*result.world_quaternions["hips"].tolist())
-    live_dir = keypoints["trunk_center"] - keypoints["hips_center"]
+    live_dir = landmarks["trunk_center"] - landmarks["hips_center"]
     live_dir = live_dir / np.linalg.norm(live_dir)
     assert np.allclose(q_hips.rotate_vector(reference.segments["hips"].basis[1]),
                        live_dir, atol=1e-9)
     # the nose face-detail segment — exact on z: mapping basis[2]
     q_nose = RotationQuaternion(*result.world_quaternions["nose"].tolist())
-    live_nose = keypoints["nose"] - keypoints["head_center"]
+    live_nose = landmarks["nose"] - landmarks["head_center"]
     live_nose = live_nose / np.linalg.norm(live_nose)
     assert np.allclose(q_nose.rotate_vector(reference.segments["nose"].basis[2]),
                        live_nose, atol=1e-9)
@@ -153,7 +153,7 @@ def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
 
     y_exact = SegmentDefinition(
         name="s_y", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-        rigid_points=("o", "p", "q"), origin_keypoint="o",
+        landmarks=("o", "p", "q"), origin_landmark="o",
         axes=(
             AxisDefinition("y", AxisKind.EXACT, "p"),
             AxisDefinition("z", AxisKind.APPROXIMATE, "q"),
@@ -163,7 +163,7 @@ def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
     )
     z_exact = SegmentDefinition(
         name="s_z", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-        rigid_points=("o2", "p2", "q2"), origin_keypoint="o2",
+        landmarks=("o2", "p2", "q2"), origin_landmark="o2",
         axes=(
             AxisDefinition("z", AxisKind.EXACT, "p2"),
             AxisDefinition("x", AxisKind.APPROXIMATE, "q2"),
@@ -190,12 +190,12 @@ def _exact_axis_name(seg) -> str:
     return next(a.axis for a in seg.axes if a.kind is AxisKind.EXACT)
 
 
-def test_coincident_live_keypoints_skip_the_segment_not_raise(rig):
+def test_coincident_live_landmarks_skip_the_segment_not_raise(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference)
-    keypoints["head_center"] = keypoints["neck_center"].copy()  # neck degenerates
+    landmarks = _bent_landmarks(reference)
+    landmarks["head_center"] = landmarks["neck_center"].copy()  # neck degenerates
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     assert "neck" not in result.world_quaternions
     assert "hips" in result.world_quaternions
@@ -212,7 +212,7 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
     with pytest.raises(ValueError, match="zero-length"):
         SegmentDefinition(
             name="bad", parent=None, parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("same", "other"), origin_keypoint="same",
+            landmarks=("same", "other"), origin_landmark="same",
             axes=(AxisDefinition("x", AxisKind.EXACT, "same"),),
             rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
         )
@@ -220,18 +220,18 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
 
 def test_declared_approximate_axis_resolves_roll_undamped(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference)
+    landmarks = _bent_landmarks(reference)
     # supply a heel off the foot's long axis: the foot's roll is resolved from
     # its declared approximate target (heel) — measured, not damped
-    ankle = keypoints["left_ankle"]
-    keypoints["left_heel"] = ankle + np.array([-10.0, 0.0, -30.0])
+    ankle = landmarks["left_ankle"]
+    landmarks["left_heel"] = ankle + np.array([-10.0, 0.0, -30.0])
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     assert "left_foot" not in result.damping_states
     q = RotationQuaternion(*result.world_quaternions["left_foot"].tolist())
     ref = reference.segments["left_foot"]
-    live_long = keypoints["left_foot_ball"] - ankle
+    live_long = landmarks["left_foot_ball"] - ankle
     live_long = live_long / np.linalg.norm(live_long)
     # the solved rotation carries the reference basis onto the live basis —
     # the foot's exact axis is y, so read basis[1] (ŷ) as the exact direction.
@@ -240,9 +240,9 @@ def test_declared_approximate_axis_resolves_roll_undamped(rig):
 
 def test_singularity_gate_degrades_straight_limbs_to_damped(rig):
     human, reference = rig
-    keypoints = _bent_keypoints(reference, straight_arms=True)
+    landmarks = _bent_landmarks(reference, straight_arms=True)
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     assert "left_upper_arm" in result.damping_states
     assert "right_upper_arm" in result.damping_states
@@ -251,7 +251,7 @@ def test_singularity_gate_degrades_straight_limbs_to_damped(rig):
 def test_twistless_segment_holds_and_damps(rig):
     human, reference = rig
     result = solve_frame_orientations(
-        human, reference.segments, _bent_keypoints(reference), timestamp_seconds=1.0
+        human, reference.segments, _bent_landmarks(reference), timestamp_seconds=1.0
     )
     assert "left_index_proximal" in result.damping_states
 
@@ -261,7 +261,7 @@ def test_composition_round_trip_recomposes_parent_and_local(rig):
     # parent/child pair — this is what catches operand-order bugs.
     human, reference = rig
     result = solve_frame_orientations(
-        human, reference.segments, _bent_keypoints(reference), timestamp_seconds=1.0
+        human, reference.segments, _bent_landmarks(reference), timestamp_seconds=1.0
     )
     for segment in human.segments:
         if segment.parent is None or segment.parent not in result.world_quaternions:
@@ -293,19 +293,19 @@ def test_damping_continuity_across_frames(rig):
     # tier, but its long-axis direction changes — a real target jump that the
     # critically-damped filter must lag.
     human, reference = rig
-    keypoints2 = _bent_keypoints(reference, straight_arms=True)
-    for keypoint in ("left_elbow", "left_wrist"):
-        keypoints2[keypoint] = keypoints2[keypoint] + np.array([15.0, 0.0, 0.0])
+    landmarks2 = _bent_landmarks(reference, straight_arms=True)
+    for landmark in ("left_elbow", "left_wrist"):
+        landmarks2[landmark] = landmarks2[landmark] + np.array([15.0, 0.0, 0.0])
     first = solve_frame_orientations(
-        human, reference.segments, _bent_keypoints(reference, straight_arms=True),
+        human, reference.segments, _bent_landmarks(reference, straight_arms=True),
         timestamp_seconds=1.0,
     )
     damped = solve_frame_orientations(
-        human, reference.segments, keypoints2,
+        human, reference.segments, landmarks2,
         timestamp_seconds=1.1, previous_result=first,
     )
     raw = solve_frame_orientations(
-        human, reference.segments, keypoints2,
+        human, reference.segments, landmarks2,
         timestamp_seconds=1.1, previous_result=None,
     )
     assert "left_upper_arm" in damped.damping_states
@@ -331,7 +331,7 @@ def test_identity_at_t_pose(rig):
     # contract every downstream consumer assumes.
     human, reference = rig
     result = solve_frame_orientations(
-        human, reference.segments, reference.keypoints, timestamp_seconds=1.0
+        human, reference.segments, reference.landmarks, timestamp_seconds=1.0
     )
     identity = np.array([1.0, 0.0, 0.0, 0.0])
     for name, q in result.world_quaternions.items():
@@ -356,14 +356,14 @@ def test_singularity_gate_threshold_boundary(rig):
     human, reference = rig
 
     def _solve_with_heel_angle(angle_deg: float):
-        keypoints = {n: p.copy() for n, p in reference.keypoints.items()}
-        ankle = keypoints["left_ankle"]
+        landmarks = {n: p.copy() for n, p in reference.landmarks.items()}
+        ankle = landmarks["left_ankle"]
         theta = np.deg2rad(angle_deg)
-        keypoints["left_heel"] = ankle + np.array(
+        landmarks["left_heel"] = ankle + np.array(
             [np.cos(theta), np.sin(theta), 0.0]
         ) * 50.0
         return solve_frame_orientations(
-            human, reference.segments, keypoints, timestamp_seconds=1.0
+            human, reference.segments, landmarks, timestamp_seconds=1.0
         )
 
     inside = _solve_with_heel_angle(2.0)    # within ~5° → gated
@@ -375,17 +375,17 @@ def test_singularity_gate_threshold_boundary(rig):
 
 def test_head_solves_to_identity_with_anterior_nose(rig):
     # doc 14 §4 for the head specifically. `test_identity_at_t_pose` feeds
-    # `reference.keypoints`, which omits the off-chain `nose`, so the head has
+    # `reference.landmarks`, which omits the off-chain `nose`, so the head has
     # no usable approximate target and degrades to the damped tier — returning
     # identity TRIVIALLY, blind to a corrupted reference forward axis. At
     # runtime the skull fit supplies a real anterior `nose`, driving the head
     # through the RESOLVED tier against its reference frame. Feed that here: the
     # head must still be identity at the T-pose (world AND local).
     human, reference = rig
-    keypoints = {name: pos.copy() for name, pos in reference.keypoints.items()}
-    keypoints["nose"] = keypoints["head_center"] + np.array([60.0, 0.0, 0.0])
+    landmarks = {name: pos.copy() for name, pos in reference.landmarks.items()}
+    landmarks["nose"] = landmarks["head_center"] + np.array([60.0, 0.0, 0.0])
     result = solve_frame_orientations(
-        human, reference.segments, keypoints, timestamp_seconds=1.0
+        human, reference.segments, landmarks, timestamp_seconds=1.0
     )
     assert "head" not in result.damping_states  # resolved tier, not damped
     identity = np.array([1.0, 0.0, 0.0, 0.0])

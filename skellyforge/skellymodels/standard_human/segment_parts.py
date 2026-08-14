@@ -5,7 +5,7 @@ duplicated information, so the hand is authored **once** and instantiated with t
 prefixes ``left_`` and ``right_``.
 
 Parts join by **name agreement**: the hand's local ``wrist`` becomes ``left_wrist``
-under its prefix, which is already the body's wrist keypoint, and its parent
+under its prefix, which is already the body's wrist landmark, and its parent
 reference ``lower_arm`` becomes ``left_lower_arm``, which is already a body segment.
 There is no separate attachment mechanism — once expanded there is nothing left over
 to get wrong.
@@ -44,7 +44,7 @@ def _unprefixed(name: str) -> str:
     Composed references carry exactly one of the known side prefixes (or none
     — a midline name that already agrees). A name that matches neither prefix
     is left as authored, so the model's load-time validators (a missing parent
-    or an unresolvable keypoint) raise the meaningful error rather than this
+    or an unresolvable landmark) raise the meaningful error rather than this
     helper mislabeling a pass-through.
     """
     for prefix in _SIDE_PREFIXES:
@@ -60,21 +60,21 @@ def _prefixed_axis(
         AxisDefinition(
             axis=a.axis,
             kind=a.kind,
-            target_keypoint=f"{prefix}{a.target_keypoint}",
+            target_landmark=f"{prefix}{a.target_landmark}",
         )
         for a in axes
     )
 
 
 def instantiate_part(part: SegmentPart, prefix: str) -> list[SegmentDefinition]:
-    """Expand one part under *prefix*, prefixing names, keypoints and parents."""
+    """Expand one part under *prefix*, prefixing names, landmarks and parents."""
     return [
         dataclasses.replace(
             segment,
             name=f"{prefix}{segment.name}",
             parent=_prefixed(segment.parent, prefix),
-            rigid_points=tuple(f"{prefix}{p}" for p in segment.rigid_points),
-            origin_keypoint=f"{prefix}{segment.origin_keypoint}",
+            landmarks=tuple(f"{prefix}{p}" for p in segment.landmarks),
+            origin_landmark=f"{prefix}{segment.origin_landmark}",
             axes=_prefixed_axis(segment.axes, prefix),
         )
         for segment in part.segments
@@ -90,18 +90,18 @@ def compose_parts(
     list exactly as before. They receive it from this build step instead of from a
     file, which is also where the per-frame O(n) lookups stop being O(n^2).
 
-    References resolve by **name agreement**, parents and keypoints alike. A
+    References resolve by **name agreement**, parents and landmarks alike. A
     prefixed reference that does not exist falls back to its unprefixed name when
-    that name is declared (a midline segment or keypoint): ``left_shoulder`` finds
+    that name is declared (a midline segment or landmark): ``left_shoulder`` finds
     the midline ``upper_chest``, its twist reference finds ``neck_center``. A
     reference whose fallback resolves to nothing is kept as authored — the
     composed model's validators (Task 4) raise on unresolvable parents.
     """
-    midline_keypoints: set[str] = set()
+    midline_landmarks: set[str] = set()
     for part, prefix in parts:
         if prefix == "":
             for segment in part.segments:
-                midline_keypoints |= segment.required_keypoints()
+                midline_landmarks |= segment.required_landmarks()
 
     composed: list[SegmentDefinition] = []
     seen: set[str] = set()
@@ -113,7 +113,7 @@ def compose_parts(
                     f"{part.name!r} with prefix {prefix!r}"
                 )
             if prefix:
-                segment = _resolve_midline_references(segment, midline_keypoints)
+                segment = _resolve_midline_references(segment, midline_landmarks)
             seen.add(segment.name)
             composed.append(segment)
 
@@ -130,30 +130,30 @@ def compose_parts(
 
 def _resolve_midline_references(
     segment: SegmentDefinition,
-    midline_keypoints: set[str],
+    midline_landmarks: set[str],
 ) -> SegmentDefinition:
-    """Fall prefixed keypoint references back to midline names where they exist.
+    """Fall prefixed landmark references back to midline names where they exist.
 
     ``left_neck_center`` does not exist — ``neck_center`` does. References that do
-    not name a midline keypoint (``left_elbow``) are left prefixed.
+    not name a midline landmark (``left_elbow``) are left prefixed.
     """
     def resolved(name: str | None) -> str | None:
         if name is None:
             return None
-        if name in midline_keypoints:
+        if name in midline_landmarks:
             return name
         unprefixed = _unprefixed(name)
-        return unprefixed if unprefixed in midline_keypoints else name
+        return unprefixed if unprefixed in midline_landmarks else name
 
     return dataclasses.replace(
         segment,
-        rigid_points=tuple(resolved(p) for p in segment.rigid_points),
-        origin_keypoint=resolved(segment.origin_keypoint),
+        landmarks=tuple(resolved(p) for p in segment.landmarks),
+        origin_landmark=resolved(segment.origin_landmark),
         axes=tuple(
             AxisDefinition(
                 axis=a.axis,
                 kind=a.kind,
-                target_keypoint=resolved(a.target_keypoint),
+                target_landmark=resolved(a.target_landmark),
             )
             for a in segment.axes
         ),

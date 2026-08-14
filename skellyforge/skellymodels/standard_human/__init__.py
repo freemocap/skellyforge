@@ -6,6 +6,10 @@ built against it. Aliases (for VRM/VMC wire names, Unreal bone names, etc.)
 live in ``human_bone_aliases.py`` — segments don't carry serialization
 knowledge.
 
+A **landmark** is a named point in a segment's local frame: it has a static
+rest definition (a T-pose position in the reference geometry) and a per-frame
+world hydration (the mapping hydrates its name from tracker keypoints).
+
 Package structure:
     segment_definition.py   — SegmentDefinition (frozen; origin/long/twist)
     segment_parts.py        — SegmentPart, compose_parts

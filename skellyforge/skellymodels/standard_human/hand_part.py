@@ -66,8 +66,8 @@ def _finger_segments(
     return (
         SegmentDefinition(
             name=f"{finger}_proximal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=(f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
-            origin_keypoint=f"{keypoint_prefix}_mcp",
+            landmarks=(f"{keypoint_prefix}_mcp", f"{keypoint_prefix}_pip"),
+            origin_landmark=f"{keypoint_prefix}_mcp",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_pip"),
             ),
@@ -75,8 +75,8 @@ def _finger_segments(
         ),
         SegmentDefinition(
             name=f"{finger}_intermediate", parent=f"{finger}_proximal", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=(f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
-            origin_keypoint=f"{keypoint_prefix}_pip",
+            landmarks=(f"{keypoint_prefix}_pip", f"{keypoint_prefix}_dip"),
+            origin_landmark=f"{keypoint_prefix}_pip",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_dip"),
             ),
@@ -84,8 +84,8 @@ def _finger_segments(
         ),
         SegmentDefinition(
             name=f"{finger}_distal", parent=f"{finger}_intermediate", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=(f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
-            origin_keypoint=f"{keypoint_prefix}_dip",
+            landmarks=(f"{keypoint_prefix}_dip", f"{keypoint_prefix}_tip"),
+            origin_landmark=f"{keypoint_prefix}_dip",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_tip"),
             ),
@@ -99,7 +99,7 @@ HAND_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("wrist", "middle_finger_mcp"), origin_keypoint="wrist",
+            landmarks=("wrist", "middle_finger_mcp"), origin_landmark="wrist",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "middle_finger_mcp"),
             ),
@@ -107,7 +107,7 @@ HAND_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("thumb_cmc", "thumb_mcp"), origin_keypoint="thumb_cmc",
+            landmarks=("thumb_cmc", "thumb_mcp"), origin_landmark="thumb_cmc",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_mcp"),
             ),
@@ -115,7 +115,7 @@ HAND_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="thumb_proximal", parent="thumb_metacarpal", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("thumb_mcp", "thumb_ip"), origin_keypoint="thumb_mcp",
+            landmarks=("thumb_mcp", "thumb_ip"), origin_landmark="thumb_mcp",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_ip"),
             ),
@@ -123,7 +123,7 @@ HAND_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="thumb_distal", parent="thumb_proximal", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("thumb_ip", "thumb_tip"), origin_keypoint="thumb_ip",
+            landmarks=("thumb_ip", "thumb_tip"), origin_landmark="thumb_ip",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_tip"),
             ),

@@ -52,7 +52,7 @@ def test_median_of_even_count_is_mean_of_middle_two():
     assert estimator.lengths["upper_arm"] == 150.0
 
 
-def test_segment_with_missing_keypoint_is_not_measured():
+def test_segment_with_missing_landmark_is_not_measured():
     estimator = _make()
     estimator.update({"shoulder": np.array([0.0, 0.0, 0.0])}, t=0.0)
     assert estimator.lengths["upper_arm"] == 100.0

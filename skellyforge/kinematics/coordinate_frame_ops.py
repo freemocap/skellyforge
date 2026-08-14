@@ -1,4 +1,4 @@
-"""Runtime coordinate-frame construction from live keypoint positions.
+"""Runtime coordinate-frame construction from live landmark positions.
 
 Where ``reference_geometry.SegmentReferenceGeometry`` stores the **static**
 T-pose frame (exact axis + approximate axis), this module provides the
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 def build_segment_frame(
     axes: tuple["AxisDefinition", ...],
     positions: dict[str, NDArray[float64]],
-    origin_keypoint: str,
+    origin_landmark: str,
     *,
     collinearity_threshold: float = 0.9998,
 ) -> tuple[NDArray[float64] | None, bool]:
@@ -67,8 +67,8 @@ def build_segment_frame(
     The exact axis may be declared on any of x/y/z — there is no positional
     assumption.
 
-    Every axis direction is ``positions[target_keypoint] −
-    positions[origin_keypoint]`` — the segment's origin to a point of its own
+    Every axis direction is ``positions[target_landmark] −
+    positions[origin_landmark]`` — the segment's origin to a point of its own
     rigid geometry, normalized.
 
     Construction builds in TWO PASSES, each in basis order (x, y, z), not the
@@ -96,11 +96,11 @@ def build_segment_frame(
     axes :
         The segment's tagged axis declarations (1–3 of them, already validated).
     positions :
-        ``{keypoint_name: (3,) position}`` — rest positions for reference
-        geometry, live positions for the solver. A keypoint missing from this
+        ``{landmark_name: (3,) position}`` — rest positions for reference
+        geometry, live positions for the solver. A landmark missing from this
         map makes its axis unusable (see ``resolved``/``raises`` below).
-    origin_keypoint :
-        The segment's origin keypoint — the start of every axis direction.
+    origin_landmark :
+        The segment's origin landmark — the start of every axis direction.
     collinearity_threshold :
         Dot-product bound beyond which an APPROXIMATE direction is treated as
         collinear (hence unresolved → ``(None, False)``) rather than a hard
@@ -134,7 +134,7 @@ def build_segment_frame(
     # vector.
     by_name: dict[str, "AxisDefinition"] = {a.axis: a for a in axes}
 
-    origin = positions.get(origin_keypoint)
+    origin = positions.get(origin_landmark)
     if origin is None:
         return None, False
     origin = np.asarray(origin, dtype=np.float64)
@@ -154,7 +154,7 @@ def build_segment_frame(
     # which hard/soft directions land on which basis vector).
     dirs: dict[str, NDArray[float64]] = {}
     for name, decl in by_name.items():
-        d = _direction(decl.target_keypoint)
+        d = _direction(decl.target_landmark)
         if d is None:
             return None, False
         dirs[name] = d

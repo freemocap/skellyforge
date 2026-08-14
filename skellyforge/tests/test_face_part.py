@@ -69,16 +69,16 @@ def test_five_face_detail_segments_exist_with_authored_declaration():
         assert seg.rest_roll == 0.0
         assert seg.rotation_limits is None
 
-    assert _by_name("nose").origin_keypoint == "head_center"
-    assert _by_name("nose").axes[0].target_keypoint == "nose"
-    assert _by_name("left_ear").origin_keypoint == "head_center"
-    assert _by_name("left_ear").axes[0].target_keypoint == "left_ear"
-    assert _by_name("right_ear").origin_keypoint == "head_center"
-    assert _by_name("right_ear").axes[0].target_keypoint == "right_ear"
-    assert _by_name("left_mouth").origin_keypoint == "left_mouth"
-    assert _by_name("left_mouth").axes[0].target_keypoint == "nose"
-    assert _by_name("right_mouth").origin_keypoint == "right_mouth"
-    assert _by_name("right_mouth").axes[0].target_keypoint == "nose"
+    assert _by_name("nose").origin_landmark == "head_center"
+    assert _by_name("nose").axes[0].target_landmark == "nose"
+    assert _by_name("left_ear").origin_landmark == "head_center"
+    assert _by_name("left_ear").axes[0].target_landmark == "left_ear"
+    assert _by_name("right_ear").origin_landmark == "head_center"
+    assert _by_name("right_ear").axes[0].target_landmark == "right_ear"
+    assert _by_name("left_mouth").origin_landmark == "left_mouth"
+    assert _by_name("left_mouth").axes[0].target_landmark == "nose"
+    assert _by_name("right_mouth").origin_landmark == "right_mouth"
+    assert _by_name("right_mouth").axes[0].target_landmark == "nose"
 
 
 def test_rest_directions_pin_the_head_axes():
@@ -112,8 +112,8 @@ def test_reference_geometry_builds_the_correct_rest_directions():
     assert np.allclose(dirs["right_mouth"], np.array([0.2, 0.3, 0.35]) / norm, atol=1e-9)
 
 
-def test_required_keypoints_includes_the_four_new_names_and_is_76():
+def test_required_landmarks_includes_the_four_new_names_and_is_76():
     human = compose_standard_human()
-    required = human.required_keypoints()
+    required = human.required_landmarks()
     assert {"left_ear", "right_ear", "left_mouth", "right_mouth"} <= required
     assert len(required) == 76

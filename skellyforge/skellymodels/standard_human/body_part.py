@@ -39,7 +39,7 @@ Value provenance, per the plan's §7 honesty rules:
   ``freemocap_tpose`` side pattern; the addon's raw eulers are bone-space and
   not portable.
 - ``rest_roll`` — 0.0 everywhere for now; the rest approximate axis is pinned
-  when the reference geometry is built (Task 5). Twist is keypoint-driven.
+  when the reference geometry is built (Task 5). Twist is landmark-driven.
 - ``length_ratio`` — Winter (2009) / Drillis & Contini (1966) segment-length
   ratios of stature. Estimates state so.
 - ``rotation_limits`` — ``None`` for all segments for now: the addon's LOCAL
@@ -102,8 +102,8 @@ BODY_MIDLINE_PART = SegmentPart(
             # The hips are a FULL 4-point rigid body: the two trunk endpoints
             # (the exact direction) plus the two hip joints (the lateral pair
             # that resolves the pelvis roll).
-            rigid_points=("hips_center", "trunk_center", "left_hip", "right_hip"),
-            origin_keypoint="hips_center",
+            landmarks=("hips_center", "trunk_center", "left_hip", "right_hip"),
+            origin_landmark="hips_center",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
                 AxisDefinition("x", AxisKind.APPROXIMATE, "right_hip"),
@@ -112,7 +112,7 @@ BODY_MIDLINE_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="spine", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
+            landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
             ),
@@ -120,7 +120,7 @@ BODY_MIDLINE_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="chest", parent="spine", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("trunk_center", "neck_center"), origin_keypoint="trunk_center",
+            landmarks=("trunk_center", "neck_center"), origin_landmark="trunk_center",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
@@ -128,7 +128,7 @@ BODY_MIDLINE_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="upper_chest", parent="chest", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("mid_sternum", "neck_center"), origin_keypoint="mid_sternum",
+            landmarks=("mid_sternum", "neck_center"), origin_landmark="mid_sternum",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
@@ -136,7 +136,7 @@ BODY_MIDLINE_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="neck", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("neck_center", "head_center"), origin_keypoint="neck_center",
+            landmarks=("neck_center", "head_center"), origin_landmark="neck_center",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "head_center"),
             ),
@@ -151,11 +151,11 @@ BODY_MIDLINE_PART = SegmentPart(
             # tomorrow; round-trip provenance is orthogonal to whether the point
             # is rigid with the skull. The jaw and mouth corners are NOT in the
             # set: they articulate.
-            rigid_points=(
+            landmarks=(
                 "head_center", "head_vertex", "nose", "left_eye", "right_eye",
                 "left_ear", "right_ear",
             ),
-            origin_keypoint="head_center",
+            origin_landmark="head_center",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "head_vertex"),
                 AxisDefinition("z", AxisKind.APPROXIMATE, "nose"),
@@ -170,7 +170,7 @@ BODY_LIMB_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("sternoclavicular", "shoulder"), origin_keypoint="sternoclavicular",
+            landmarks=("sternoclavicular", "shoulder"), origin_landmark="sternoclavicular",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "shoulder"),
             ),
@@ -178,7 +178,7 @@ BODY_LIMB_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="upper_arm", parent="shoulder", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("shoulder", "elbow"), origin_keypoint="shoulder",
+            landmarks=("shoulder", "elbow"), origin_landmark="shoulder",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "elbow"),
             ),
@@ -186,7 +186,7 @@ BODY_LIMB_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="lower_arm", parent="upper_arm", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("elbow", "wrist"), origin_keypoint="elbow",
+            landmarks=("elbow", "wrist"), origin_landmark="elbow",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "wrist"),
             ),
@@ -194,7 +194,7 @@ BODY_LIMB_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
-            rigid_points=("hip", "knee"), origin_keypoint="hip",
+            landmarks=("hip", "knee"), origin_landmark="hip",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "knee"),
             ),
@@ -202,7 +202,7 @@ BODY_LIMB_PART = SegmentPart(
         ),
         SegmentDefinition(
             name="lower_leg", parent="upper_leg", parent_attachment=ParentAttachment.DISTAL,
-            rigid_points=("knee", "ankle"), origin_keypoint="knee",
+            landmarks=("knee", "ankle"), origin_landmark="knee",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "ankle"),
             ),
@@ -214,7 +214,7 @@ BODY_LIMB_PART = SegmentPart(
             # foot_ball) plus the heel (the posterior point that resolves the
             # foot's roll-and-pitch reference). The heel points down-back, so
             # the foot's approximate axis lands on z (down after Gram-Schmidt).
-            rigid_points=("ankle", "foot_ball", "heel"), origin_keypoint="ankle",
+            landmarks=("ankle", "foot_ball", "heel"), origin_landmark="ankle",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
                 AxisDefinition("z", AxisKind.APPROXIMATE, "heel"),
@@ -227,8 +227,8 @@ BODY_LIMB_PART = SegmentPart(
             # big_toe) plus small_toe (the lateral point that resolves the toes'
             # roll reference). The small_toe points laterally, so the toes'
             # approximate axis lands on x (lateral after Gram-Schmidt).
-            rigid_points=("foot_ball", "big_toe", "small_toe"),
-            origin_keypoint="foot_ball",
+            landmarks=("foot_ball", "big_toe", "small_toe"),
+            origin_landmark="foot_ball",
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "big_toe"),
                 AxisDefinition("x", AxisKind.APPROXIMATE, "small_toe"),
