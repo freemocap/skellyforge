@@ -1,4 +1,4 @@
-"""Runtime coordinate-frame construction from live landmark positions.
+"""Runtime coordinate-frame construction from live keypoint positions.
 
 Where ``reference_geometry.SegmentReferenceGeometry`` stores the **static**
 T-pose frame (exact axis + approximate axis), this module provides the
@@ -285,8 +285,9 @@ def rotation_between_vectors(
 
     This is a **swing-only** rotation — it aligns the long axes of two
     configurations but leaves the twist (rotation around the axis)
-    undetermined. The twist is resolved separately per the bone's
-    ``TwistPolicy``.
+    undetermined. The twist is resolved separately by the per-bone
+    declaration: a declared APPROXIMATE direction reference (the first tier),
+    or the damped minimal-roll fallback (the second tier).
 
     Parameters
     ----------

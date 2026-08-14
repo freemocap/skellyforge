@@ -43,7 +43,6 @@ from skellyforge.kinematics.critically_damped_orientation import (
 )
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
 from skellyforge.skellymodels.standard_human.segment_definition import (
-    AxisDefinition,
     AxisKind,
 )
 
@@ -64,11 +63,6 @@ _SINGULARITY_DOT_THRESHOLD = np.cos(_SINGULARITY_THRESHOLD_RAD)  # ≈ 0.996
 # The critically damped twist filter's time constant (seconds). Frame-rate
 # independent by construction — see critically_damped_orientation.py.
 DEFAULT_TWIST_TIME_CONSTANT_SECONDS = 0.05
-
-
-def _exact_axis(segment) -> AxisDefinition:
-    """The EXACT axis declaration of *segment*, whichever name it is declared on."""
-    return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
 
 
 def _approximate_axis_index(segment, exact_idx: int) -> int:
@@ -160,7 +154,7 @@ def solve_frame_orientations(
             # whichever local axis (x/y/z) the author chose — no positional
             # read. The solver resolves the same direction build_segment_frame
             # derives from the EXACT declaration: origin → target_keypoint.
-            exact_axis = _exact_axis(segment)
+            exact_axis = segment.exact_axis
             exact_to = keypoints.get(exact_axis.target_keypoint)
             if origin is not None and exact_to is not None:
                 live_vec = np.asarray(exact_to, dtype=np.float64) - np.asarray(

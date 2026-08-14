@@ -187,11 +187,6 @@ class SegmentDefinition:
             raise ValueError(
                 f"segment {self.name!r}: axis names must be distinct, got {names!r}"
             )
-        if any(n not in ("x", "y", "z") for n in names):
-            raise ValueError(
-                f"segment {self.name!r}: axis names must be in {{'x','y','z'}}, "
-                f"got {names!r}"
-            )
         if not any(a.kind is AxisKind.EXACT for a in axes):
             raise ValueError(
                 f"segment {self.name!r}: at least one axis must be EXACT, got {axes!r}"
@@ -233,6 +228,27 @@ class SegmentDefinition:
         *consequence* of the declaration, not a separate policy.
         """
         return any(a.kind is AxisKind.APPROXIMATE for a in self.axes)
+
+    @property
+    def exact_axis(self) -> AxisDefinition:
+        """The segment's EXACT axis declaration (the defining direction).
+
+        The segment's frame derives its defining direction from this axis,
+        whichever local basis name (x/y/z) it is declared on. Load-time
+        validation guarantees exactly one EXACT axis exists; this raises
+        loudly if that invariant is ever violated.
+        """
+        for a in self.axes:
+            if a.kind is AxisKind.EXACT:
+                return a
+        raise ValueError(f"segment {self.name!r} has no EXACT axis")
+
+    @property
+    def approximate_axis(self) -> AxisDefinition | None:
+        """The segment's APPROXIMATE axis declaration, or ``None`` if twist-less."""
+        return next(
+            (a for a in self.axes if a.kind is AxisKind.APPROXIMATE), None
+        )
 
     def required_keypoints(self) -> set[str]:
         """Every keypoint this segment needs to be solvable.

@@ -15,7 +15,7 @@ Value provenance, per the plan's §7 honesty rules:
   (+Y toward the child bone, the VRM humanoid rule), so the euler extrudes
   ``R · ŷ`` to the fanned finger direction: single-axis about Z, ``rz = θ − π/2``
   for a finger fanned ``θ`` from forward. Fan magnitudes from the Blender
-  addon's ``freemocap_tpose`` (45/17/5.5/7.3/19 degrees); signs from canonical
+  addon's ``freemocap_tpose`` (45/17/5.5/7.3/19 degrees); signs from standard
   geometry — the authored-left thumb points toward the body midline (−Y). Refine
   if a sourced hand model appears.
 - ``length_ratio`` — Buryanov & Kotiuk (2010) via the ``_BONE_LENGTH_RATIOS``

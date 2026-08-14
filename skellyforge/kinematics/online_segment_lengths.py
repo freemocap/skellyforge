@@ -82,10 +82,10 @@ class SegmentLengthEstimator:
         dropped.
         """
         cutoff = None if self.window_seconds is None else t - self.window_seconds
-        for segment_name, (origin_kp, long_kp) in self.segment_endpoints.items():
+        for segment_name, (origin_kp, distal_kp) in self.segment_endpoints.items():
             window = self._windows[segment_name]
             p = positions.get(origin_kp)
-            c = positions.get(long_kp)
+            c = positions.get(distal_kp)
             if p is not None and c is not None:
                 length = float(
                     np.linalg.norm(

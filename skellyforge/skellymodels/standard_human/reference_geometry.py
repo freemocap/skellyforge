@@ -26,7 +26,7 @@ from skellyforge.kinematics.coordinate_frame_ops import (
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisDefinition,
-    AxisKind,
+    ParentAttachment,
     SegmentDefinition,
 )
 
@@ -46,18 +46,6 @@ _TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = {
 }
 
 
-def _exact_axis(segment: SegmentDefinition) -> AxisDefinition:
-    """The segment's exact axis declaration (the defining direction), by name."""
-    return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
-
-
-def _approximate_axis(segment: SegmentDefinition) -> AxisDefinition | None:
-    """The segment's approximate axis declaration, or ``None`` if twist-less."""
-    return next(
-        (a for a in segment.axes if a.kind is AxisKind.APPROXIMATE), None
-    )
-
-
 def _unprefixed(name: str) -> str:
     for prefix in ("left_", "right_"):
         if name.startswith(prefix):
@@ -66,7 +54,7 @@ def _unprefixed(name: str) -> str:
 
 
 def _mirror(vec: NDArray[np.float64]) -> NDArray[np.float64]:
-    """Negate Y — the canonical mirror across the sagittal (XZ) plane."""
+    """Negate Y — the standard mirror across the sagittal (XZ) plane."""
     return np.array([vec[0], -vec[1], vec[2]], dtype=np.float64)
 
 
@@ -95,9 +83,9 @@ def _rest_axis_direction(
 class SegmentReferenceGeometry:
     """One segment's T-pose geometry: where it sits, how it's oriented, how long."""
 
-    origin: NDArray[np.float64]  # (3,) canonical mm — the transform origin
+    origin: NDArray[np.float64]  # (3,) standard mm — the transform origin
     basis: NDArray[np.float64]   # (3,3) rows [x̂, ŷ, ẑ] of the rest frame
-    length: float                # canonical mm
+    length: float                # standard mm
 
 
 @dataclass(frozen=True)
@@ -126,7 +114,7 @@ def build_reference_geometry(
 
     # pass 1: rest directions of the EXACT axis (right side mirrored)
     for segment in segments:
-        exact = _exact_axis(segment)
+        exact = segment.exact_axis
         direction = _rest_axis_direction(segment.rest_rotation, exact.axis)
         if segment.name.startswith("right_"):
             direction = _mirror(direction)
@@ -144,7 +132,7 @@ def build_reference_geometry(
         length = measured_lengths[segment.name]
         if segment.parent is None:
             origin = np.zeros(3, dtype=np.float64)
-        elif segment.parent_attachment.value == "distal":
+        elif segment.parent_attachment is ParentAttachment.DISTAL:
             origin = (
                 origins[segment.parent]
                 + rest_dirs[segment.parent] * measured_lengths[segment.parent]
@@ -159,7 +147,7 @@ def build_reference_geometry(
             origin = keypoints.get(segment.origin_keypoint, origins[segment.parent])
         origins[segment.name] = origin
         keypoints[segment.origin_keypoint] = origin.copy()
-        keypoints[_exact_axis(segment).target_keypoint] = (
+        keypoints[segment.exact_axis.target_keypoint] = (
             origin + rest_dirs[segment.name] * length
         )
 
@@ -175,7 +163,7 @@ def build_reference_geometry(
 
     # ``nose`` is an off-chain keypoint: several driven segments (head, neck,
     # and the three face bones) name it as their exact axis, but it has no
-    # single canonical rest position — the three face bones point different
+    # single standard rest position — the three face bones point different
     # ways from the head origin and cannot share one schematic point. The
     # tracker (or a live-pose fixture) supplies it per frame; the reference
     # pose leaves it out so the face bones solve only when it is present.
@@ -198,8 +186,8 @@ def _rest_basis(
     named-row placement means each rest basis vector aligns with its authored
     axis name.
     """
-    exact = _exact_axis(segment)
-    approx = _approximate_axis(segment)
+    exact = segment.exact_axis
+    approx = segment.approximate_axis
     exact_idx = _AXIS_TO_INDEX[exact.axis]
 
     exact_dir = rest_dirs[segment.name]
@@ -281,7 +269,7 @@ def _rest_approximate_direction(
 def _default_perpendicular(exact_dir: NDArray[np.float64]) -> NDArray[np.float64]:
     """A deterministic unit direction orthogonal to *exact_dir*.
 
-    Orthogonalizes a canonical reference (``+X`` unless the exact direction is
+    Orthogonalizes a standard reference (``+X`` unless the exact direction is
     near ``+X``, then ``+Y``) against *exact_dir*, so the result is never
     collinear with it.
     """

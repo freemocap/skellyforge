@@ -1,6 +1,6 @@
 """Standard human model — VRM-1.0-aligned humanoid skeleton.
 
-The canonical human model is the composed 60-segment human: segments authored
+The standard human model is the composed 60-segment human: segments authored
 once and expanded into a flat indexed list, with the T-pose reference geometry
 built against it. Aliases (for VRM/VMC wire names, Unreal bone names, etc.)
 live in ``human_bone_aliases.py`` — segments don't carry serialization

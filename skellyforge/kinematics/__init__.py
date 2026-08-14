@@ -1,7 +1,7 @@
 """Kinematics engine — rigid-body math layer for the standard human model.
 
 This package provides the mathematical core that the orientation solver
-(SF-SH-4) and the canonical frame aggregator call per-frame. Everything
+(SF-SH-4) and the standard-human frame aggregator call per-frame. Everything
 here is hot-path safe: dataclasses for scalar ops, pure numpy functions
 for vectorized batch ops. No Pydantic in the hot path, no serialization,
 no wire-format awareness, no imports from skellytracker or freemocap.
@@ -10,7 +10,7 @@ Package structure:
     quaternion_math.py          — RotationQuaternion dataclass + vectorized ops
     coordinate_frame_ops.py     — Runtime basis construction
     rigid_body_kinematics.py    — Aggregate model + vectorized kinematics
-    orientation_solver.py       — Per-bone orientation from live landmarks
+    orientation_solver.py       — Per-bone orientation from live keypoints
     skeleton_rigidifier.py      — Forward-pass skeleton rigidifier
     online_segment_lengths.py   — Rolling-window median segment-length estimator
     segment_lengths.py          — Segment-length measurement + diagnostics

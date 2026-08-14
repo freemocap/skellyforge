@@ -8,8 +8,8 @@ on disk and report stopping points.
 ## What this repo is (current architecture, 2026-08)
 
 The **segment model** of the canonical standard human — VRM 1.0 rigid bodies whose reference geometry is
-defined **directly from tracker keypoints** (no landmark layer; see the streaming-compatibility docs in
-the freemocap repo). Layout:
+defined **directly from tracker keypoints** (no landmark layer; see the human-reconstruction plans in
+`freemocap/current-work-plans/`). Layout:
 
 ```
 skellyforge/
@@ -52,7 +52,7 @@ default env either (no lint gate here yet).
   hot path).
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once at load.
 - The authored data carries **provenance comments** (sourced vs. estimated-with-said-so) — the honesty
-  rules in `freemocap/docs/streaming-compatibility/phase-1/09-segment-model.md` §7.
+  rules in `freemocap/current-work-plans/archive/phase-1-work-plans/09-segment-model.md` §7.
 - Boundary rule: skellyforge **never imports** skellytracker or freemocap — with one sanctioned
   exception. `skellymodels/standard_human/tracker_contract.py` imports skellytracker's `core.io`
   mapping machinery (mapping-path registry + `TrackerMapping` — base install only, no detector or

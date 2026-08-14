@@ -1,4 +1,4 @@
-"""Standard human model — the canonical VRM-1.0-aligned humanoid, composed.
+"""Standard human model — the standard VRM-1.0-aligned humanoid, composed.
 
 A frozen dataclass holding the composed 60-segment human: parts authored once
 (body midline, body limb, hand ×2, face), expanded into one flat indexed
@@ -32,7 +32,7 @@ from skellyforge.skellymodels.standard_human.segment_parts import (
 
 @dataclass(frozen=True)
 class StandardHuman:
-    """The canonical humanoid: one human, composed from parts."""
+    """The standard humanoid: one human, composed from parts."""
 
     name: str
     parts: tuple[tuple[SegmentPart, str], ...]
@@ -43,6 +43,7 @@ class StandardHuman:
     _segments: tuple[SegmentDefinition, ...] = field(init=False, repr=False)
     _segment_by_name: dict[str, SegmentDefinition] = field(init=False, repr=False)
     _children_by_parent: dict[str, tuple[str, ...]] = field(init=False, repr=False)
+    _root_segment: SegmentDefinition = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         segments = tuple(compose_parts(self.parts))
@@ -82,6 +83,7 @@ class StandardHuman:
         object.__setattr__(self, "_segments", segments)
         object.__setattr__(self, "_segment_by_name", by_name)
         object.__setattr__(self, "_children_by_parent", children)
+        object.__setattr__(self, "_root_segment", roots[0])
 
     @property
     def segments(self) -> tuple[SegmentDefinition, ...]:
@@ -103,7 +105,7 @@ class StandardHuman:
 
     @property
     def root_segment(self) -> SegmentDefinition:
-        return self._segments[0]  # authoring order puts the root first
+        return self._root_segment
 
     def get_children(self, segment_name: str) -> list[SegmentDefinition]:
         return [

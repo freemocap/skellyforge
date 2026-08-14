@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -45,7 +45,7 @@ class TreeRigidifier:
 
     _roots: tuple[str, ...] = ()
     _edges: tuple[tuple[str, str], ...] = ()
-    _last_direction: dict[str, np.ndarray] = None  # type: ignore[assignment]
+    _last_direction: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         children_of = {

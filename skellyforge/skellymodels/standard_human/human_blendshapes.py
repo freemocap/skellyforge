@@ -18,7 +18,7 @@ from enum import Enum
 
 
 class BlendShapeChannel(str, Enum):
-    """Canonical ARKit blendshape channel names.
+    """Standard ARKit blendshape channel names.
 
     Enum values are the Apple ARKit names (camelCase), matching the
     names used by live link face tracking and VTuber software.
@@ -95,7 +95,7 @@ class BlendShapeChannel(str, Enum):
 
 
 def get_blendshape_count() -> int:
-    """Return the number of declared blendshape channels (always 52)."""
+    """Return the number of declared blendshape channels (one per ``BlendShapeChannel`` member)."""
     return len(BlendShapeChannel)
 
 

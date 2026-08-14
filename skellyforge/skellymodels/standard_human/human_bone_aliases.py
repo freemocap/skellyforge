@@ -1,11 +1,11 @@
 """Bone name aliases for the standard human model.
 
-Maps canonical snake_case bone names to wire-format names for each target
-protocol. The canonical name is the single source of truth; aliases are a
+Maps standard snake_case bone names to wire-format names for each target
+protocol. The standard name is the single source of truth; aliases are a
 serialization concern — bones themselves never carry alias knowledge.
 
 Adding a new target means adding a column to ``BONE_ALIASES``. No bone
-definitions change. Missing aliases silently fall back to the canonical
+definitions change. Missing aliases silently fall back to the standard
 name — the stream keeps working while the alias row is added.
 
 Target key conventions:
@@ -15,9 +15,9 @@ Target key conventions:
 
 # ── Alias table ────────────────────────────────────────────────────────
 #
-# canonical_name → {target: alias}
+# standard_name → {target: alias}
 #
-# Canonical names follow VRM 1.0 structure with snake_case normalization.
+# Standard names follow VRM 1.0 structure with snake_case normalization.
 # The VRM target is VRM 1.0 camelCase; the VMC adapter maps from this to
 # VRM 0.x names (e.g. thumb metacarpal → proximal) at emit time.
 # The Unreal target maps to UE5 Mannequin bone names.
@@ -301,10 +301,10 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
 
 
 def resolve_alias(bone_name: str, target: str) -> str | None:
-    """Resolve a canonical bone name to its alias for a given target.
+    """Resolve a standard bone name to its alias for a given target.
 
     Args:
-        bone_name: Canonical snake_case bone name (e.g. ``left_upper_arm``).
+        bone_name: Standard snake_case bone name (e.g. ``left_upper_arm``).
         target: Target protocol key (e.g. ``"vrm"``, ``"unreal"``).
 
     Returns:
@@ -312,7 +312,7 @@ def resolve_alias(bone_name: str, target: str) -> str | None:
         equivalent in the target skeleton (e.g. ``left_eye`` → Unreal).
 
         If the bone name itself is not in the alias table, logs a warning
-        and returns the canonical name unchanged — this lets a newly-added
+        and returns the standard name unchanged — this lets a newly-added
         bone stream without crashing while someone adds the alias row.
     """
     target_aliases = BONE_ALIASES.get(bone_name)
@@ -334,14 +334,14 @@ def resolve_alias(bone_name: str, target: str) -> str | None:
 def resolve_all_aliases(
     bone_names: list[str], target: str
 ) -> dict[str, str | None]:
-    """Resolve a list of canonical bone names to their aliases for a target.
+    """Resolve a list of standard bone names to their aliases for a target.
 
     Args:
-        bone_names: Canonical snake_case bone names.
+        bone_names: Standard snake_case bone names.
         target: Target protocol key.
 
     Returns:
-        Dict mapping canonical_name → alias (or ``None`` for bones with
-        no equivalent in that target).
+        Dict mapping bone_name → alias (or ``None`` for bones with no
+        equivalent in that target).
     """
     return {name: resolve_alias(name, target) for name in bone_names}

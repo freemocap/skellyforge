@@ -35,6 +35,24 @@ def _prefixed(value: str | None, prefix: str) -> str | None:
     return None if value is None else f"{prefix}{value}"
 
 
+_SIDE_PREFIXES = ("left_", "right_")
+
+
+def _unprefixed(name: str) -> str:
+    """Strip a known side prefix if present, else return *name* unchanged.
+
+    Composed references carry exactly one of the known side prefixes (or none
+    — a midline name that already agrees). A name that matches neither prefix
+    is left as authored, so the model's load-time validators (a missing parent
+    or an unresolvable keypoint) raise the meaningful error rather than this
+    helper mislabeling a pass-through.
+    """
+    for prefix in _SIDE_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
 def _prefixed_axis(
     axes: tuple[AxisDefinition, ...], prefix: str
 ) -> tuple[AxisDefinition, ...]:
@@ -103,7 +121,7 @@ def compose_parts(
     for segment in composed:
         parent = segment.parent
         if parent is not None and parent not in seen:
-            unprefixed = parent.split("_", 1)[1] if "_" in parent else parent
+            unprefixed = _unprefixed(parent)
             if unprefixed in seen:
                 parent = unprefixed
         resolved.append(dataclasses.replace(segment, parent=parent))
@@ -124,7 +142,7 @@ def _resolve_midline_references(
             return None
         if name in midline_keypoints:
             return name
-        unprefixed = name.split("_", 1)[1] if "_" in name else name
+        unprefixed = _unprefixed(name)
         return unprefixed if unprefixed in midline_keypoints else name
 
     return dataclasses.replace(

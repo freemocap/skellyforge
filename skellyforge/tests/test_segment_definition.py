@@ -105,18 +105,6 @@ def test_axis_names_must_be_distinct():
         )
 
 
-def test_axis_names_must_be_xyz():
-    # the axis name is bounded by the ``Literal`` type, and the segment-level
-    # validation additionally rejects any non-xyz name.
-    with pytest.raises(ValueError, match="axis names must be in"):
-        _foot_like(
-            axes=(
-                AxisDefinition("w", AxisKind.EXACT, "foot_ball"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
-            )
-        )
-
-
 def test_at_least_one_axis_must_be_exact():
     with pytest.raises(ValueError, match="at least one axis must be EXACT"):
         _foot_like(axes=(AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),))

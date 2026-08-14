@@ -21,8 +21,8 @@ Authoring convention for the body (VRM 1.0 local frame, stated once here per
 ``segment_definition``'s header):
 
 - Every body segment declares its EXACT axis on **y** — ``+Y`` points toward the
-  child bone (the VRM 1.0 humanoid rule). The exact target is the long-axis
-  point (the segment's toward-child endpoint).
+  child bone (the VRM 1.0 humanoid rule). The exact target is the
+  toward-child endpoint (the segment's distal-facing endpoint).
 - The APPROXIMATE axis (where one exists — hips, foot, toes) is declared on the
   axis whose Gram-Schmidt direction matches the segment's authored rest frame.
 - The remaining axis follows the segment's own third point where one is
@@ -31,7 +31,7 @@ Authoring convention for the body (VRM 1.0 local frame, stated once here per
 Value provenance, per the plan's §7 honesty rules:
 
 - ``rest_rotation`` — the euler triple that extrudes the declared **y** axis to
-  the toward-child direction at the canonical T-pose (+Z up, +X forward, +Y =
+  the toward-child direction at the standard T-pose (+Z up, +X forward, +Y =
   subject's left, arms out along ±Y, feet forward, legs down). Single-axis
   values: ``+π/2`` about X sends ``+Y`` up (midline), identity keeps ``+Y``
   left (arms), ``−π/2`` about X sends ``+Y`` down (legs), ``−π/2`` about Z
@@ -63,7 +63,7 @@ from skellyforge.skellymodels.standard_human.segment_parts import (
     compose_parts,
 )
 
-# ── Rest orientations (canonical T-pose geometry, y-exact: R · ŷ = toward-child) ─
+# ── Rest orientations (standard T-pose geometry, y-exact: R · ŷ = toward-child) ─
 _REST_UP = (math.pi / 2, 0.0, 0.0)       # +Z (up) — the midline chain (+π/2 about X)
 _REST_LEFT = (0.0, 0.0, 0.0)             # +Y (subject's left; authored side) — identity
 _REST_DOWN = (-math.pi / 2, 0.0, 0.0)    # −Z — the legs (−π/2 about X)
