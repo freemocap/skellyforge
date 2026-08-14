@@ -8,8 +8,8 @@ on disk and report stopping points.
 ## What this repo is (current architecture, 2026-08)
 
 The **segment model** of the canonical standard human — VRM 1.0 rigid bodies whose reference geometry is
-defined **directly from tracker keypoints** (no landmark layer; see the human-reconstruction plans in
-`freemocap/current-work-plans/`). Layout:
+defined from tracker keypoints mapped onto per-segment **landmarks** (named points in each segment's local
+frame); see the human-reconstruction plans in `freemocap/current-work-plans/` (start with `ontology.md`). Layout:
 
 ```
 skellyforge/
