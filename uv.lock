@@ -731,7 +731,7 @@ provides-extras = ["dev"]
 [[package]]
 name = "skellytracker"
 version = "2024.9.1019"
-source = { git = "https://github.com/freemocap/skellytracker?branch=development-streaming#530c24b49664e97c1e2d8392105698d03b8f9af4" }
+source = { git = "https://github.com/freemocap/skellytracker?branch=development-streaming#9c20ffa490599bee9539390612082211d5d56ce4" }
 dependencies = [
     { name = "beartype" },
     { name = "numpy" },
