@@ -37,8 +37,8 @@ def _produced_landmarks(
     instantiated under both ``left_`` and ``right_`` (mirroring how
     ``compose_parts`` expands ``HAND_PART``), then unioned with the body names.
     """
-    produced: set[str] = set(body_mapping.keypoint_names)
-    for name in hand_mapping.keypoint_names:
+    produced: set[str] = set(body_mapping.landmark_names)
+    for name in hand_mapping.landmark_names:
         produced.add(f"left_{name}")
         produced.add(f"right_{name}")
     return produced

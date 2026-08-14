@@ -38,8 +38,6 @@ Value provenance, per the plan's §7 honesty rules:
   sends ``+Y`` forward (feet/toes). Cross-checked against the Blender addon's
   ``freemocap_tpose`` side pattern; the addon's raw eulers are bone-space and
   not portable.
-- ``rest_roll`` — 0.0 everywhere for now; the rest approximate axis is pinned
-  when the reference geometry is built (Task 5). Twist is landmark-driven.
 - ``length_ratio`` — Winter (2009) / Drillis & Contini (1966) segment-length
   ratios of stature. Estimates state so.
 - ``rotation_limits`` — ``None`` for all segments for now: the addon's LOCAL
@@ -108,7 +106,7 @@ BODY_MIDLINE_PART = SegmentPart(
                 AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
                 AxisDefinition("x", AxisKind.APPROXIMATE, "right_hip"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HIPS,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_HIPS,
         ),
         SegmentDefinition(
             name="spine", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
@@ -116,7 +114,7 @@ BODY_MIDLINE_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HIPS,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_HIPS,
         ),
         SegmentDefinition(
             name="chest", parent="spine", parent_attachment=ParentAttachment.DISTAL,
@@ -124,7 +122,7 @@ BODY_MIDLINE_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_CHEST,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_CHEST,
         ),
         SegmentDefinition(
             name="upper_chest", parent="chest", parent_attachment=ParentAttachment.DISTAL,
@@ -132,7 +130,7 @@ BODY_MIDLINE_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_UPPER_CHEST,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_UPPER_CHEST,
         ),
         SegmentDefinition(
             name="neck", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
@@ -140,7 +138,7 @@ BODY_MIDLINE_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "head_center"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_NECK,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_NECK,
         ),
         SegmentDefinition(
             name="head", parent="neck", parent_attachment=ParentAttachment.DISTAL,
@@ -160,7 +158,7 @@ BODY_MIDLINE_PART = SegmentPart(
                 AxisDefinition("y", AxisKind.EXACT, "head_vertex"),
                 AxisDefinition("z", AxisKind.APPROXIMATE, "nose"),
             ),
-            rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HEAD,
+            rest_rotation=_REST_UP, length_ratio=_RATIO_HEAD,
         ),
     ),
 )
@@ -174,7 +172,7 @@ BODY_LIMB_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "shoulder"),
             ),
-            rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_SHOULDER,
+            rest_rotation=_REST_LEFT, length_ratio=_RATIO_SHOULDER,
         ),
         SegmentDefinition(
             name="upper_arm", parent="shoulder", parent_attachment=ParentAttachment.DISTAL,
@@ -182,7 +180,7 @@ BODY_LIMB_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "elbow"),
             ),
-            rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_UPPER_ARM,
+            rest_rotation=_REST_LEFT, length_ratio=_RATIO_UPPER_ARM,
         ),
         SegmentDefinition(
             name="lower_arm", parent="upper_arm", parent_attachment=ParentAttachment.DISTAL,
@@ -190,7 +188,7 @@ BODY_LIMB_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "wrist"),
             ),
-            rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_LOWER_ARM,
+            rest_rotation=_REST_LEFT, length_ratio=_RATIO_LOWER_ARM,
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
@@ -198,7 +196,7 @@ BODY_LIMB_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "knee"),
             ),
-            rest_rotation=_REST_DOWN, rest_roll=0.0, length_ratio=_RATIO_UPPER_LEG,
+            rest_rotation=_REST_DOWN, length_ratio=_RATIO_UPPER_LEG,
         ),
         SegmentDefinition(
             name="lower_leg", parent="upper_leg", parent_attachment=ParentAttachment.DISTAL,
@@ -206,7 +204,7 @@ BODY_LIMB_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "ankle"),
             ),
-            rest_rotation=_REST_DOWN, rest_roll=0.0, length_ratio=_RATIO_LOWER_LEG,
+            rest_rotation=_REST_DOWN, length_ratio=_RATIO_LOWER_LEG,
         ),
         SegmentDefinition(
             name="foot", parent="lower_leg", parent_attachment=ParentAttachment.DISTAL,
@@ -219,7 +217,7 @@ BODY_LIMB_PART = SegmentPart(
                 AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
                 AxisDefinition("z", AxisKind.APPROXIMATE, "heel"),
             ),
-            rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_FOOT,
+            rest_rotation=_REST_FORWARD, length_ratio=_RATIO_FOOT,
         ),
         SegmentDefinition(
             name="toes", parent="foot", parent_attachment=ParentAttachment.DISTAL,
@@ -233,7 +231,7 @@ BODY_LIMB_PART = SegmentPart(
                 AxisDefinition("y", AxisKind.EXACT, "big_toe"),
                 AxisDefinition("x", AxisKind.APPROXIMATE, "small_toe"),
             ),
-            rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_TOES,
+            rest_rotation=_REST_FORWARD, length_ratio=_RATIO_TOES,
         ),
     ),
 )

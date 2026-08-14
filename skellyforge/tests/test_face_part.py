@@ -66,7 +66,6 @@ def test_five_face_detail_segments_exist_with_authored_declaration():
         assert seg.parent == "head"
         assert seg.parent_attachment == ParentAttachment.ORIGIN
         assert seg.resolves_twist is False
-        assert seg.rest_roll == 0.0
         assert seg.rotation_limits is None
 
     assert _by_name("nose").origin_landmark == "head_center"

@@ -20,8 +20,8 @@ Value provenance, per the plan's §7 honesty rules:
   if a sourced hand model appears.
 - ``length_ratio`` — Buryanov & Kotiuk (2010) via the ``_BONE_LENGTH_RATIOS``
   table.
-- ``rest_roll`` 0.0 and ``rotation_limits`` None — Task 5 pins the local-frame
-  convention (same rationale as the body part).
+- ``rotation_limits`` None — Task 5 pins the local-frame convention (same
+  rationale as the body part).
 - Every hand segment carries a single exact axis (no approximate axis): they
   fall to the damped minimal-roll tier (the addon gives them no LockedTrack
   either).
@@ -71,7 +71,7 @@ def _finger_segments(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_pip"),
             ),
-            rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_PROX,
+            rest_rotation=fan, length_ratio=_RATIO_FINGER_PROX,
         ),
         SegmentDefinition(
             name=f"{finger}_intermediate", parent=f"{finger}_proximal", parent_attachment=ParentAttachment.DISTAL,
@@ -80,7 +80,7 @@ def _finger_segments(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_dip"),
             ),
-            rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_INT,
+            rest_rotation=fan, length_ratio=_RATIO_FINGER_INT,
         ),
         SegmentDefinition(
             name=f"{finger}_distal", parent=f"{finger}_intermediate", parent_attachment=ParentAttachment.DISTAL,
@@ -89,7 +89,7 @@ def _finger_segments(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, f"{keypoint_prefix}_tip"),
             ),
-            rest_rotation=fan, rest_roll=0.0, length_ratio=_RATIO_FINGER_DIST,
+            rest_rotation=fan, length_ratio=_RATIO_FINGER_DIST,
         ),
     )
 
@@ -103,7 +103,7 @@ HAND_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "middle_finger_mcp"),
             ),
-            rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_HAND,
+            rest_rotation=_REST_FORWARD, length_ratio=_RATIO_HAND,
         ),
         SegmentDefinition(
             name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
@@ -111,7 +111,7 @@ HAND_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_mcp"),
             ),
-            rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_MC,
+            rest_rotation=_FAN_THUMB, length_ratio=_RATIO_THUMB_MC,
         ),
         SegmentDefinition(
             name="thumb_proximal", parent="thumb_metacarpal", parent_attachment=ParentAttachment.DISTAL,
@@ -119,7 +119,7 @@ HAND_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_ip"),
             ),
-            rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_PROX,
+            rest_rotation=_FAN_THUMB, length_ratio=_RATIO_THUMB_PROX,
         ),
         SegmentDefinition(
             name="thumb_distal", parent="thumb_proximal", parent_attachment=ParentAttachment.DISTAL,
@@ -127,7 +127,7 @@ HAND_PART = SegmentPart(
             axes=(
                 AxisDefinition("y", AxisKind.EXACT, "thumb_tip"),
             ),
-            rest_rotation=_FAN_THUMB, rest_roll=0.0, length_ratio=_RATIO_THUMB_DIST,
+            rest_rotation=_FAN_THUMB, length_ratio=_RATIO_THUMB_DIST,
         ),
         *_finger_segments("index", "index_finger", _FAN_INDEX),
         *_finger_segments("middle", "middle_finger", _REST_FORWARD),

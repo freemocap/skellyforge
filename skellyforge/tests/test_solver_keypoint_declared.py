@@ -159,7 +159,7 @@ def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
             AxisDefinition("z", AxisKind.APPROXIMATE, "q"),
         ),
         rest_rotation=(math.pi / 2, 0.0, 0.0),  # up (+Z)
-        rest_roll=0.0, length_ratio=0.1,
+        length_ratio=0.1,
     )
     z_exact = SegmentDefinition(
         name="s_z", parent=None, parent_attachment=ParentAttachment.ORIGIN,
@@ -169,7 +169,7 @@ def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
             AxisDefinition("x", AxisKind.APPROXIMATE, "q2"),
         ),
         rest_rotation=(0.0, math.pi / 2, 0.0),  # gaze (+X)
-        rest_roll=0.0, length_ratio=0.1,
+        length_ratio=0.1,
     )
     # Build reference geometry for each standalone segment directly.
     for seg in (y_exact, z_exact):
@@ -214,7 +214,7 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
             name="bad", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("same", "other"), origin_landmark="same",
             axes=(AxisDefinition("x", AxisKind.EXACT, "same"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         )
 
 

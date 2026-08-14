@@ -40,7 +40,7 @@ skellyforge/
 
 ```bash
 uv sync                                                      # install (incl. dev deps)
-uv run --with pytest pytest skellyforge/tests/ -q -o addopts=""   # full suite — 94 passing as of 2026-08-13
+uv run --with pytest pytest skellyforge/tests/ -q -o addopts=""   # full suite
 ```
 
 `pytest` is NOT in the default env — always `uv run --with pytest`. `ruff` is not installed in the

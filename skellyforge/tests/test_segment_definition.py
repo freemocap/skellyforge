@@ -20,7 +20,7 @@ def _foot_like(**overrides) -> SegmentDefinition:
             AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
         ),
         rest_rotation=(0.0, 0.0, 0.0),
-        rest_roll=0.0,
+
         length_ratio=0.026,
     )
     kwargs.update(overrides)

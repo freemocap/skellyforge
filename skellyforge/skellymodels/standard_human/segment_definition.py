@@ -30,9 +30,9 @@ length and its one axis); 3+ points open the full rigid-body fit (a graded
 capacity that lets future trackers enrich any segment by adding points, with
 no new concepts).
 
-The T-pose rest fields (``rest_rotation``, ``rest_roll``) stay exactly as
-authored — they define the REST frame. The axis declarations define the LIVE
-frame: every axis resolves from the segment's own rigid geometry.
+The T-pose rest field (``rest_rotation``) stays exactly as authored — it
+defines the REST frame. The axis declarations define the LIVE frame: every
+axis resolves from the segment's own rigid geometry.
 
 Authoring convention (VRM 1.0 local frame, documented once here):
 
@@ -146,7 +146,6 @@ class SegmentDefinition:
     resolves from the segment's own rigid geometry: ``positions[target_landmark]
     − positions[origin_landmark]``."""
     rest_rotation: tuple[float, float, float]
-    rest_roll: float
     length_ratio: float
     rotation_limits: RotationLimits | None = None
 
@@ -235,7 +234,7 @@ class SegmentDefinition:
 
         The segment's frame derives its defining direction from this axis,
         whichever local basis name (x/y/z) it is declared on. Load-time
-        validation guarantees exactly one EXACT axis exists; this raises
+        validation guarantees at least one EXACT axis exists; this raises
         loudly if that invariant is ever violated.
         """
         for a in self.axes:

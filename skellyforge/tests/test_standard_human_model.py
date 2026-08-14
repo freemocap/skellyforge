@@ -37,13 +37,13 @@ def test_two_roots_raise():
             name="a", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("a", "b"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("b", "a"), origin_landmark="b",
             axes=(AxisDefinition("x", AxisKind.EXACT, "a"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         ),
     ))
     with pytest.raises(ValueError, match="exactly one root"):
@@ -57,7 +57,7 @@ def _root(name: str) -> SegmentDefinition:
         landmarks=(f"{name}_origin", f"{name}_distal"),
         origin_landmark=f"{name}_origin",
         axes=(AxisDefinition("x", AxisKind.EXACT, f"{name}_distal"),),
-        rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+        rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
     )
 
 
@@ -71,7 +71,7 @@ def test_missing_parent_raises():
             name="a", parent="ghost", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("a", "b"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "b"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         ),
     ))
     with pytest.raises(ValueError, match="not in the composed human"):
@@ -87,13 +87,13 @@ def test_cycle_raises():
             name="a", parent="b", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("a", "c"), origin_landmark="a",
             axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         ),
         SegmentDefinition(
             name="b", parent="a", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("b", "c"), origin_landmark="b",
             axes=(AxisDefinition("x", AxisKind.EXACT, "c"),),
-            rest_rotation=(0.0, 0.0, 0.0), rest_roll=0.0, length_ratio=0.1,
+            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
         ),
     ))
     with pytest.raises(ValueError, match="cycle"):
