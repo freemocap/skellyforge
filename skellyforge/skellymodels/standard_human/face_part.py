@@ -21,6 +21,18 @@ segment.
 The 52 ARKit blendshape channels compose alongside the skeleton (SF-AL A4),
 stay declared-but-null (locked decision 4 holds for the channels), and come
 from ``skellyforge.skellymodels.standard_human.human_blendshapes``.
+
+Authoring convention for the face (VRM 1.0 local frame, per
+``segment_definition``'s header):
+
+- The driven VRM face bones (``left_eye``/``right_eye``/``jaw``) declare their
+  exact axis on **z** — ``+Z`` is the gaze direction, target ``nose``.
+- The face-detail segments share the head's VRM frame (+Y up, +Z face-forward,
+  +X right): ``nose``/``left_mouth``/``right_mouth`` declare exact on **z**
+  (forward-facing), and ``left_ear``/``right_ear`` declare exact on **x**
+  (lateral).
+- Each ``rest_rotation`` extrudes the declared axis name through its euler so
+  the rest frame's named vector is the authored gaze/lateral direction.
 """
 
 from __future__ import annotations
@@ -35,19 +47,15 @@ from skellyforge.skellymodels.standard_human.segment_definition import (
 )
 from skellyforge.skellymodels.standard_human.segment_parts import SegmentPart
 
-# eyes: eye→nose axis is anterior (+X) at the T-pose → extrude the +Z rest axis
-# to +X via a +90° Y euler
-_EYE_REST = (0.0, math.pi / 2, 0.0)
-# nose: the head's anterior axis — the nose keypoint is aligned with the head's
-# forward axis +X (user-specified)
-_NOSE_REST = (0.0, math.pi / 2, 0.0)
-# ears: the lateral axis — authored for the LEFT ear (+Y, subject's left); the
-# right ear shares this rest_rotation and the reference geometry mirrors it to
-# −Y (SF-AL A3), exactly like the body/hand limbs.
-_EAR_REST = (-math.pi / 2, 0.0, 0.0)
+# Face bones + face detail declare their exact axis on z (gaze, +Z), so the
+# euler must extrude +Z toward the authored direction. Gaze is anterior (+X) at
+# the T-pose → ``R·ẑ = +X`` via a +90° Y euler. The mouth/jaw carry small
+# offsets (their corner/chin directions), encoded in the same +Z-extruded euler.
+_EYE_REST = (0.0, math.pi / 2, 0.0)                    # gaze: +Z → +X (anterior)
+_NOSE_REST = (0.0, math.pi / 2, 0.0)                   # forward: +Z → +X
 # jaw: derived from the jaw-offset design — nose→jaw ≈ 0.9·eye-width down,
 # 0.2·eye-width posterior, so jaw→nose ≈ (0.217, 0, 0.976); the restoring angle
-# from +Z (toward +X) is asin(0.2 / sqrt(0.2² + 0.9²))
+# from +Z (toward +X) is asin(0.2 / sqrt(0.2² + 0.9²)).
 _JAW_REST = (0.0, math.asin(0.2 / math.sqrt(0.2**2 + 0.9**2)), 0.0)
 
 # corner→nose unit direction: (0.2, ∓0.3, 0.35)/√(0.2²+0.3²+0.35²) — derived
@@ -62,6 +70,11 @@ _MOUTH_ALPHA = math.asin(0.3 / (math.sqrt(0.2**2 + 0.3**2 + 0.35**2) * math.cos(
 # reference geometry mirrors it to +Y, exactly like the body/hand limbs.
 _MOUTH_REST = (+_MOUTH_ALPHA, +_MOUTH_BETA, 0.0)
 
+# ears: exact axis on x (lateral). Authored for the LEFT ear (+Y, subject's
+# left): ``R·x̂ = +Y`` via a +90° Z euler. The right ear shares this
+# rest_rotation and the reference geometry mirrors it to −Y (SF-AL A3).
+_EAR_REST = (0.0, 0.0, math.pi / 2)
+
 # nominal — face segments branch from the head origin (zero-length branch);
 # the value only satisfies the > 0 validation
 _RATIO_NOMINAL = 0.01
@@ -72,25 +85,25 @@ FACE_PART = SegmentPart(
         SegmentDefinition(
             name="left_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("left_eye", "nose"), origin_keypoint="left_eye",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("right_eye", "nose"), origin_keypoint="right_eye",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="jaw", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("jaw", "nose"), origin_keypoint="jaw",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_JAW_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="nose", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("head_center", "nose"), origin_keypoint="head_center",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_NOSE_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
@@ -108,13 +121,13 @@ FACE_PART = SegmentPart(
         SegmentDefinition(
             name="left_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("left_mouth", "nose"), origin_keypoint="left_mouth",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("right_mouth", "nose"), origin_keypoint="right_mouth",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "nose"),),
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_MOUTH_REST, rest_roll=0.0, length_ratio=_RATIO_NOMINAL,
         ),
     ),

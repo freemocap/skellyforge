@@ -122,17 +122,45 @@ def test_at_least_one_axis_must_be_exact():
         _foot_like(axes=(AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),))
 
 
-def test_first_axis_must_be_exact():
-    # The first declared axis is the segment's long axis (axes[0]); it must be
-    # EXACT. An APPROXIMATE axis in the first slot reorders the long axis out
-    # from under the solver, which reads axes[0] unconditionally.
-    with pytest.raises(ValueError, match="first declared axis must be EXACT"):
-        _foot_like(
-            axes=(
-                AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
-                AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
-            )
+def test_exact_axis_may_be_declared_on_any_name():
+    # The exact axis may be declared on any of x/y/z; the tuple order is not the
+    # construction order. These two constructions (exact on z, exact on y) are
+    # both valid.
+    z_exact = _foot_like(
+        axes=(
+            AxisDefinition("z", AxisKind.EXACT, "foot_ball"),
+            AxisDefinition("x", AxisKind.APPROXIMATE, "heel"),
         )
+    )
+    y_exact = _foot_like(
+        axes=(
+            AxisDefinition("x", AxisKind.APPROXIMATE, "heel"),
+            AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
+        )
+    )
+    assert z_exact.axes[0].axis == "z"
+    assert y_exact.axes[0].axis == "x"  # approximate can precede exact in the tuple
+    # both resolve the same exact target
+    assert _exact_axis_name(z_exact) == "z"
+    assert _exact_axis_name(y_exact) == "y"
+
+
+def _exact_axis_name(seg) -> str:
+    return next(a.axis for a in seg.axes if a.kind is AxisKind.EXACT)
+
+
+def test_approximate_axis_may_precede_exact_in_the_tuple():
+    # The construction order is the basis order (x, y, z), not the tuple order.
+    # A y-exact + x-approximate segment authored with the approximate FIRST is
+    # still valid (the exact axis is not required to fill any particular slot).
+    seg = _foot_like(
+        axes=(
+            AxisDefinition("x", AxisKind.APPROXIMATE, "heel"),
+            AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
+        )
+    )
+    assert _exact_axis_name(seg) == "y"
+    assert seg.resolves_twist is True
 
 
 def test_rigid_points_must_have_at_least_two_keypoints():
@@ -291,3 +319,42 @@ def test_builder_missing_origin_returns_unresolved():
     basis, resolved = build_segment_frame(axes, positions, "origin")
     assert resolved is False
     assert basis is None
+
+
+def test_approximate_before_exact_builds_projected_residual():
+    # Hips/toes-style declaration: the APPROXIMATE axis (x) precedes the EXACT
+    # axis (y) in basis order. The exact axis (+Z) is the defining direction and
+    # must be the hard vector; the approximate (45° off-axis) must be
+    # Gram-Schmidt-projected against it — NOT kept raw. This is the two-pass
+    # construction: pass 1 builds exact-y hard, pass 2 projects approximate-x.
+    axes = (
+        AxisDefinition("x", AxisKind.APPROXIMATE, "twist"),
+        AxisDefinition("y", AxisKind.EXACT, "distal"),
+    )
+    # exact-y target straight up (+Z); approximate-x target at 45° in the XZ
+    # plane (off-axis, so its residual must be x̂ ≈ +X).
+    off_axis = np.array([1.0, 0.0, 1.0], dtype=np.float64)
+    off_axis /= np.linalg.norm(off_axis)
+    positions = {
+        "origin": np.zeros(3, dtype=np.float64),
+        "distal": np.array([0.0, 0.0, 1.0]),
+        "twist": off_axis,
+    }
+    basis, resolved = build_segment_frame(axes, positions, "origin")
+    assert resolved is True
+
+    # The exact axis is hard +Z on its named row (y).
+    assert np.allclose(basis[1], [0.0, 0.0, 1.0])
+    # The approximate axis residual (x̂) is the projection of the 45° off-axis
+    # target onto the plane orthogonal to ŷ=(+Z): +X (re-normalized), not the
+    # raw 45° vector.
+    assert np.allclose(basis[0], [1.0, 0.0, 0.0])
+    # The third axis (ẑ) fills via the right-handed cross product x̂ × ŷ.
+    # With x̂ = +X and ŷ = +Z (the exact axis maps the world +Z), that is
+    # +X × +Z = −Y.
+    assert np.allclose(basis[2], [0.0, -1.0, 0.0])
+
+    # The reconstructed basis is orthonormal and right-handed.
+    gram = basis @ basis.T
+    assert np.allclose(gram, np.eye(3))
+    assert np.isclose(np.linalg.det(basis), 1.0)

@@ -5,9 +5,9 @@ POINT SET is declared explicitly (``rigid_points``: every keypoint rigid on the
 segment), plus a tuple of tagged **axis declarations** built from that set:
 
 - An EXACT axis — the segment's defining direction, resolved directly from a
-  keypoint's position every frame. Its target keypoint must be rigid on the
-  segment.
-- An APPROXIMATE axis — a *direction reference* for the second basis axis,
+  keypoint's position every frame, on whichever local axis (x/y/z) the author
+  declares. Its target keypoint must be rigid on the segment.
+- An APPROXIMATE axis — a *direction reference* for a second basis axis,
   Gram-Schmidt'd against the exact axis. Its target keypoint must also be rigid
   on the segment; a segment with no approximate axis falls to the damped
   minimal-roll tier (the twist-less fallback).
@@ -18,6 +18,11 @@ starts at the segment's own origin and ends at another point of the segment's
 own rigid geometry: a segment's frame is a function of its own points only.
 
 The tags (``EXACT`` / ``APPROXIMATE``) — not the axis names — carry the roles.
+The axis NAME (x/y/z) names which basis vector a declaration defines. The
+construction machinery derives everything from the names and kinds; it makes no
+assumption about which slot in the ``axes`` tuple holds the exact axis (a
+segment may declare its exact axis on x, y, or z) nor about the tuple order —
+construction follows basis order (x, y, z), not the authored tuple order.
 
 Rationale for the generality: a rigid body is a point set with fixed pairwise
 distances. A 2-point segment is the degenerate case — one invariant (its
@@ -28,6 +33,20 @@ no new concepts).
 The T-pose rest fields (``rest_rotation``, ``rest_roll``) stay exactly as
 authored — they define the REST frame. The axis declarations define the LIVE
 frame: every axis resolves from the segment's own rigid geometry.
+
+Authoring convention (VRM 1.0 local frame, documented once here):
+
+Every segment's rest frame is right-handed. The body/hand segments declare
+their exact axis on **y** with **+Y toward the child bone** (the VRM 1.0
+humanoid rule); the face bones declare their exact axis on **z** with **+Z =
+the gaze direction** (VRM's face-bone rule). The remaining basis axes are not a
+single fixed world direction: a declared second/third point gives the segment
+its own reference direction (Gram-Schmidt'd against the exact axis), and where
+none is declared the rest frame follows that segment's T-pose geometry — the
+third axis derives from the per-segment declarations plus the T-pose geometry,
+not a global "+X". Each segment's ``rest_rotation`` extrudes the declared axis
+name through its euler triple so that the rest frame's named vector equals that
+authored direction.
 
 Keypoint names are side-agnostic within a part; composition prefixes them.
 """
@@ -67,11 +86,13 @@ class AxisKind(str, Enum):
 class AxisDefinition:
     """One declared axis of the segment's local frame (identity == T-pose).
 
-    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z").
-    ``kind`` is how the direction feeds the Gram-Schmidt construction: EXACT axes
-    are hard directions from the segment's own rigid geometry; APPROXIMATE axes
-    are soft direction references (Gram-Schmidt-projected). Both kinds resolve
-    their direction as ``positions[target_keypoint] − positions[origin keypoint]``;
+    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z");
+    it carries no positional meaning — the author may declare the exact axis on
+    any of x/y/z, and the construction machinery reads the names. ``kind`` is
+    how the direction feeds the Gram-Schmidt construction: EXACT axes are hard
+    directions from the segment's own rigid geometry; APPROXIMATE axes are soft
+    direction references (Gram-Schmidt-projected). Both kinds resolve their
+    direction as ``positions[target_keypoint] − positions[origin keypoint]``;
     ``target_keypoint`` names the point this axis points toward, and must be a
     member of the segment's ``rigid_points``.
     """
@@ -117,13 +138,13 @@ class SegmentDefinition:
     rigid_points: tuple[str, ...]
     origin_keypoint: str
     axes: tuple[AxisDefinition, ...]
-    """Tagged axis declarations, in construction order. **The first axis must be
-    EXACT** — it is the segment's long axis (the defining direction), resolved
-    first and used to seed the frame. Authored order is construction order:
-    indexed ``axes[0]`` is the long axis everywhere. Additional EXACT axes and
-    APPROXIMATE direction references follow it. Every axis resolves from the
-    segment's own rigid geometry: ``positions[target_keypoint] −
-    positions[origin_keypoint]``."""
+    """Tagged axis declarations, in construction order. The EXACT axis is the
+    segment's defining direction, declared on whichever local axis the author
+    chooses; construction order is the basis order (x, y, z), not this tuple's
+    order. At least one axis (any position) must be EXACT; additional EXACT
+    axes and APPROXIMATE direction references follow by name. Every axis
+    resolves from the segment's own rigid geometry: ``positions[target_keypoint]
+    − positions[origin_keypoint]``."""
     rest_rotation: tuple[float, float, float]
     rest_roll: float
     length_ratio: float
@@ -174,11 +195,6 @@ class SegmentDefinition:
         if not any(a.kind is AxisKind.EXACT for a in axes):
             raise ValueError(
                 f"segment {self.name!r}: at least one axis must be EXACT, got {axes!r}"
-            )
-        if axes[0].kind is not AxisKind.EXACT:
-            raise ValueError(
-                f"segment {self.name!r}: the first declared axis must be EXACT — "
-                f"it is the segment's long axis (axes[0]), got {axes[0]!r}"
             )
 
         for a in axes:

@@ -8,10 +8,14 @@ T-pose reference geometry (identity == T-pose).
 
 Twist is two-tier, and the declaration IS the policy:
 1. A declared APPROXIMATE direction reference, usable this frame (not occluded,
-   not within ~5° of the long axis — the singularity gate) → the roll
+   not within ~5° of the exact axis — the singularity gate) → the roll
    resolves from it.
 2. Otherwise → damped minimal roll: the reference approximate axis carried
    by the swing rotation, critically damped (the D3/D4 filter).
+
+The EXACT axis is the segment's defining direction; its name (x/y/z) picks the
+reference geometry basis vector the swing maps to the live exact direction.
+Every tier keys off the declared axes by name.
 
 Segments whose keypoints are missing or numerically coincident this frame are
 skipped — occlusion is data, and the load-time validation (segment_definition)
@@ -27,7 +31,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
-    build_orthonormal_basis,
+    _AXIS_TO_INDEX,
+    assemble_named_basis,
     build_segment_frame,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
@@ -37,6 +42,10 @@ from skellyforge.kinematics.critically_damped_orientation import (
     advance_critically_damped_orientation,
 )
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
+from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
+)
 
 if TYPE_CHECKING:
     from numpy import float64
@@ -47,7 +56,7 @@ if TYPE_CHECKING:
         StandardHuman,
     )
 
-# Twist directions within this angle (radians) of the long axis cannot build
+# Twist directions within this angle (radians) of the exact axis cannot build
 # a basis — the singularity gate degrades to the damped minimal tier.
 _SINGULARITY_THRESHOLD_RAD = np.deg2rad(5.0)
 _SINGULARITY_DOT_THRESHOLD = np.cos(_SINGULARITY_THRESHOLD_RAD)  # ≈ 0.996
@@ -55,6 +64,26 @@ _SINGULARITY_DOT_THRESHOLD = np.cos(_SINGULARITY_THRESHOLD_RAD)  # ≈ 0.996
 # The critically damped twist filter's time constant (seconds). Frame-rate
 # independent by construction — see critically_damped_orientation.py.
 DEFAULT_TWIST_TIME_CONSTANT_SECONDS = 0.05
+
+
+def _exact_axis(segment) -> AxisDefinition:
+    """The EXACT axis declaration of *segment*, whichever name it is declared on."""
+    return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
+
+
+def _approximate_axis_index(segment, exact_idx: int) -> int:
+    """The basis row of the APPROXIMATE axis; the next row after the exact axis
+    when twist-less.
+
+    The damped-minimal tier carries the reference approximate vector. A
+    twist-less single-axis segment has none, so the reference geometry placed
+    the default perpendicular on the next basis row after the exact axis (see
+    ``reference_geometry._rest_basis``); the solver carries that same row.
+    """
+    for a in segment.axes:
+        if a.kind is AxisKind.APPROXIMATE:
+            return _AXIS_TO_INDEX[a.axis]
+    return (exact_idx + 1) % 3
 
 
 @dataclass
@@ -127,23 +156,27 @@ def solve_frame_orientations(
 
         live_vec = None
         if segment.axes:
-            # axes[0] is guaranteed EXACT (the segment's long axis) by the
-            # SegmentDefinition load-time validation; reads the same long axis
-            # that build_segment_frame resolves via its first EXACT axis: origin
-            # → target_keypoint.
-            long_to = keypoints.get(segment.axes[0].target_keypoint)
-            if origin is not None and long_to is not None:
-                live_vec = np.asarray(long_to, dtype=np.float64) - np.asarray(
+            # The EXACT axis is the segment's defining direction, declared on
+            # whichever local axis (x/y/z) the author chose — no positional
+            # read. The solver resolves the same direction build_segment_frame
+            # derives from the EXACT declaration: origin → target_keypoint.
+            exact_axis = _exact_axis(segment)
+            exact_to = keypoints.get(exact_axis.target_keypoint)
+            if origin is not None and exact_to is not None:
+                live_vec = np.asarray(exact_to, dtype=np.float64) - np.asarray(
                     origin, dtype=np.float64
                 )
         if live_vec is None:
-            continue  # occluded this frame (no usable long-axis keypoints)
+            continue  # occluded this frame (no usable exact-axis keypoints)
         norm = float(np.linalg.norm(live_vec))
         if norm < 1e-10:
             continue  # numerically coincident this frame — data, not a declaration error
 
-        live_long = live_vec / norm
-        swing = rotation_between_vectors(ref_geom.basis[0], live_long)
+        live_exact = live_vec / norm
+        # The swing aligns the reference geometry's basis vector NAMED by the
+        # EXACT axis onto the live exact direction — never a positional read.
+        ref_exact_vector = ref_geom.basis[_AXIS_TO_INDEX[exact_axis.axis]]
+        swing = rotation_between_vectors(ref_exact_vector, live_exact)
 
         # ── twist: declared direction reference (gated) or damped minimal ─────
         # ``build_segment_frame`` builds the LIVE frame from the tagged axis
@@ -162,8 +195,18 @@ def solve_frame_orientations(
                 live_basis, ref_geom.basis
             )
         else:
-            approx_live = swing.rotate_vector(ref_geom.basis[1])
-            live_basis = build_orthonormal_basis(live_long, approx_live)
+            # The damped-minimal tier carries the reference approximate vector —
+            # the basis vector NAMED by the APPROXIMATE axis (or the next row
+            # after the exact axis for a twist-less segment) — rotated by the
+            # swing, then reassembles the frame on the same named rows as the
+            # reference geometry.
+            exact_idx = _AXIS_TO_INDEX[exact_axis.axis]
+            approx_idx = _approximate_axis_index(segment, exact_idx)
+            approx_ref = ref_geom.basis[approx_idx]
+            approx_live = swing.rotate_vector(approx_ref)
+            live_basis = assemble_named_basis(
+                {exact_idx: live_exact, approx_idx: approx_live}
+            )
             q_raw = compute_rotation_from_live_basis(live_basis, ref_geom.basis)
             previous_state = previous_damping_states.get(segment.name)
             if previous_state is None or timestep_seconds is None:

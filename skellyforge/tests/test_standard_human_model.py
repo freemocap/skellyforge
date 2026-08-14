@@ -124,13 +124,15 @@ def test_head_rigid_points_is_exactly_the_seven_name_skull_set():
     )
 
 
-def test_head_axes_are_unchanged_exact_vertex_approximate_nose():
+def test_head_axes_exact_vertex_on_y_approximate_nose_on_z():
     human = compose_standard_human()
     head = next(s for s in human.segments if s.name == "head")
     exact = next(a for a in head.axes if a.kind is AxisKind.EXACT)
     approx = next(a for a in head.axes if a.kind is AxisKind.APPROXIMATE)
-    assert exact.axis == "x" and exact.target_keypoint == "head_vertex"
-    assert approx.axis == "y" and approx.target_keypoint == "nose"
+    # the head's exact axis is +Y toward its child-less apex (up); the
+    # approximate axis is +Z toward the nose (the face direction).
+    assert exact.axis == "y" and exact.target_keypoint == "head_vertex"
+    assert approx.axis == "z" and approx.target_keypoint == "nose"
     assert head.resolves_twist is True
 
 

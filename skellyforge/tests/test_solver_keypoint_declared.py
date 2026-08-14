@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from skellyforge.kinematics.coordinate_frame_ops import _AXIS_TO_INDEX
 from skellyforge.kinematics.orientation_solver import (
     FrameOrientationResult,
     solve_frame_orientations,
@@ -10,6 +11,12 @@ from skellyforge.kinematics.orientation_solver import (
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     build_reference_geometry,
+)
+from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisDefinition,
+    AxisKind,
+    ParentAttachment,
+    SegmentDefinition,
 )
 from skellyforge.skellymodels.standard_human.standard_human_model import (
     compose_standard_human,
@@ -96,11 +103,11 @@ def test_leaf_segments_are_solvable(rig):
         assert name in result.world_quaternions
 
 
-def test_multi_child_segment_uses_its_declared_x_axis(rig):
+def test_multi_child_segment_uses_its_declared_exact_axis(rig):
     human, reference = rig
     keypoints = _bent_keypoints(reference)
-    # move trunk_center forward: hips' declared long axis is trunk_center, not
-    # its first child (spine)
+    # move trunk_center forward: hips' declared exact axis is trunk_center, not
+    # its first child (spine); the exact axis is declared on y (basis row 1).
     keypoints["trunk_center"] = keypoints["trunk_center"] + np.array([40.0, 0.0, 0.0])
     result = solve_frame_orientations(
         human, reference.segments, keypoints, timestamp_seconds=1.0
@@ -108,8 +115,79 @@ def test_multi_child_segment_uses_its_declared_x_axis(rig):
     q = RotationQuaternion(*result.world_quaternions["hips"].tolist())
     live_dir = keypoints["trunk_center"] - keypoints["hips_center"]
     live_dir = live_dir / np.linalg.norm(live_dir)
-    assert np.allclose(q.rotate_vector(reference.segments["hips"].basis[0]),
+    # the swing maps the reference basis vector NAMED by the exact axis (y →
+    # row 1) to the live exact direction.
+    assert np.allclose(q.rotate_vector(reference.segments["hips"].basis[1]),
                        live_dir, atol=1e-9)
+
+
+def test_solver_swing_is_name_driven(rig):
+    # A segment whose exact axis is declared on y maps ref basis[1] (ŷ) to the
+    # live exact direction; a z-exact segment maps basis[2] (ẑ). This is the
+    # name-driven correspondence: never a positional read of basis[0].
+    human, reference = rig
+    keypoints = _bent_keypoints(reference)
+    # hips — exact on y: mapping basis[1]
+    result = solve_frame_orientations(
+        human, reference.segments, keypoints, timestamp_seconds=1.0
+    )
+    q_hips = RotationQuaternion(*result.world_quaternions["hips"].tolist())
+    live_dir = keypoints["trunk_center"] - keypoints["hips_center"]
+    live_dir = live_dir / np.linalg.norm(live_dir)
+    assert np.allclose(q_hips.rotate_vector(reference.segments["hips"].basis[1]),
+                       live_dir, atol=1e-9)
+    # the nose face-detail segment — exact on z: mapping basis[2]
+    q_nose = RotationQuaternion(*result.world_quaternions["nose"].tolist())
+    live_nose = keypoints["nose"] - keypoints["head_center"]
+    live_nose = live_nose / np.linalg.norm(live_nose)
+    assert np.allclose(q_nose.rotate_vector(reference.segments["nose"].basis[2]),
+                       live_nose, atol=1e-9)
+
+
+def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
+    # The exact axis may be declared on any of x/y/z with no positional
+    # assumption. Build two standalone segments — a y-exact body-like segment
+    # and a z-exact face-like segment — and confirm each constructs a frame from
+    # its own rest geometry.
+    import math
+
+    y_exact = SegmentDefinition(
+        name="s_y", parent=None, parent_attachment=ParentAttachment.ORIGIN,
+        rigid_points=("o", "p", "q"), origin_keypoint="o",
+        axes=(
+            AxisDefinition("y", AxisKind.EXACT, "p"),
+            AxisDefinition("z", AxisKind.APPROXIMATE, "q"),
+        ),
+        rest_rotation=(math.pi / 2, 0.0, 0.0),  # up (+Z)
+        rest_roll=0.0, length_ratio=0.1,
+    )
+    z_exact = SegmentDefinition(
+        name="s_z", parent=None, parent_attachment=ParentAttachment.ORIGIN,
+        rigid_points=("o2", "p2", "q2"), origin_keypoint="o2",
+        axes=(
+            AxisDefinition("z", AxisKind.EXACT, "p2"),
+            AxisDefinition("x", AxisKind.APPROXIMATE, "q2"),
+        ),
+        rest_rotation=(0.0, math.pi / 2, 0.0),  # gaze (+X)
+        rest_roll=0.0, length_ratio=0.1,
+    )
+    # Build reference geometry for each standalone segment directly.
+    for seg in (y_exact, z_exact):
+        ref = build_reference_geometry([seg], {seg.name: 100.0})
+        basis = ref.segments[seg.name].basis
+        assert np.isclose(np.linalg.det(basis), 1.0), seg.name
+        # the exact axis's named row is unit
+        idx = _AXIS_TO_INDEX[_exact_axis_name(seg)]
+        assert np.isclose(np.linalg.norm(basis[idx]), 1.0), seg.name
+    # y-exact: ŷ is up (+Z); z-exact: ẑ is gaze (+X)
+    y_ref = build_reference_geometry([y_exact], {"s_y": 100.0})
+    z_ref = build_reference_geometry([z_exact], {"s_z": 100.0})
+    assert np.allclose(y_ref.segments["s_y"].basis[1], (0.0, 0.0, 1.0), atol=1e-6)
+    assert np.allclose(z_ref.segments["s_z"].basis[2], (1.0, 0.0, 0.0), atol=1e-6)
+
+
+def _exact_axis_name(seg) -> str:
+    return next(a.axis for a in seg.axes if a.kind is AxisKind.EXACT)
 
 
 def test_coincident_live_keypoints_skip_the_segment_not_raise(rig):
@@ -155,8 +233,9 @@ def test_declared_approximate_axis_resolves_roll_undamped(rig):
     ref = reference.segments["left_foot"]
     live_long = keypoints["left_foot_ball"] - ankle
     live_long = live_long / np.linalg.norm(live_long)
-    # the solved rotation carries the reference basis onto the live basis
-    assert np.allclose(q.rotate_vector(ref.basis[0]), live_long, atol=1e-9)
+    # the solved rotation carries the reference basis onto the live basis —
+    # the foot's exact axis is y, so read basis[1] (ŷ) as the exact direction.
+    assert np.allclose(q.rotate_vector(ref.basis[1]), live_long, atol=1e-9)
 
 
 def test_singularity_gate_degrades_straight_limbs_to_damped(rig):

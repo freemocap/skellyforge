@@ -19,9 +19,7 @@ Package structure:
 
 from skellyforge.kinematics.coordinate_frame_ops import (
     align_point_sets_kabsch,
-    build_orthonormal_basis,
     build_segment_frame,
-    compute_live_bone_basis,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
 )
@@ -94,9 +92,7 @@ __all__ = [
     "slerp_resample",
     # coordinate_frame_ops
     "align_point_sets_kabsch",
-    "build_orthonormal_basis",
     "build_segment_frame",
-    "compute_live_bone_basis",
     "compute_rotation_from_live_basis",
     "rotation_between_vectors",
     # rigid_point_set

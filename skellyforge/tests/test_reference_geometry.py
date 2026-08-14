@@ -6,6 +6,7 @@ import pytest
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     build_reference_geometry,
 )
+from skellyforge.skellymodels.standard_human.segment_definition import AxisKind
 from skellyforge.skellymodels.standard_human.standard_human_model import (
     compose_standard_human,
 )
@@ -106,5 +107,64 @@ def test_head_reference_forward_axis_is_anterior():
     human = compose_standard_human()
     geometry = build_reference_geometry(list(human.segments), _lengths(human))
     head = geometry.segments["head"]
-    assert np.allclose(head.basis[0], (0.0, 0.0, 1.0), atol=1e-9), head.basis[0]
-    assert np.allclose(head.basis[1], (1.0, 0.0, 0.0), atol=1e-6), head.basis[1]
+    # the head's exact axis is y (up); its approximate axis is z (anterior nose).
+    # The rest frame is [x̂, ŷ, ẑ] = [+Y, +Z(up), +X(anterior)] — right-handed.
+    assert np.allclose(head.basis[1], (0.0, 0.0, 1.0), atol=1e-9), head.basis[1]
+    assert np.allclose(head.basis[2], (1.0, 0.0, 0.0), atol=1e-6), head.basis[2]
+
+
+def _exact_axis(segment):
+    return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
+
+
+def test_toward_child_rule_holds_for_every_body_segment():
+    # Every body/hand segment's rest ŷ equals normalize(child_origin − origin) —
+    # the VRM 1.0 humanoid rule (+Y toward the child bone). For leaves (no
+    # child), the exact-axis direction IS the toward-child direction by
+    # construction, so this reads the child chain where one exists.
+    human = compose_standard_human()
+    lengths = _lengths(human)
+    geometry = build_reference_geometry(list(human.segments), lengths)
+    by_name = {s.name: s for s in human.segments}
+    for segment in human.segments:
+        exact = _exact_axis(segment)
+        if exact.axis != "y":
+            continue  # face bones declare exact on z/x; not part of this rule
+        child_origins = [
+            geometry.segments[c.name].origin
+            for c in human.get_children(segment.name)
+        ]
+        if not child_origins:
+            # leaf — the exact-axis target is the toward-child point
+            target = geometry.keypoints[exact.target_keypoint]
+            expected = target - geometry.segments[segment.name].origin
+        else:
+            # VRM: +Y toward the child bone — the FIRST child's origin
+            expected = child_origins[0] - geometry.segments[segment.name].origin
+        norm = np.linalg.norm(expected)
+        if norm < 1e-9:
+            continue
+        expected = expected / norm
+        assert np.allclose(
+            geometry.segments[segment.name].basis[1], expected, atol=1e-6
+        ), segment.name
+
+
+def test_face_bones_rest_z_is_gaze():
+    # The face bones (left_eye/right_eye/jaw) declare exact on z; their rest ẑ
+    # is the gaze direction. The eyes' gaze is anterior (+X); the jaw's gaze
+    # carries the authored downward chin offset (jaw→nose ≈ (0.217, 0, 0.976)).
+    human = compose_standard_human()
+    lengths = _lengths(human)
+    geometry = build_reference_geometry(list(human.segments), lengths)
+    by_name = {s.name: s for s in human.segments}
+    for name in ("left_eye", "right_eye"):
+        assert _exact_axis(by_name[name]).axis == "z", name
+        assert np.allclose(geometry.segments[name].basis[2], (1.0, 0.0, 0.0), atol=1e-6), name
+    # jaw: gaze points anterior-and-down, from the authored jaw offset
+    assert _exact_axis(by_name["jaw"]).axis == "z"
+    jaw_z = geometry.segments["jaw"].basis[2]
+    assert np.isclose(jaw_z[1], 0.0, atol=1e-9)          # no lateral component
+    assert jaw_z[0] > 0.0 and jaw_z[2] > 0.0              # anterior and up
+    assert np.isclose(np.linalg.norm(jaw_z), 1.0)          # unit
+

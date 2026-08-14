@@ -4,13 +4,15 @@ import math
 
 import numpy as np
 
+from skellyforge.kinematics.coordinate_frame_ops import _AXIS_TO_INDEX
 from skellyforge.skellymodels.standard_human.face_part import FACE_PART
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     _mirror,
-    _rest_direction,
+    _rest_axis_direction,
     build_reference_geometry,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
+    AxisKind,
     ParentAttachment,
 )
 from skellyforge.skellymodels.standard_human.standard_human_model import (
@@ -26,22 +28,34 @@ def _by_name(name: str):
     return next(s for s in FACE_PART.segments if s.name == name)
 
 
+def _exact_axis(seg):
+    return next(a for a in seg.axes if a.kind is AxisKind.EXACT)
+
+
 def _rest_dir_with_right_mirror(name: str) -> np.ndarray:
-    """The segment's rest long axis as the reference geometry derives it:
-    ``_rest_direction`` plus the right-side Y mirror."""
-    direction = _rest_direction(_by_name(name).rest_rotation)
+    """The segment's rest exact direction: the euler extrudes the DECLARED exact
+    axis name, plus the right-side Y mirror."""
+    seg = _by_name(name)
+    exact = _exact_axis(seg)
+    direction = _rest_axis_direction(seg.rest_rotation, exact.axis)
     if name.startswith("right_"):
         direction = _mirror(direction)
     return direction
 
 
 def _reference_dirs() -> dict[str, np.ndarray]:
-    """The rest long axis for every composed segment, straight from the
-    reference geometry (the ground truth the solver + stream schema use)."""
+    """The rest exact direction for every composed segment, straight from the
+    reference geometry (the ground truth the solver + stream schema use),
+    read from the basis row NAMED by the segment's exact axis."""
     human = compose_standard_human()
     lengths = {s.name: s.length_ratio * _HEIGHT_MM for s in human.segments}
     ref = build_reference_geometry(list(human.segments), lengths)
-    return {name: ref.segments[name].basis[0] for name in human.segment_names}
+    out = {}
+    for name in human.segment_names:
+        seg = next(s for s in human.segments if s.name == name)
+        idx = _AXIS_TO_INDEX[_exact_axis(seg).axis]
+        out[name] = ref.segments[name].basis[idx]
+    return out
 
 
 def test_five_face_detail_segments_exist_with_authored_declaration():

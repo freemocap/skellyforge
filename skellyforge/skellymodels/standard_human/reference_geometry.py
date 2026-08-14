@@ -5,9 +5,12 @@ serves both the orientation solver (identity == T-pose) and the stream
 schema's rest pose. Right-side segments mirror by negating Y and REBUILDING
 frames right-handed (SF-AL A3) — a basis is never reflected.
 
-``rest_rotation`` is extrinsic XYZ euler, radians: R = Rx·Ry·Rz applied to the
-segment's rest +Z axis. Every authored value is single-axis, so this is the
-only place the convention matters.
+``rest_rotation`` is extrinsic XYZ euler, radians: R = Rx·Ry·Rz. Each segment's
+rest frame derives the basis vector NAMED by its EXACT axis as
+``R · unit(axis_name)`` — so a body segment (exact axis on y) rests with
+``R · ŷ`` toward its child bone, and a face bone (exact axis on z) rests with
+``R · ẑ`` as its gaze direction. Every authored value is single-axis, so the
+euler convention matters only here.
 """
 
 from __future__ import annotations
@@ -17,7 +20,10 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from skellyforge.kinematics.coordinate_frame_ops import build_orthonormal_basis
+from skellyforge.kinematics.coordinate_frame_ops import (
+    _AXIS_TO_INDEX,
+    assemble_named_basis,
+)
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisDefinition,
     AxisKind,
@@ -26,23 +32,22 @@ from skellyforge.skellymodels.standard_human.segment_definition import (
 
 _COLLINEARITY_DOT = 0.9998  # cos(1°) — stiffer than the solver's ~5° gate
 
-# Rest approximate axes for segments whose approximate axis references a point
-# of its own rigid set that has no rest position (or coincides with the origin)
-# at the T-pose: the nose (head), the heel (foot), small_toe (toes), and the
-# hip joints (hips, whose lateral pair coincide with the origin — no widths are
-# declared). An authored direction supplies the rest value. Authored for the
-# LEFT side; mirroring flips Y for the right.
+# Rest approximate DIRECTIONS (world vectors at the T-pose) for segments whose
+# approximate axis references a point with no schematic rest position (or one
+# coinciding with the origin): the nose (head), the heel (foot), small_toe
+# (toes), and the hip joints (hips, whose lateral pair coincides with the origin
+# — no widths are declared). Authored for the LEFT side; mirroring flips Y for
+# the right.
 _TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = {
-    "hips": np.array([1.0, 0.0, 0.0]),        # right_hip coincides with the origin
-    "head": np.array([1.0, 0.0, 0.0]),        # nose — anterior
-    "foot": np.array([0.0, 0.0, 1.0]),        # up — the foot points +X, so its
-                                             # roll/pitch reference is vertical
-    "toes": np.array([0.0, 1.0, 0.0]),        # small toe — lateral (left side)
+    "hips": np.array([1.0, 0.0, 0.0]),   # the lateral pair coincides with the origin
+    "head": np.array([1.0, 0.0, 0.0]),   # nose — anterior (+X), the gaze direction
+    "foot": np.array([0.0, 0.0, -1.0]),  # heel — down-back → −Z after Gram-Schmidt
+    "toes": np.array([0.0, 1.0, 0.0]),   # small toe — lateral (left side, +Y)
 }
 
 
 def _exact_axis(segment: SegmentDefinition) -> AxisDefinition:
-    """The segment's exact axis declaration (the defining direction)."""
+    """The segment's exact axis declaration (the defining direction), by name."""
     return next(a for a in segment.axes if a.kind is AxisKind.EXACT)
 
 
@@ -65,8 +70,15 @@ def _mirror(vec: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.array([vec[0], -vec[1], vec[2]], dtype=np.float64)
 
 
-def _rest_direction(rest_rotation: tuple[float, float, float]) -> NDArray[np.float64]:
-    """The segment's rest long axis: extrinsic XYZ euler applied to +Z."""
+def _rest_axis_direction(
+    rest_rotation: tuple[float, float, float], axis_name: str
+) -> NDArray[np.float64]:
+    """The rest direction for a NAMED basis vector: ``R · unit(axis_name)``.
+
+    The segment's rest frame's named vector equals this direction — a body
+    segment's ``ŷ`` points toward its child bone, a face bone's ``ẑ`` is its
+    gaze.
+    """
     rx, ry, rz = rest_rotation
     cx, sx = np.cos(rx), np.sin(rx)
     cy, sy = np.cos(ry), np.sin(ry)
@@ -74,19 +86,9 @@ def _rest_direction(rest_rotation: tuple[float, float, float]) -> NDArray[np.flo
     rx_m = np.array([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]])
     ry_m = np.array([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]])
     rz_m = np.array([[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]])
-    return rx_m @ ry_m @ rz_m @ np.array([0.0, 0.0, 1.0])
-
-
-def _build_basis(
-    long_axis: NDArray[np.float64], approximate: NDArray[np.float64]
-) -> NDArray[np.float64]:
-    """Rows [long, approximate orthonormalized, third] — right-handed.
-
-    The Gram-Schmidt + cross-product construction is shared with the live
-    solver via ``build_orthonormal_basis`` — only the rest-specific direction
-    resolution (``_rest_approximate_axis``) differs between the two.
-    """
-    return build_orthonormal_basis(long_axis, approximate)
+    unit = {"x": np.array([1.0, 0.0, 0.0]), "y": np.array([0.0, 1.0, 0.0]),
+            "z": np.array([0.0, 0.0, 1.0])}[axis_name]
+    return rx_m @ ry_m @ rz_m @ unit
 
 
 @dataclass(frozen=True)
@@ -94,7 +96,7 @@ class SegmentReferenceGeometry:
     """One segment's T-pose geometry: where it sits, how it's oriented, how long."""
 
     origin: NDArray[np.float64]  # (3,) canonical mm — the transform origin
-    basis: NDArray[np.float64]   # (3,3) rows: [long axis, approximate axis, third]
+    basis: NDArray[np.float64]   # (3,3) rows [x̂, ŷ, ẑ] of the rest frame
     length: float                # canonical mm
 
 
@@ -122,9 +124,10 @@ def build_reference_geometry(
     rest_dirs: dict[str, NDArray[np.float64]] = {}
     keypoints: dict[str, NDArray[np.float64]] = {}
 
-    # pass 1: rest directions (right side mirrored)
+    # pass 1: rest directions of the EXACT axis (right side mirrored)
     for segment in segments:
-        direction = _rest_direction(segment.rest_rotation)
+        exact = _exact_axis(segment)
+        direction = _rest_axis_direction(segment.rest_rotation, exact.axis)
         if segment.name.startswith("right_"):
             direction = _mirror(direction)
         rest_dirs[segment.name] = direction
@@ -149,7 +152,7 @@ def build_reference_geometry(
         else:  # ORIGIN — branch from the parent's origin
             # Name agreement: if this segment's origin keypoint was already
             # positioned by an earlier declaration (e.g. the middle finger's
-            # mcp, which is the hand's long-axis endpoint), that position is
+            # mcp, which is the hand's exact-axis endpoint), that position is
             # authoritative. Otherwise the branch point is the parent's origin
             # (e.g. a hip joint, the spine) — the reference pose is schematic;
             # no wrist→mcp fan geometry is declared.
@@ -163,10 +166,7 @@ def build_reference_geometry(
     # pass 3: bases (approximate axes need the completed keypoint map)
     geometries: dict[str, SegmentReferenceGeometry] = {}
     for segment in segments:
-        approximate = _rest_approximate_axis(
-            segment, origins, rest_dirs, keypoints
-        )
-        basis = _build_basis(rest_dirs[segment.name], approximate)
+        basis = _rest_basis(segment, origins, rest_dirs, keypoints)
         geometries[segment.name] = SegmentReferenceGeometry(
             origin=origins[segment.name],
             basis=basis,
@@ -174,7 +174,7 @@ def build_reference_geometry(
         )
 
     # ``nose`` is an off-chain keypoint: several driven segments (head, neck,
-    # and the three face bones) name it as their long axis, but it has no
+    # and the three face bones) name it as their exact axis, but it has no
     # single canonical rest position — the three face bones point different
     # ways from the head origin and cannot share one schematic point. The
     # tracker (or a live-pose fixture) supplies it per frame; the reference
@@ -184,78 +184,113 @@ def build_reference_geometry(
     return ReferenceGeometry(segments=geometries, keypoints=keypoints)
 
 
-def _rest_approximate_axis(
+def _rest_basis(
     segment: SegmentDefinition,
     origins: dict[str, NDArray[np.float64]],
     rest_dirs: dict[str, NDArray[np.float64]],
     keypoints: dict[str, NDArray[np.float64]],
 ) -> NDArray[np.float64]:
-    """The approximate axis at rest: the authored override table where one
-    exists (AUTHORITATIVE — see below), else the APPROXIMATE axis declaration's
-    ``target_keypoint`` rest position (``origin → target_keypoint``) where it
-    exists and is off-axis, else the default perpendicular. Fail loudly if the
-    result is still collinear.
+    """The segment's rest orthonormal frame (rows [x̂, ŷ, ẑ]).
+
+    The EXACT axis's named row is the exact rest direction (``rest_dirs``); the
+    APPROXIMATE axis's named row is the approximate rest direction
+    (Gram-Schmidt'd); the remaining row is the right-handed cross product. The
+    named-row placement means each rest basis vector aligns with its authored
+    axis name.
     """
+    exact = _exact_axis(segment)
+    approx = _approximate_axis(segment)
+    exact_idx = _AXIS_TO_INDEX[exact.axis]
+
+    exact_dir = rest_dirs[segment.name]
+
+    if approx is None:
+        # twist-less segment: a deterministic orthogonal placeholder for the
+        # second vector, carried by the damped minimal-roll tier. It occupies
+        # the next basis row after the exact axis (cyclic), matching what the
+        # solver's damped tier carries.
+        second_dir = _default_perpendicular(exact_dir)
+        second_idx = (exact_idx + 1) % 3  # next row in cyclic basis order
+        return assemble_named_basis(
+            {exact_idx: exact_dir, second_idx: second_dir}
+        )
+
+    approx_idx = _AXIS_TO_INDEX[approx.axis]
+    approx_dir = _rest_approximate_direction(
+        segment, approx, origins, rest_dirs, keypoints
+    )
+
+    # Gram-Schmidt the approximate direction against the exact direction
+    approx_orth = approx_dir - float(np.dot(approx_dir, exact_dir)) * exact_dir
+    approx_norm = float(np.linalg.norm(approx_orth))
+    if approx_norm < 1e-10:
+        raise ValueError(
+            f"segment {segment.name!r}: rest approximate axis is collinear with "
+            f"its exact axis — author an override"
+        )
+    approx_orth = approx_orth / approx_norm
+
+    return assemble_named_basis(
+        {exact_idx: exact_dir, approx_idx: approx_orth}
+    )
+
+
+def _rest_approximate_direction(
+    segment: SegmentDefinition,
+    approx: "AxisDefinition",
+    origins: dict[str, NDArray[np.float64]],
+    rest_dirs: dict[str, NDArray[np.float64]],
+    keypoints: dict[str, NDArray[np.float64]],
+) -> NDArray[np.float64]:
+    """The approximate axis at rest, as the rest frame's approximate (named) vector.
+
+    The authored override table is AUTHORITATIVE where one exists (see module
+    docstring); otherwise the APPROXIMATE axis declaration's ``target_keypoint``
+    rest position (``origin → target_keypoint``); else the default perpendicular.
+    Fails loudly if the result is still collinear with the exact axis.
+    """
+    exact_dir = rest_dirs[segment.name]
     candidate: NDArray[np.float64] | None = None
-    # An authored override is the rest twist wherever the schematic geometry
-    # can't be trusted, and it takes PRECEDENCE over the target-position branch.
-    # Overrides exist precisely for approximate targets that are off-chain or
-    # degenerate at the T-pose: `hips`' lateral pair coincides with the origin,
-    # and `foot`/`toes`' twist keypoints (heel/small_toe) have no schematic rest
-    # position — their target branch already yields nothing. `head` is the
-    # dangerous case: its target `nose` is off-chain, YET written (last-writer-
-    # wins) by the five other segments that share it as their exact-axis target,
-    # so it holds a non-degenerate but meaningless position that would otherwise
-    # pre-empt the authored anterior override and roll the head's frame off
-    # forward. Override-first keeps `head` anterior; `hips`/`foot`/`toes` are
-    # unchanged (their target branch never resolved a value anyway).
+
     override = _TWIST_OVERRIDES.get(_unprefixed(segment.name))
     if override is not None:
         candidate = override.copy()
         if segment.name.startswith("right_"):
             candidate = _mirror(candidate)
 
-    # No override: derive the rest twist from the approximate target's rest
-    # position (origin → target_keypoint) when it exists and is off-axis.
     if candidate is None:
-        approx = _approximate_axis(segment)
-        if approx is not None and approx.target_keypoint in keypoints:
+        if approx.target_keypoint in keypoints:
             vec = keypoints[approx.target_keypoint] - origins[segment.name]
             norm = float(np.linalg.norm(vec))
             if norm > 1e-10:
                 vec = vec / norm
-                if abs(float(np.dot(rest_dirs[segment.name], vec))) <= _COLLINEARITY_DOT:
+                if abs(float(np.dot(exact_dir, vec))) <= _COLLINEARITY_DOT:
                     candidate = vec
 
     if candidate is None:
-        # twist-less segments: a deterministic placeholder direction orthogonal
-        # to the long axis, carried by the damped minimal-roll tier. Picked from
-        # a canonical reference so it is never collinear with any long axis.
-        candidate = _default_perpendicular(rest_dirs[segment.name])
+        candidate = _default_perpendicular(exact_dir)
 
-    if abs(float(np.dot(rest_dirs[segment.name], candidate))) > _COLLINEARITY_DOT:
+    if abs(float(np.dot(exact_dir, candidate))) > _COLLINEARITY_DOT:
         raise ValueError(
             f"segment {segment.name!r}: rest approximate axis is collinear with "
-            f"its long axis — author an override"
+            f"its exact axis — author an override"
         )
     return candidate
 
 
-def _default_perpendicular(long_dir: NDArray[np.float64]) -> NDArray[np.float64]:
-    """A deterministic unit direction orthogonal to *long_dir*.
+def _default_perpendicular(exact_dir: NDArray[np.float64]) -> NDArray[np.float64]:
+    """A deterministic unit direction orthogonal to *exact_dir*.
 
-    Orthogonalizes a canonical reference (``+X`` unless the long axis is near
-    ``+X``, then ``+Y``) against *long_dir*, so the result is never collinear
-    with it.
+    Orthogonalizes a canonical reference (``+X`` unless the exact direction is
+    near ``+X``, then ``+Y``) against *exact_dir*, so the result is never
+    collinear with it.
     """
     ref = np.array([1.0, 0.0, 0.0], dtype=np.float64)
-    if abs(float(np.dot(long_dir, ref))) > 0.9:
+    if abs(float(np.dot(exact_dir, ref))) > 0.9:
         ref = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-    perp = ref - float(np.dot(ref, long_dir)) * long_dir
+    perp = ref - float(np.dot(ref, exact_dir)) * exact_dir
     norm = float(np.linalg.norm(perp))
     if norm < 1e-10:
-        # long_dir is ±X and ±Y simultaneously is impossible given the branch,
-        # but keep a hard fallback for numerical safety.
         perp = np.array([0.0, 0.0, 1.0], dtype=np.float64)
         norm = 1.0
     return perp / norm

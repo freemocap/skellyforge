@@ -13,15 +13,10 @@ Operations
 ----------
 - ``build_segment_frame`` — construct a segment's frame from its tagged axis
   declarations + positions (the ONE builder; dispatch on 1/2/3 axes).
-- ``build_orthonormal_basis`` — construct a right-handed frame from two
-  direction vectors (Gram-Schmidt + cross product).
 - ``rotation_between_vectors`` — shortest rotation that aligns one unit
   vector onto another (swing-only; no twist).
 - ``align_point_sets_kabsch`` — Kabsch (Umeyama) alignment of two
   corresponding point clouds → optimal rotation matrix.
-- ``compute_live_basis_from_landmarks`` — build a live-configuration
-  coordinate frame from tracked landmark positions against a reference
-  geometry definition.
 - ``compute_rotation_from_live_basis`` — rotation quaternion from a live
   basis to a reference basis.
 
@@ -50,6 +45,7 @@ if TYPE_CHECKING:
     from numpy import float64
     from skellyforge.skellymodels.standard_human.segment_definition import (
         AxisDefinition,
+        AxisKind,
     )
 
 
@@ -65,32 +61,35 @@ def build_segment_frame(
 ) -> tuple[NDArray[float64] | None, bool]:
     """Build a segment's local frame from its tagged axis declarations + positions.
 
-    The ONE builder used to construct a segment frame from declared axes — the
-    tags (``AxisKind``), not the axis names, carry the roles.
+    The ONE builder used to construct a segment frame from declared axes. The
+    axis NAME (x/y/z) selects which basis vector a declaration defines; the
+    KIND (EXACT/APPROXIMATE) selects how its direction feeds the construction.
+    The exact axis may be declared on any of x/y/z — there is no positional
+    assumption.
 
     Every axis direction is ``positions[target_keypoint] −
     positions[origin_keypoint]`` — the segment's origin to a point of its own
     rigid geometry, normalized.
 
-    Dispatch table (axes in authored order):
+    Construction builds in TWO PASSES, each in basis order (x, y, z), not the
+    authored tuple order:
 
-    ========  =================================================================
-    Count     Behaviour
-    ========  =================================================================
-    1 axis    The sole (exact) axis gives ``x̂``. INCOMPLETE frame — roll is not
-    (exact)   resolved (``resolved=False``); the damped minimal-roll tier takes
-              over.
-    2 axes    ``x̂`` = the first exact axis's direction. ``ŷ`` = Gram-Schmidt
-    (exact +  projection of the second (approximate) direction against ``x̂``;
-    approx)   ``ẑ`` = ``x̂ × ŷ``. Mirrors ``build_orthonormal_basis``.
-    2 axes    Same projection math as exact + approximate, BUT if the second
-    (exact +  exact direction is collinear with ``x̂`` at build time (rest or
-    exact)    live), RAISE — an exact declaration that cannot distinguish
-              anything is a wrong declaration.
-    3 axes    ``x̂``, ``ŷ`` as the 2-axis case; ``ẑ`` = ``x̂ × ŷ``. The third
-              declaration's direction is used ONLY to resolve ``ẑ``'s sign
-              (dot-product consistency: if the dot is negative, flip ``ẑ``).
-    ========  =================================================================
+    - Pass 1 places every EXACT axis's direction as the hard value of its named
+      basis vector (``x̂``/``ŷ``/``ẑ``).
+    - Pass 2 Gram-Schmidt-projects every APPROXIMATE axis's direction against
+      ALL vectors built so far, filling its named vector with the residual.
+    - The third (undeclared) vector fills via the right-handed cross product of
+      the other two; a declaration on that name resolves only its sign
+      (dot-product consistency: if the dot is negative, flip it) — never its
+      direction.
+    - One declared axis yields an incomplete frame (``resolved`` is ``False``).
+
+    A single declared axis (one exact) yields an incomplete frame (``resolved``
+    is ``False``) — the roll is not determined. An APPROXIMATE direction that is
+    collinear with the exact direction degrades softly (``resolved`` is
+    ``False``); an EXACT direction that is collinear with another already-built
+    vector RAISES — an exact declaration that cannot distinguish anything is a
+    wrong declaration.
 
     Parameters
     ----------
@@ -114,141 +113,165 @@ def build_segment_frame(
     (basis, resolved)
         ``basis`` is a right-handed ``(3, 3)`` frame with rows
         [x̂, ŷ, ẑ] when ``resolved`` is ``True``; ``None`` otherwise.
-        ``resolved`` is ``False`` when the frame is incomplete (1 exact axis) or
-        the approximate direction is unusable/collinear this build; the caller
-        (the solver's damped-minimal tier) supplies the roll then.
+        ``resolved`` is ``False`` when the frame is incomplete (a single exact
+        axis) or an approximate direction is unusable/collinear this build.
     """
     if not axes:
         raise ValueError("build_segment_frame needs at least one axis")
 
-    # 1 axis → incomplete frame (roll unresolved)
+    # Deferred import: segment_definition pulls in the standard_human package,
+    # whose __init__ reverse-imports reference_geometry → this module, so a
+    # top-level import here would cycle.
+    from skellyforge.skellymodels.standard_human.segment_definition import (
+        AxisKind,
+    )
+
+    # One declared axis → incomplete frame (roll unresolved).
     if len(axes) == 1:
         return None, False
 
-    exact = [a for a in axes if a.kind.value == "exact"]
-    if not exact:
-        raise ValueError("build_segment_frame: no EXACT axis among the declarations")
+    # Index declarations by name (validated distinct); each maps to one basis
+    # vector.
+    by_name: dict[str, "AxisDefinition"] = {a.axis: a for a in axes}
 
     origin = positions.get(origin_keypoint)
     if origin is None:
         return None, False
     origin = np.asarray(origin, dtype=np.float64)
 
-    x_axis_def = exact[0]
-    x_to = positions.get(x_axis_def.target_keypoint)
-    if x_to is None:
-        return None, False
-    x_hat = np.asarray(x_to, dtype=np.float64) - origin
-    x_norm = float(np.linalg.norm(x_hat))
-    if x_norm < 1e-10:
-        return None, False
-    x_hat = x_hat / x_norm
+    def _direction(target: str) -> NDArray[float64] | None:
+        """origin → target, normalized; ``None`` if absent or degenerate."""
+        to = positions.get(target)
+        if to is None:
+            return None
+        vec = np.asarray(to, dtype=np.float64) - origin
+        norm = float(np.linalg.norm(vec))
+        if norm < 1e-10:
+            return None
+        return vec / norm
 
-    second = axes[1]
-    s_to = positions.get(second.target_keypoint)
-    if s_to is None:
-        return None, False
-    s_dir = np.asarray(s_to, dtype=np.float64) - origin
-    s_norm = float(np.linalg.norm(s_dir))
-    if s_norm < 1e-10:
-        return None, False
-    s_dir = s_dir / s_norm
+    # Resolve every declared direction first (so names — not order — decide
+    # which hard/soft directions land on which basis vector).
+    dirs: dict[str, NDArray[float64]] = {}
+    for name, decl in by_name.items():
+        d = _direction(decl.target_keypoint)
+        if d is None:
+            return None, False
+        dirs[name] = d
 
-    dot = float(np.dot(x_hat, s_dir))
-    if abs(dot) > collinearity_threshold:
-        if second.kind.value == "exact":
-            # 2 exact axes, collinear at build time → fail loud
-            raise ValueError(
-                "build_segment_frame: the second EXACT axis is collinear with "
-                f"the first exact axis (|dot| = {abs(dot):.6f}). An exact "
-                "declaration that cannot distinguish anything is a wrong "
-                "declaration."
-            )
-        # APPROXIMATE direction collinear → soft degradation (the singularity
-        # gate): the roll does not resolve this build.
+    # ── Assemble in TWO PASSES (x, y, z name order within each) ─────────
+    # Pass 1 builds every declared EXACT axis as a HARD vector on its named basis
+    # axis; pass 2 then Gram-Schmidt-projects every declared APPROXIMATE axis
+    # against ALL vectors built so far. This ordering is load-bearing: an exact
+    # axis is the segment's defining direction regardless of which basis name it
+    # lands on, so it must always be hard — even when an approximate axis is
+    # declared on an earlier basis name (approximate-x + exact-y, the hips and
+    # toes). Building approximate-first would let a soft direction become the
+    # hard first vector and the exact would never orthogonalize against it.
+    built: dict[str, NDArray[float64]] = {}
+    sign_hint: tuple[str, NDArray[float64]] | None = None
+
+    def _project(vec: NDArray[float64], against: list[NDArray[float64]]) -> NDArray[float64] | None:
+        """Gram-Schmidt-project vec against already-built vectors; None if it
+        collapses below a numerical floor."""
+        for v in against:
+            vec = vec - float(np.dot(vec, v)) * v
+        norm = float(np.linalg.norm(vec))
+        if norm < 1e-10:
+            return None
+        return vec / norm
+
+    # Pass 1: every EXACT direction is hard; an exact direction that collides
+    # (collinear) with another already-built exact vector is a wrong declaration.
+    for name in ("x", "y", "z"):
+        decl = by_name.get(name)
+        if decl is None or decl.kind is not AxisKind.EXACT:
+            continue
+        d = dirs[name]
+        for v in built.values():
+            if abs(float(np.dot(d, v))) > collinearity_threshold:
+                raise ValueError(
+                    "build_segment_frame: an EXACT axis is collinear with "
+                    f"a previously built axis (|dot| = {abs(float(np.dot(d, v))):.6f}). "
+                    "An exact declaration that cannot distinguish anything "
+                    "is a wrong declaration."
+                )
+        built[name] = d
+
+    # Pass 2: every APPROXIMATE direction is a soft reference — it projects
+    # against every vector built so far (its named vector is the residual). A
+    # singular (collinear) or below-floor residual degrades softly (unresolved),
+    # not raise.
+    for name in ("x", "y", "z"):
+        decl = by_name.get(name)
+        if decl is None or decl.kind is not AxisKind.APPROXIMATE:
+            continue
+        d = dirs[name]
+        if len(built) == 2:
+            # A third declaration (two named vectors already built) is a
+            # sign-only hint for the cross-produced vector — its direction does
+            # NOT build a third hard vector.
+            sign_hint = (name, d)
+            continue
+        if built:
+            for v in built.values():
+                if abs(float(np.dot(d, v))) > collinearity_threshold:
+                    return None, False  # singularity gate — soft degrade
+            proj = _project(d, list(built.values()))
+            if proj is None:
+                return None, False
+            built[name] = proj
+        else:
+            built[name] = d
+
+    # Complete the frame: fewer than two named vectors → roll unresolved.
+    if len(built) < 2:
         return None, False
 
-    basis = build_orthonormal_basis(x_hat, s_dir)
+    named_idx = {_AXIS_TO_INDEX[n]: v for n, v in built.items()}
+    basis = assemble_named_basis(named_idx)
 
-    # 3 axes → use the third declaration's direction only to resolve ẑ's sign
-    if len(axes) >= 3:
-        third = axes[2]
-        t_to = positions.get(third.target_keypoint)
-        if t_to is not None:
-            t_dir = np.asarray(t_to, dtype=np.float64) - origin
-            t_norm = float(np.linalg.norm(t_dir))
-            if t_norm > 1e-10:
-                t_dir = t_dir / t_norm
-                if float(np.dot(t_dir, basis[2])) < 0.0:
-                    basis = basis.copy()
-                    basis[2] = -basis[2]
+    # A third declaration resolves only the sign of the cross-produced vector.
+    if sign_hint is not None and len(built) == 2:
+        hint_name, hint_dir = sign_hint
+        idx = _AXIS_TO_INDEX[hint_name]
+        if float(np.dot(hint_dir, basis[idx])) < 0.0:
+            basis = basis.copy()
+            basis[idx] = -basis[idx]
 
     return basis, True
 
 
-def build_orthonormal_basis(
-    exact_direction: NDArray[float64],
-    approximate_direction: NDArray[float64],
-) -> NDArray[float64]:
-    """Build a right-handed orthonormal (3, 3) basis from two direction vectors.
+# ── Named-row basis assembly (shared by reference geometry + solver) ──
 
-    The **exact** direction becomes the first basis row unchanged.
-    The **approximate** direction is Gram-Schmidt orthogonalized against
-    the exact direction to remove the parallel component. The third axis
-    is ``cross(exact, approximate)``, completing the right-handed frame.
+_AXIS_TO_INDEX = {"x": 0, "y": 1, "z": 2}
 
-    Parameters
-    ----------
-    exact_direction : (3,)
-        Unit vector for the first basis axis. Must be pre-normalized.
-    approximate_direction : (3,)
-        Unit vector for the second axis direction. Need not be perfectly
-        orthogonal to *exact_direction* — the parallel component is
-        removed. Must not be parallel to *exact_direction*.
 
-    Returns
-    -------
-    (3, 3) float64
-        Rows are [exact_axis, orthogonalized_approximate, third_axis].
+def assemble_named_basis(named: dict[int, NDArray[float64]]) -> NDArray[float64]:
+    """Build a right-handed (3,3) basis from two named unit rows + one cross.
 
-    Raises
-    ------
-    ValueError
-        If the two directions are parallel (within ~1°).
+    Two of the three rows (indexed [x̂, ŷ, ẑ] = 0,1,2) are supplied as already
+    orthonormalized unit vectors; the missing row fills via the right-handed
+    cross product of the other two in cyclic order. This is the shared
+    assembler both the reference geometry and the solver use so their frames
+    agree row-for-row at the T-pose.
     """
-    exact = np.asarray(exact_direction, dtype=np.float64)
-    approx = np.asarray(approximate_direction, dtype=np.float64)
-    _check_unit_vector(exact, "exact_direction")
-    _check_unit_vector(approx, "approximate_direction")
-
-    # Gram-Schmidt: remove parallel component from approximate
-    dot = float(np.dot(exact, approx))
-    if abs(dot) > 0.9998:  # cos(1°) ≈ 0.9998
-        raise ValueError(
-            f"Exact and approximate directions are nearly parallel "
-            f"(|dot| = {abs(dot):.6f}). Choose a different approximate "
-            f"direction."
-        )
-    approx_orth = approx - dot * exact
-    approx_orth = approx_orth / np.linalg.norm(approx_orth)
-
-    # Third axis via right-handed cross product
-    third = np.cross(exact, approx_orth)
-    # Cross product of orthonormal vectors should be unit, but re-normalize
-    # for numerical safety
-    third_norm = float(np.linalg.norm(third))
-    if third_norm < 1e-10:
-        raise ValueError(
-            "Cross product produced near-zero vector — axes may be "
-            "parallel or one may be zero-length."
-        )
-    third = third / third_norm
-
-    basis = np.empty((3, 3), dtype=np.float64)
-    basis[0] = exact
-    basis[1] = approx_orth
-    basis[2] = third
-    return basis
+    missing = [i for i in (0, 1, 2) if i not in named]
+    if len(missing) != 1:
+        raise ValueError("assemble_named_basis needs exactly two named rows")
+    m = missing[0]
+    nxt = (m + 1) % 3
+    prev = (m + 2) % 3
+    # v_m = v_nxt × v_prev (right-handed cyclic: ŷ×ẑ=x̂, ẑ×x̂=ŷ, x̂×ŷ=ẑ)
+    vec_m = np.cross(named[nxt], named[prev])
+    norm = float(np.linalg.norm(vec_m))
+    if norm < 1e-10:
+        raise ValueError("named basis rows are collinear")
+    vec_m = vec_m / norm
+    out = np.empty((3, 3), dtype=np.float64)
+    for i in (0, 1, 2):
+        out[i] = named[i] if i in named else vec_m
+    return out
 
 
 # ── Swing rotation ───────────────────────────────────────────────────
@@ -410,39 +433,7 @@ def align_point_sets_kabsch(
     return R
 
 
-# ── Live basis from landmarks ────────────────────────────────────────
-
-
-def compute_live_bone_basis(
-    live_bone_direction: NDArray[float64],
-    live_twist_reference: NDArray[float64],
-) -> NDArray[float64]:
-    """Build a live-configuration coordinate basis for a bone.
-
-    Takes the live bone's long axis (exact) and a twist-reference
-    direction (approximate) and builds a right-handed orthonormal basis
-    via ``build_orthonormal_basis``.
-
-    Parameters
-    ----------
-    live_bone_direction : (3,)
-        Unit vector along the bone's long axis (proximal → distal) in
-        the live configuration.
-    live_twist_reference : (3,)
-        Unit vector for the twist-reference direction in the live
-        configuration. What this IS depends on the bone's twist policy:
-        - Full-frame: derived from ≥3 landmark positions on the segment.
-        - Chain-resolved: the child bone's direction (e.g. forearm for
-          upper arm, shank for thigh).
-        - Damped-minimal: the reference approximate axis rotated by the
-          swing rotation (and temporally damped).
-
-    Returns
-    -------
-    (3, 3) float64
-        Rows are [exact_axis, orthogonalized_approximate, third_axis].
-    """
-    return build_orthonormal_basis(live_bone_direction, live_twist_reference)
+# ── Live basis rotation ──────────────────────────────────────────────
 
 
 def compute_rotation_from_live_basis(

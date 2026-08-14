@@ -17,13 +17,27 @@ the ``left_hip``/``right_hip`` pair; ``spine`` spans the same trunk endpoints
 (``hips_center``→``trunk_center``) as a 2-point segment at the same ratio — the
 trunk piece expressed at two VRM levels.
 
+Authoring convention for the body (VRM 1.0 local frame, stated once here per
+``segment_definition``'s header):
+
+- Every body segment declares its EXACT axis on **y** — ``+Y`` points toward the
+  child bone (the VRM 1.0 humanoid rule). The exact target is the long-axis
+  point (the segment's toward-child endpoint).
+- The APPROXIMATE axis (where one exists — hips, foot, toes) is declared on the
+  axis whose Gram-Schmidt direction matches the segment's authored rest frame.
+- The remaining axis follows the segment's own third point where one is
+  declared, otherwise ``+X`` at the T-pose.
+
 Value provenance, per the plan's §7 honesty rules:
 
-- ``rest_rotation`` — derived from the canonical T-pose geometry (+Z up, +X
-  forward, +Y = subject's left, arms out along ±Y, feet forward). Single-axis
-  values, so any Euler convention agrees. Cross-checked against the Blender
-  addon's ``freemocap_tpose`` ±90° side pattern; the addon's raw eulers are
-  bone-space and not portable.
+- ``rest_rotation`` — the euler triple that extrudes the declared **y** axis to
+  the toward-child direction at the canonical T-pose (+Z up, +X forward, +Y =
+  subject's left, arms out along ±Y, feet forward, legs down). Single-axis
+  values: ``+π/2`` about X sends ``+Y`` up (midline), identity keeps ``+Y``
+  left (arms), ``−π/2`` about X sends ``+Y`` down (legs), ``−π/2`` about Z
+  sends ``+Y`` forward (feet/toes). Cross-checked against the Blender addon's
+  ``freemocap_tpose`` side pattern; the addon's raw eulers are bone-space and
+  not portable.
 - ``rest_roll`` — 0.0 everywhere for now; the rest approximate axis is pinned
   when the reference geometry is built (Task 5). Twist is keypoint-driven.
 - ``length_ratio`` — Winter (2009) / Drillis & Contini (1966) segment-length
@@ -49,11 +63,11 @@ from skellyforge.skellymodels.standard_human.segment_parts import (
     compose_parts,
 )
 
-# ── Rest orientations (canonical T-pose geometry) ──────────────────
-_REST_UP = (0.0, 0.0, 0.0)               # +Z (up) — the midline chain
-_REST_LEFT = (-math.pi / 2, 0.0, 0.0)    # +Y (subject's left; authored side)
-_REST_DOWN = (math.pi, 0.0, 0.0)         # −Z — the legs
-_REST_FORWARD = (0.0, math.pi / 2, 0.0)  # +X — feet and toes
+# ── Rest orientations (canonical T-pose geometry, y-exact: R · ŷ = toward-child) ─
+_REST_UP = (math.pi / 2, 0.0, 0.0)       # +Z (up) — the midline chain (+π/2 about X)
+_REST_LEFT = (0.0, 0.0, 0.0)             # +Y (subject's left; authored side) — identity
+_REST_DOWN = (-math.pi / 2, 0.0, 0.0)    # −Z — the legs (−π/2 about X)
+_REST_FORWARD = (0.0, 0.0, -math.pi / 2) # +X — feet and toes (−π/2 about Z)
 
 # ── Length ratios (of stature) ─────────────────────────────────────
 # Winter (2009) + Drillis & Contini (1966) via _BONE_LENGTH_RATIOS.
@@ -71,13 +85,14 @@ _RATIO_LOWER_LEG = 0.246
 _RATIO_FOOT = 0.026     # ESTIMATED: 2:1 split of Winter's 0.039 ankle→toe at
 _RATIO_TOES = 0.013     #           the metatarsophalangeal joint
 
-# Axis declarations: the exact axis is always the segment's long-axis point —
-# the segment's defining direction, resolved ``origin → target``. An
-# approximate axis is ``origin → twist``, where ``twist`` is a second point of
-# the segment's own rigid geometry. The 3/4-point rigid segments (hips, foot,
-# toes, head) carry both an exact and an approximate axis; the 2-point
-# segments here carry only the exact axis, their roll resolved by the damped
-# minimal-roll tier.
+# Axis declarations: the exact axis is always the segment's defining direction,
+# resolved ``origin → target``, declared on y (+Y toward the child bone). An
+# approximate axis is ``origin → twist``, where
+# ``twist`` is a second point of the segment's own rigid geometry, declared on
+# the axis whose Gram-Schmidt direction matches the segment's authored rest
+# frame. The 3/4-point rigid segments (hips, foot, toes, head) carry both an
+# exact and an approximate axis; the 2-point segments here carry only the exact
+# axis, their roll resolved by the damped minimal-roll tier.
 
 BODY_MIDLINE_PART = SegmentPart(
     name="body_midline",
@@ -85,13 +100,13 @@ BODY_MIDLINE_PART = SegmentPart(
         SegmentDefinition(
             name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,  # inert — root
             # The hips are a FULL 4-point rigid body: the two trunk endpoints
-            # (the long axis) plus the two hip joints (the lateral pair that
-            # resolves the pelvis roll).
+            # (the exact direction) plus the two hip joints (the lateral pair
+            # that resolves the pelvis roll).
             rigid_points=("hips_center", "trunk_center", "left_hip", "right_hip"),
             origin_keypoint="hips_center",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "trunk_center"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "right_hip"),
+                AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
+                AxisDefinition("x", AxisKind.APPROXIMATE, "right_hip"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HIPS,
         ),
@@ -99,7 +114,7 @@ BODY_MIDLINE_PART = SegmentPart(
             name="spine", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("hips_center", "trunk_center"), origin_keypoint="hips_center",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "trunk_center"),
+                AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HIPS,
         ),
@@ -107,7 +122,7 @@ BODY_MIDLINE_PART = SegmentPart(
             name="chest", parent="spine", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("trunk_center", "neck_center"), origin_keypoint="trunk_center",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "neck_center"),
+                AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_CHEST,
         ),
@@ -115,7 +130,7 @@ BODY_MIDLINE_PART = SegmentPart(
             name="upper_chest", parent="chest", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("mid_sternum", "neck_center"), origin_keypoint="mid_sternum",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "neck_center"),
+                AxisDefinition("y", AxisKind.EXACT, "neck_center"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_UPPER_CHEST,
         ),
@@ -123,7 +138,7 @@ BODY_MIDLINE_PART = SegmentPart(
             name="neck", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("neck_center", "head_center"), origin_keypoint="neck_center",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "head_center"),
+                AxisDefinition("y", AxisKind.EXACT, "head_center"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_NECK,
         ),
@@ -142,8 +157,8 @@ BODY_MIDLINE_PART = SegmentPart(
             ),
             origin_keypoint="head_center",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "head_vertex"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "nose"),
+                AxisDefinition("y", AxisKind.EXACT, "head_vertex"),
+                AxisDefinition("z", AxisKind.APPROXIMATE, "nose"),
             ),
             rest_rotation=_REST_UP, rest_roll=0.0, length_ratio=_RATIO_HEAD,
         ),
@@ -157,7 +172,7 @@ BODY_LIMB_PART = SegmentPart(
             name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("sternoclavicular", "shoulder"), origin_keypoint="sternoclavicular",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "shoulder"),
+                AxisDefinition("y", AxisKind.EXACT, "shoulder"),
             ),
             rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_SHOULDER,
         ),
@@ -165,7 +180,7 @@ BODY_LIMB_PART = SegmentPart(
             name="upper_arm", parent="shoulder", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("shoulder", "elbow"), origin_keypoint="shoulder",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "elbow"),
+                AxisDefinition("y", AxisKind.EXACT, "elbow"),
             ),
             rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_UPPER_ARM,
         ),
@@ -173,7 +188,7 @@ BODY_LIMB_PART = SegmentPart(
             name="lower_arm", parent="upper_arm", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("elbow", "wrist"), origin_keypoint="elbow",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "wrist"),
+                AxisDefinition("y", AxisKind.EXACT, "wrist"),
             ),
             rest_rotation=_REST_LEFT, rest_roll=0.0, length_ratio=_RATIO_LOWER_ARM,
         ),
@@ -181,7 +196,7 @@ BODY_LIMB_PART = SegmentPart(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             rigid_points=("hip", "knee"), origin_keypoint="hip",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "knee"),
+                AxisDefinition("y", AxisKind.EXACT, "knee"),
             ),
             rest_rotation=_REST_DOWN, rest_roll=0.0, length_ratio=_RATIO_UPPER_LEG,
         ),
@@ -189,32 +204,34 @@ BODY_LIMB_PART = SegmentPart(
             name="lower_leg", parent="upper_leg", parent_attachment=ParentAttachment.DISTAL,
             rigid_points=("knee", "ankle"), origin_keypoint="knee",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "ankle"),
+                AxisDefinition("y", AxisKind.EXACT, "ankle"),
             ),
             rest_rotation=_REST_DOWN, rest_roll=0.0, length_ratio=_RATIO_LOWER_LEG,
         ),
         SegmentDefinition(
             name="foot", parent="lower_leg", parent_attachment=ParentAttachment.DISTAL,
-            # The foot is a FULL 3-point rigid body: the long axis (ankle →
+            # The foot is a FULL 3-point rigid body: the exact axis (ankle →
             # foot_ball) plus the heel (the posterior point that resolves the
-            # foot's roll-and-pitch reference).
+            # foot's roll-and-pitch reference). The heel points down-back, so
+            # the foot's approximate axis lands on z (down after Gram-Schmidt).
             rigid_points=("ankle", "foot_ball", "heel"), origin_keypoint="ankle",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
+                AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
+                AxisDefinition("z", AxisKind.APPROXIMATE, "heel"),
             ),
             rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_FOOT,
         ),
         SegmentDefinition(
             name="toes", parent="foot", parent_attachment=ParentAttachment.DISTAL,
-            # The toes are a FULL 3-point rigid body: the long axis (foot_ball →
+            # The toes are a FULL 3-point rigid body: the exact axis (foot_ball →
             # big_toe) plus small_toe (the lateral point that resolves the toes'
-            # roll reference).
+            # roll reference). The small_toe points laterally, so the toes'
+            # approximate axis lands on x (lateral after Gram-Schmidt).
             rigid_points=("foot_ball", "big_toe", "small_toe"),
             origin_keypoint="foot_ball",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "big_toe"),
-                AxisDefinition("y", AxisKind.APPROXIMATE, "small_toe"),
+                AxisDefinition("y", AxisKind.EXACT, "big_toe"),
+                AxisDefinition("x", AxisKind.APPROXIMATE, "small_toe"),
             ),
             rest_rotation=_REST_FORWARD, rest_roll=0.0, length_ratio=_RATIO_TOES,
         ),
