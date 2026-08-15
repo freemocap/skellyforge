@@ -399,3 +399,30 @@ def test_head_solves_to_identity_with_anterior_nose(rig):
         np.linalg.norm(q_local - identity), np.linalg.norm(q_local + identity)
     )
     assert dev_local < 1e-9, f"head local deviates from identity by {dev_local}"
+
+
+def test_rigid_children_inherit_the_head_rotation(rig):
+    # The eyes/ears/nose are rigid children of the head: when the head yaws,
+    # their world quaternions equal the head's EXACTLY and their locals are
+    # identity — no independent 2-landmark solve, no damping of their own.
+    human, reference = rig
+    landmarks = _bent_landmarks(reference)  # head yawed ~20° about Z
+    result = solve_frame_orientations(
+        human, reference.segments, landmarks, timestamp_seconds=1.0
+    )
+
+    assert "head" in result.world_quaternions
+    head_q = result.world_quaternions["head"]
+    identity = np.array([1.0, 0.0, 0.0, 0.0])
+    for name in ("left_eye", "right_eye", "nose", "left_ear", "right_ear"):
+        assert np.allclose(result.world_quaternions[name], head_q), name
+        assert np.allclose(result.local_quaternions[name], identity), name
+        assert name not in result.damping_states, name
+
+    # The articulated face segments keep their independent solves.
+    assert "jaw" in result.world_quaternions
+    jaw_local_dev = min(
+        np.linalg.norm(result.local_quaternions["jaw"] - identity),
+        np.linalg.norm(result.local_quaternions["jaw"] + identity),
+    )
+    assert jaw_local_dev > 1e-6  # the jaw actually articulates

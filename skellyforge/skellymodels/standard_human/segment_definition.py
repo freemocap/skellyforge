@@ -148,6 +148,13 @@ class SegmentDefinition:
     rest_rotation: tuple[float, float, float]
     length_ratio: float
     rotation_limits: RotationLimits | None = None
+    rigid_with_parent: bool = False
+    """Rigid child (declared, never inferred): the segment's pose is not solved
+    from its own hydrated landmarks — it inherits the parent's solved pose
+    composed with its rest local rotation (identity == T-pose). Requires a
+    parent; the composed model additionally validates that every landmark is a
+    member of the parent's landmark set (a rigid child's geometry must live
+    inside its parent's rigid set)."""
 
     def __post_init__(self) -> None:
         if not self.name or self.name != self.name.lower() or " " in self.name:
@@ -173,6 +180,12 @@ class SegmentDefinition:
             raise ValueError(
                 f"segment {self.name!r}: origin_landmark {self.origin_landmark!r} "
                 f"is not in landmarks {rigid!r}"
+            )
+
+        if self.rigid_with_parent and self.parent is None:
+            raise ValueError(
+                f"segment {self.name!r}: rigid_with_parent requires a parent — "
+                f"a root segment cannot inherit a pose"
             )
 
         # ── axis-declaration validation (fail-loud) ────────────────────────

@@ -63,6 +63,22 @@ class StandardHuman:
                     f"which is not in the composed human"
                 )
 
+        # rigid children must sit entirely inside their parent's rigid set —
+        # their pose is inherited, so geometry escaping the parent would be
+        # unsolvable by construction
+        for s in segments:
+            if not s.rigid_with_parent:
+                continue
+            parent = by_name[s.parent]
+            outside = set(s.landmarks) - set(parent.landmarks)
+            if outside:
+                raise ValueError(
+                    f"rigid child {s.name!r} declares landmarks {sorted(outside)!r} "
+                    f"that are not members of parent {parent.name!r}'s landmarks "
+                    f"{parent.landmarks!r} — a rigid child's geometry must live "
+                    f"inside its parent's rigid set"
+                )
+
         # no cycles: every parent chain terminates at the root
         for s in segments:
             visited: set[str] = set()

@@ -18,6 +18,12 @@ VRM 1.0's humanoid has no bones for. They branch from the head's ORIGIN (the
 head-center line) and each enters ``required_landmarks()`` like any other
 segment.
 
+The eyes / ears / nose are **rigid children** of the head: all their landmarks
+are skull-clique members, so they inherit the head's solved pose (declared
+``rigid_with_parent``) instead of solving independently from two noisy face
+points. The **jaw** and the **mouth corners** articulate (they anchor at
+observed) and keep their independent solves.
+
 The 52 ARKit blendshape channels compose alongside the skeleton (SF-AL A4),
 stay declared-but-null (locked decision 4 holds for the channels), and come
 from ``skellyforge.skellymodels.standard_human.human_blendshapes``.
@@ -96,12 +102,14 @@ FACE_PART = SegmentPart(
             landmarks=("left_eye", "nose"), origin_landmark="left_eye",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, length_ratio=_RATIO_NOMINAL,
+            rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("right_eye", "nose"), origin_landmark="right_eye",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_EYE_REST, length_ratio=_RATIO_NOMINAL,
+            rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="jaw", parent="head", parent_attachment=ParentAttachment.ORIGIN,
@@ -114,18 +122,21 @@ FACE_PART = SegmentPart(
             landmarks=("head_center", "nose"), origin_landmark="head_center",
             axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
             rest_rotation=_NOSE_REST, length_ratio=_RATIO_NOMINAL,
+            rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="left_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("head_center", "left_ear"), origin_landmark="head_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "left_ear"),),
             rest_rotation=_EAR_REST, length_ratio=_RATIO_NOMINAL,
+            rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="right_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("head_center", "right_ear"), origin_landmark="head_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "right_ear"),),
             rest_rotation=_EAR_REST, length_ratio=_RATIO_NOMINAL,
+            rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="left_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,

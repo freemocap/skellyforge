@@ -27,6 +27,15 @@ def _foot_like(**overrides) -> SegmentDefinition:
     return SegmentDefinition(**kwargs)
 
 
+def test_rigid_with_parent_defaults_to_false():
+    assert _foot_like().rigid_with_parent is False
+
+
+def test_rigid_child_requires_a_parent():
+    with pytest.raises(ValueError, match="rigid_with_parent requires a parent"):
+        _foot_like(parent=None, rigid_with_parent=True)
+
+
 def test_required_landmarks_is_exactly_the_rigid_set():
     assert _foot_like().required_landmarks() == {"ankle", "foot_ball", "heel"}
 

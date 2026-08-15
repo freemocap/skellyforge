@@ -17,6 +17,11 @@ The EXACT axis is the segment's defining direction; its name (x/y/z) picks the
 reference geometry basis vector the swing maps to the live exact direction.
 Every tier keys off the declared axes by name.
 
+A **rigid child** (``rigid_with_parent``) skips the frame build entirely: its
+world rotation is the parent's solved world rotation (identity == T-pose, so
+the rest local is identity), with no damping of its own. Declared, never
+inferred — the model validates the landmark containment at load.
+
 Segments whose landmarks are missing or numerically coincident this frame are
 skipped — occlusion is data, and the load-time validation (segment_definition)
 makes a *declared* coincidence impossible.
@@ -141,6 +146,16 @@ def solve_frame_orientations(
     local_quats: dict[str, NDArray[float64]] = {}
 
     for segment in standard_human.segments:
+        if segment.rigid_with_parent:
+            # Rigid child (declared): no independent solve — inherit the
+            # parent's solved world rotation (identity == T-pose, so the rest
+            # local is identity). No damping: the parent's rotation is already
+            # damped. An unsolved (occluded) parent leaves the child unsolved.
+            parent_q = world_quats.get(segment.parent)
+            if parent_q is not None:
+                world_quats[segment.name] = parent_q
+            continue
+
         ref_geom = reference_geometry.get(segment.name)
         if ref_geom is None:
             continue  # no reference geometry — nothing to solve against

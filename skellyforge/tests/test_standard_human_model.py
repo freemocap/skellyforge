@@ -233,3 +233,26 @@ def test_required_landmarks_is_unchanged_after_the_reshape():
         "right_sternoclavicular", "right_thumb_cmc", "right_thumb_ip",
         "right_thumb_mcp", "right_thumb_tip", "right_wrist", "trunk_center",
     ]
+
+
+def test_rigid_child_landmarks_must_be_members_of_the_parent():
+    parent = _root("big")
+    bad_child = SegmentDefinition(
+        name="small", parent="big", parent_attachment=ParentAttachment.ORIGIN,
+        landmarks=("big_origin", "escaped"), origin_landmark="big_origin",
+        axes=(AxisDefinition("x", AxisKind.EXACT, "escaped"),),
+        rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
+        rigid_with_parent=True,
+    )
+    part = SegmentPart(name="bad", segments=(parent, bad_child))
+    with pytest.raises(ValueError, match="not members of parent"):
+        StandardHuman(name="x", parts=((part, ""),))
+
+
+def test_face_detail_rigid_children_are_declared_not_inferred():
+    human = compose_standard_human()
+    segments = {s.name: s for s in human.segments}
+    for name in ("left_eye", "right_eye", "nose", "left_ear", "right_ear"):
+        assert segments[name].rigid_with_parent is True, name
+    for name in ("jaw", "left_mouth", "right_mouth"):
+        assert segments[name].rigid_with_parent is False, name
