@@ -38,7 +38,7 @@ _COLLINEARITY_DOT = 0.9998  # cos(1°) — stiffer than the solver's ~5° gate
 # (toes), and the hip joints (hips, whose lateral pair coincides with the origin
 # — no widths are declared). Authored for the LEFT side; mirroring flips Y for
 # the right.
-_TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = {
+_TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = { #JON NOTE - uh.... do we want this? is this a good ieda? is it pulling its weight or is it old, deprecatred, vestigial? Check in on this kind of thing, it smells funny and wrong to include a reference to specific body parts at this layer, which should be pure math/gemoetry a
     "hips": np.array([1.0, 0.0, 0.0]),   # the lateral pair coincides with the origin
     "head": np.array([1.0, 0.0, 0.0]),   # nose — anterior (+X), the gaze direction
     "foot": np.array([0.0, 0.0, -1.0]),  # heel — down-back → −Z after Gram-Schmidt
@@ -96,7 +96,7 @@ class ReferenceGeometry:
     landmarks: dict[str, NDArray[np.float64]]
 
 
-def build_reference_geometry(
+def build_reference_geometry( # JON NOTE - Why is this a function and not a classmethod factory on the ReferenceGeometry class????
     segments: list[SegmentDefinition],
     measured_lengths: dict[str, float],
 ) -> ReferenceGeometry:
@@ -172,7 +172,7 @@ def build_reference_geometry(
     return ReferenceGeometry(segments=geometries, landmarks=landmarks)
 
 
-def _rest_basis(
+def _rest_basis( #JON NOTE - similarly - do we want this to be a fucntion? or should it be a method on the class? Or is this a way to keep those classes lightweight? I dont know, seems weird... Again, check in on ths smell  - is this good practice???
     segment: SegmentDefinition,
     origins: dict[str, NDArray[np.float64]],
     rest_dirs: dict[str, NDArray[np.float64]],

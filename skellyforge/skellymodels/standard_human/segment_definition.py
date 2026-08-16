@@ -86,7 +86,7 @@ class AxisKind(str, Enum):
 class AxisDefinition:
     """One declared axis of the segment's local frame (identity == T-pose).
 
-    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z");
+    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z"); #JON NOTE - include negatics -x, -y, -z, and update claculations to handle that (remember must always maintain a right handed system)
     it carries no positional meaning — the author may declare the exact axis on
     any of x/y/z, and the construction machinery reads the names. ``kind`` is
     how the direction feeds the Gram-Schmidt construction: EXACT axes are hard
@@ -145,7 +145,7 @@ class SegmentDefinition:
     axes and APPROXIMATE direction references follow by name. Every axis
     resolves from the segment's own rigid geometry: ``positions[target_landmark]
     − positions[origin_landmark]``."""
-    rest_rotation: tuple[float, float, float]
+    rest_rotation: tuple[float, float, float] #JON NOTE - is this.... euler angles?? could we do this with quaternion? or am i missing something?
     length_ratio: float
     rotation_limits: RotationLimits | None = None
     rigid_with_parent: bool = False
