@@ -1,4 +1,3 @@
-import math
 import pytest
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisDefinition, AxisKind, ParentAttachment, SegmentDefinition,
@@ -13,17 +12,15 @@ def _hand_part() -> SegmentPart:
                 name="hand", parent="lower_arm", parent_attachment=ParentAttachment.DISTAL,
                 landmarks=("wrist", "middle_finger_mcp", "thumb_cmc"), origin_landmark="wrist",
                 axes=(
-                    AxisDefinition("x", AxisKind.EXACT, "middle_finger_mcp"),
+                    AxisDefinition("x", AxisKind.EXACT, "middle_finger_mcp", rest_direction=(0.0, 0.0, -1.0)),
                     AxisDefinition("y", AxisKind.APPROXIMATE, "thumb_cmc"),
                 ),
-                rest_rotation=(0.0, math.radians(90.0), 0.0),
                 length_ratio=0.0505,
             ),
             SegmentDefinition(
                 name="thumb_metacarpal", parent="hand", parent_attachment=ParentAttachment.ORIGIN,
                 landmarks=("thumb_cmc", "thumb_mcp"), origin_landmark="thumb_cmc",
-                axes=(AxisDefinition("x", AxisKind.EXACT, "thumb_mcp"),),
-                rest_rotation=(0.0, math.radians(90.0), math.radians(-45.0)),
+                axes=(AxisDefinition("x", AxisKind.EXACT, "thumb_mcp", rest_direction=(0.0, -1.0, -1.0)),),
                 length_ratio=0.0194,
             ),
         ),
@@ -80,7 +77,7 @@ def test_root_parent_none_survives_prefixing():
         name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
         landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
         axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
-        rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.145,
+        length_ratio=0.145,
     )
     part = SegmentPart(name="midline", segments=(root,))
     composed = compose_parts([(part, "")])
@@ -110,13 +107,13 @@ def test_midline_references_fall_back_to_unprefixed_names():
             name="hips", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
             axes=(AxisDefinition("x", AxisKind.EXACT, "trunk_center"),),
-            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.145,
+            length_ratio=0.145,
         ),
         SegmentDefinition(
             name="upper_chest", parent="hips", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("mid_sternum", "neck_center"), origin_landmark="mid_sternum",
             axes=(AxisDefinition("x", AxisKind.EXACT, "neck_center"),),
-            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.055,
+            length_ratio=0.055,
         ),
     ))
     limb = SegmentPart(name="limb", segments=(
@@ -125,16 +122,16 @@ def test_midline_references_fall_back_to_unprefixed_names():
             landmarks=("sternoclavicular", "shoulder", "neck_center"),
             origin_landmark="sternoclavicular",
             axes=(
-                AxisDefinition("x", AxisKind.EXACT, "shoulder"),
+                AxisDefinition("x", AxisKind.EXACT, "shoulder", rest_direction=(1.0, 0.0, 0.0)),
                 AxisDefinition("y", AxisKind.APPROXIMATE, "neck_center"),
             ),
-            rest_rotation=(-math.pi / 2, 0.0, 0.0), length_ratio=0.103,
+            length_ratio=0.103,
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("hip", "knee"), origin_landmark="hip",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "knee"),),
-            rest_rotation=(math.pi, 0.0, 0.0), length_ratio=0.245,
+            axes=(AxisDefinition("x", AxisKind.EXACT, "knee", rest_direction=(1.0, 0.0, 0.0)),),
+            length_ratio=0.245,
         ),
     ))
     composed = compose_parts([(midline, ""), (limb, "left_")])

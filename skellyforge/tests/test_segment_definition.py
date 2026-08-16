@@ -19,7 +19,6 @@ def _foot_like(**overrides) -> SegmentDefinition:
             AxisDefinition("x", AxisKind.EXACT, "foot_ball"),
             AxisDefinition("y", AxisKind.APPROXIMATE, "heel"),
         ),
-        rest_rotation=(0.0, 0.0, 0.0),
 
         length_ratio=0.026,
     )

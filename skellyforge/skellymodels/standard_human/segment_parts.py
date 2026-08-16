@@ -61,6 +61,7 @@ def _prefixed_axis(
             axis=a.axis,
             kind=a.kind,
             target_landmark=f"{prefix}{a.target_landmark}",
+            rest_direction=a.rest_direction,
         )
         for a in axes
     )
@@ -154,6 +155,7 @@ def _resolve_midline_references(
                 axis=a.axis,
                 kind=a.kind,
                 target_landmark=resolved(a.target_landmark),
+                rest_direction=a.rest_direction,
             )
             for a in segment.axes
         ),

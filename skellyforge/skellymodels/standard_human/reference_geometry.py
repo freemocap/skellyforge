@@ -5,12 +5,11 @@ serves both the orientation solver (identity == T-pose) and the stream
 schema's rest pose. Right-side segments mirror by negating Y and REBUILDING
 frames right-handed (SF-AL A3) — a basis is never reflected.
 
-``rest_rotation`` is extrinsic XYZ euler, radians: R = Rx·Ry·Rz. Each segment's
-rest frame derives the basis vector NAMED by its EXACT axis as
-``R · unit(axis_name)`` — so a body segment (exact axis on y) rests with
-``R · ŷ`` toward its child bone, and a face bone (exact axis on z) rests with
-``R · ẑ`` as its gaze direction. Every authored value is single-axis, so the
-euler convention matters only here.
+Each axis carries an optional rest_direction (a world-space unit vector at
+the T-pose): the exact axis's direction is the toward-child (longitudinal)
+direction; the approximate axis's direction is its twist reference. A
+rest_direction of None defaults to the axis row's positive unit vector
+(the identity rest orientation).
 """
 
 from __future__ import annotations
@@ -21,8 +20,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
-    _AXIS_TO_INDEX,
     assemble_named_basis,
+    axis_index_and_sign,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisDefinition,
@@ -32,51 +31,23 @@ from skellyforge.skellymodels.standard_human.segment_definition import (
 
 _COLLINEARITY_DOT = 0.9998  # cos(1°) — stiffer than the solver's ~5° gate
 
-# Rest approximate DIRECTIONS (world vectors at the T-pose) for segments whose
-# approximate axis references a point with no schematic rest position (or one
-# coinciding with the origin): the nose (head), the heel (foot), small_toe
-# (toes), and the hip joints (hips, whose lateral pair coincides with the origin
-# — no widths are declared). Authored for the LEFT side; mirroring flips Y for
-# the right.
-_TWIST_OVERRIDES: dict[str, NDArray[np.float64]] = { #JON NOTE - uh.... do we want this? is this a good ieda? is it pulling its weight or is it old, deprecatred, vestigial? Check in on this kind of thing, it smells funny and wrong to include a reference to specific body parts at this layer, which should be pure math/gemoetry a
-    "hips": np.array([1.0, 0.0, 0.0]),   # the lateral pair coincides with the origin
-    "head": np.array([1.0, 0.0, 0.0]),   # nose — anterior (+X), the gaze direction
-    "foot": np.array([0.0, 0.0, -1.0]),  # heel — down-back → −Z after Gram-Schmidt
-    "toes": np.array([0.0, 1.0, 0.0]),   # small toe — lateral (left side, +Y)
-}
-
-
-def _unprefixed(name: str) -> str:
-    for prefix in ("left_", "right_"):
-        if name.startswith(prefix):
-            return name[len(prefix):]
-    return name
-
 
 def _mirror(vec: NDArray[np.float64]) -> NDArray[np.float64]:
     """Negate Y — the standard mirror across the sagittal (XZ) plane."""
     return np.array([vec[0], -vec[1], vec[2]], dtype=np.float64)
 
 
-def _rest_axis_direction(
-    rest_rotation: tuple[float, float, float], axis_name: str
-) -> NDArray[np.float64]:
-    """The rest direction for a NAMED basis vector: ``R · unit(axis_name)``.
+def _axis_unit_vector(axis: str) -> NDArray[np.float64]:
+    """The POSITIVE unit vector of a signed axis's row (e.g. "y"/"-y" -> +Y)."""
+    idx, _ = axis_index_and_sign(axis)
+    return np.eye(3, dtype=np.float64)[idx]
 
-    The segment's rest frame's named vector equals this direction — a body
-    segment's ``ŷ`` points toward its child bone, a face bone's ``ẑ`` is its
-    gaze.
-    """
-    rx, ry, rz = rest_rotation
-    cx, sx = np.cos(rx), np.sin(rx)
-    cy, sy = np.cos(ry), np.sin(ry)
-    cz, sz = np.cos(rz), np.sin(rz)
-    rx_m = np.array([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]])
-    ry_m = np.array([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]])
-    rz_m = np.array([[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]])
-    unit = {"x": np.array([1.0, 0.0, 0.0]), "y": np.array([0.0, 1.0, 0.0]),
-            "z": np.array([0.0, 0.0, 1.0])}[axis_name]
-    return rx_m @ ry_m @ rz_m @ unit
+
+def _axis_rest_direction(axis: AxisDefinition) -> NDArray[np.float64]:
+    """The axis's authored rest direction, or its row's positive unit vector."""
+    if axis.rest_direction is not None:
+        return np.asarray(axis.rest_direction, dtype=np.float64)
+    return _axis_unit_vector(axis.axis)
 
 
 @dataclass(frozen=True)
@@ -95,159 +66,148 @@ class ReferenceGeometry:
     segments: dict[str, SegmentReferenceGeometry]
     landmarks: dict[str, NDArray[np.float64]]
 
+    @classmethod
+    def from_segments(
+        cls,
+        segments: list[SegmentDefinition],
+        measured_lengths: dict[str, float],
+    ) -> "ReferenceGeometry":
+        """Build the T-pose reference from composed segments + measured lengths.
 
-def build_reference_geometry( # JON NOTE - Why is this a function and not a classmethod factory on the ReferenceGeometry class????
-    segments: list[SegmentDefinition],
-    measured_lengths: dict[str, float],
-) -> ReferenceGeometry:
-    """Build the T-pose reference from composed segments + measured lengths.
+        Origins accumulate through the tree in authoring order (the root at the
+        origin — the reference pose is a schematic identity frame of orientations ×
+        lengths; ORIGIN attachments place the child at the parent's origin, so
+        e.g. the rest hip joints coincide with hips_center: no widths are declared).
+        """
+        origins: dict[str, NDArray[np.float64]] = {}
+        rest_dirs: dict[str, NDArray[np.float64]] = {}
+        landmarks: dict[str, NDArray[np.float64]] = {}
 
-    Origins accumulate through the tree in authoring order (the root at the
-    origin — the reference pose is a schematic identity frame of orientations ×
-    lengths; ORIGIN attachments place the child at the parent's origin, so
-    e.g. the rest hip joints coincide with hips_center: no widths are declared).
-    """
-    by_name = {s.name: s for s in segments}
-    origins: dict[str, NDArray[np.float64]] = {}
-    rest_dirs: dict[str, NDArray[np.float64]] = {}
-    landmarks: dict[str, NDArray[np.float64]] = {}
+        # pass 1: rest directions of the EXACT axis (right side mirrored)
+        for segment in segments:
+            direction = _axis_rest_direction(segment.exact_axis)
+            if segment.name.startswith("right_"):
+                direction = _mirror(direction)
+            rest_dirs[segment.name] = direction
 
-    # pass 1: rest directions of the EXACT axis (right side mirrored)
-    for segment in segments:
-        exact = segment.exact_axis
-        direction = _rest_axis_direction(segment.rest_rotation, exact.axis)
-        if segment.name.startswith("right_"):
-            direction = _mirror(direction)
-        rest_dirs[segment.name] = direction
-
-    missing = [s.name for s in segments if s.name not in measured_lengths]
-    if missing:
-        raise ValueError(
-            "measured_lengths is missing segments: "
-            + ", ".join(sorted(missing))
-        )
-
-    # pass 2: origins + rest landmark positions
-    for segment in segments:
-        length = measured_lengths[segment.name]
-        if segment.parent is None:
-            origin = np.zeros(3, dtype=np.float64)
-        elif segment.parent_attachment is ParentAttachment.DISTAL:
-            origin = (
-                origins[segment.parent]
-                + rest_dirs[segment.parent] * measured_lengths[segment.parent]
+        missing = [s.name for s in segments if s.name not in measured_lengths]
+        if missing:
+            raise ValueError(
+                "measured_lengths is missing segments: "
+                + ", ".join(sorted(missing))
             )
-        else:  # ORIGIN — branch from the parent's origin
-            # Name agreement: if this segment's origin landmark was already
-            # positioned by an earlier declaration (e.g. the middle finger's
-            # mcp, which is the hand's exact-axis endpoint), that position is
-            # authoritative. Otherwise the branch point is the parent's origin
-            # (e.g. a hip joint, the spine) — the reference pose is schematic;
-            # no wrist→mcp fan geometry is declared.
-            origin = landmarks.get(segment.origin_landmark, origins[segment.parent])
-        origins[segment.name] = origin
-        landmarks[segment.origin_landmark] = origin.copy()
-        landmarks[segment.exact_axis.target_landmark] = (
-            origin + rest_dirs[segment.name] * length
+
+        # pass 2: origins + rest landmark positions
+        for segment in segments:
+            length = measured_lengths[segment.name]
+            if segment.parent is None:
+                origin = np.zeros(3, dtype=np.float64)
+            elif segment.parent_attachment is ParentAttachment.DISTAL:
+                origin = (
+                    origins[segment.parent]
+                    + rest_dirs[segment.parent] * measured_lengths[segment.parent]
+                )
+            else:  # ORIGIN — branch from the parent's origin
+                # Name agreement: if this segment's origin landmark was already
+                # positioned by an earlier declaration (e.g. the middle finger's
+                # mcp, which is the hand's exact-axis endpoint), that position is
+                # authoritative. Otherwise the branch point is the parent's origin.
+                origin = landmarks.get(segment.origin_landmark, origins[segment.parent])
+            origins[segment.name] = origin
+            landmarks[segment.origin_landmark] = origin.copy()
+            landmarks[segment.exact_axis.target_landmark] = (
+                origin + rest_dirs[segment.name] * length
+            )
+
+        # pass 3: bases (approximate axes need the completed landmark map)
+        geometries: dict[str, SegmentReferenceGeometry] = {}
+        for segment in segments:
+            basis = cls._rest_basis(segment, origins, rest_dirs, landmarks)
+            geometries[segment.name] = SegmentReferenceGeometry(
+                origin=origins[segment.name],
+                basis=basis,
+                length=measured_lengths[segment.name],
+            )
+
+        # nose is an off-chain landmark: several driven segments (head, neck,
+        # and the three face bones) name it as their exact axis, but it has no
+        # single standard rest position — the three face bones point different
+        # ways from the head origin and cannot share one schematic point. The
+        # tracker (or a live-pose fixture) supplies it per frame; the reference
+        # pose leaves it out so the face bones solve only when it is present.
+        landmarks.pop("nose", None)
+
+        return cls(segments=geometries, landmarks=landmarks)
+
+    @staticmethod
+    def _rest_basis(
+        segment: SegmentDefinition,
+        origins: dict[str, NDArray[np.float64]],
+        rest_dirs: dict[str, NDArray[np.float64]],
+        landmarks: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
+        """The segment's rest orthonormal frame (rows [x̂, ŷ, ẑ]).
+
+        The EXACT axis's named row is the exact rest direction (signed by the
+        axis name); the APPROXIMATE axis's named row is the approximate rest
+        direction (Gram-Schmidt'd, signed); the remaining row is the
+        right-handed cross product.
+        """
+        exact = segment.exact_axis
+        approx = segment.approximate_axis
+        exact_idx, exact_sign = axis_index_and_sign(exact.axis)
+
+        exact_dir = exact_sign * rest_dirs[segment.name]
+
+        if approx is None:
+            # twist-less segment: a deterministic orthogonal placeholder for the
+            # second vector, carried by the damped minimal-roll tier.
+            second_dir = _default_perpendicular(exact_dir)
+            second_idx = (exact_idx + 1) % 3
+            return assemble_named_basis(
+                {exact_idx: exact_dir, second_idx: second_dir}
+            )
+
+        approx_idx, approx_sign = axis_index_and_sign(approx.axis)
+        approx_dir = approx_sign * ReferenceGeometry._rest_approximate_direction(
+            segment, approx, origins, rest_dirs, landmarks
         )
 
-    # pass 3: bases (approximate axes need the completed landmark map)
-    geometries: dict[str, SegmentReferenceGeometry] = {}
-    for segment in segments:
-        basis = _rest_basis(segment, origins, rest_dirs, landmarks)
-        geometries[segment.name] = SegmentReferenceGeometry(
-            origin=origins[segment.name],
-            basis=basis,
-            length=measured_lengths[segment.name],
-        )
+        # Gram-Schmidt the approximate direction against the exact direction
+        approx_orth = approx_dir - float(np.dot(approx_dir, exact_dir)) * exact_dir
+        approx_norm = float(np.linalg.norm(approx_orth))
+        if approx_norm < 1e-10:
+            raise ValueError(
+                f"segment {segment.name!r}: rest approximate axis is collinear with "
+                f"its exact axis — author an override"
+            )
+        approx_orth = approx_orth / approx_norm
 
-    # ``nose`` is an off-chain landmark: several driven segments (head, neck,
-    # and the three face bones) name it as their exact axis, but it has no
-    # single standard rest position — the three face bones point different
-    # ways from the head origin and cannot share one schematic point. The
-    # tracker (or a live-pose fixture) supplies it per frame; the reference
-    # pose leaves it out so the face bones solve only when it is present.
-    landmarks.pop("nose", None)
-
-    return ReferenceGeometry(segments=geometries, landmarks=landmarks)
-
-
-def _rest_basis( #JON NOTE - similarly - do we want this to be a fucntion? or should it be a method on the class? Or is this a way to keep those classes lightweight? I dont know, seems weird... Again, check in on ths smell  - is this good practice???
-    segment: SegmentDefinition,
-    origins: dict[str, NDArray[np.float64]],
-    rest_dirs: dict[str, NDArray[np.float64]],
-    landmarks: dict[str, NDArray[np.float64]],
-) -> NDArray[np.float64]:
-    """The segment's rest orthonormal frame (rows [x̂, ŷ, ẑ]).
-
-    The EXACT axis's named row is the exact rest direction (``rest_dirs``); the
-    APPROXIMATE axis's named row is the approximate rest direction
-    (Gram-Schmidt'd); the remaining row is the right-handed cross product. The
-    named-row placement means each rest basis vector aligns with its authored
-    axis name.
-    """
-    exact = segment.exact_axis
-    approx = segment.approximate_axis
-    exact_idx = _AXIS_TO_INDEX[exact.axis]
-
-    exact_dir = rest_dirs[segment.name]
-
-    if approx is None:
-        # twist-less segment: a deterministic orthogonal placeholder for the
-        # second vector, carried by the damped minimal-roll tier. It occupies
-        # the next basis row after the exact axis (cyclic), matching what the
-        # solver's damped tier carries.
-        second_dir = _default_perpendicular(exact_dir)
-        second_idx = (exact_idx + 1) % 3  # next row in cyclic basis order
         return assemble_named_basis(
-            {exact_idx: exact_dir, second_idx: second_dir}
+            {exact_idx: exact_dir, approx_idx: approx_orth}
         )
 
-    approx_idx = _AXIS_TO_INDEX[approx.axis]
-    approx_dir = _rest_approximate_direction(
-        segment, approx, origins, rest_dirs, landmarks
-    )
+    @staticmethod
+    def _rest_approximate_direction(
+        segment: SegmentDefinition,
+        approx: AxisDefinition,
+        origins: dict[str, NDArray[np.float64]],
+        rest_dirs: dict[str, NDArray[np.float64]],
+        landmarks: dict[str, NDArray[np.float64]],
+    ) -> NDArray[np.float64]:
+        """The approximate axis's RAW rest direction (unsigned): the authored
+        rest_direction if present, else the target landmark's rest position,
+        else the default perpendicular. Fails loudly if collinear with the
+        exact axis."""
+        exact_dir = rest_dirs[segment.name]
+        candidate: NDArray[np.float64] | None = None
 
-    # Gram-Schmidt the approximate direction against the exact direction
-    approx_orth = approx_dir - float(np.dot(approx_dir, exact_dir)) * exact_dir
-    approx_norm = float(np.linalg.norm(approx_orth))
-    if approx_norm < 1e-10:
-        raise ValueError(
-            f"segment {segment.name!r}: rest approximate axis is collinear with "
-            f"its exact axis — author an override"
-        )
-    approx_orth = approx_orth / approx_norm
+        if approx.rest_direction is not None:
+            candidate = np.asarray(approx.rest_direction, dtype=np.float64)
+            if segment.name.startswith("right_"):
+                candidate = _mirror(candidate)
 
-    return assemble_named_basis(
-        {exact_idx: exact_dir, approx_idx: approx_orth}
-    )
-
-
-def _rest_approximate_direction(
-    segment: SegmentDefinition,
-    approx: "AxisDefinition",
-    origins: dict[str, NDArray[np.float64]],
-    rest_dirs: dict[str, NDArray[np.float64]],
-    landmarks: dict[str, NDArray[np.float64]],
-) -> NDArray[np.float64]:
-    """The approximate axis at rest, as the rest frame's approximate (named) vector.
-
-    The authored override table is AUTHORITATIVE where one exists (see module
-    docstring); otherwise the APPROXIMATE axis declaration's ``target_landmark``
-    rest position (``origin → target_landmark``); else the default perpendicular.
-    Fails loudly if the result is still collinear with the exact axis.
-    """
-    exact_dir = rest_dirs[segment.name]
-    candidate: NDArray[np.float64] | None = None
-
-    override = _TWIST_OVERRIDES.get(_unprefixed(segment.name))
-    if override is not None:
-        candidate = override.copy()
-        if segment.name.startswith("right_"):
-            candidate = _mirror(candidate)
-
-    if candidate is None:
-        if approx.target_landmark in landmarks:
+        if candidate is None and approx.target_landmark in landmarks:
             vec = landmarks[approx.target_landmark] - origins[segment.name]
             norm = float(np.linalg.norm(vec))
             if norm > 1e-10:
@@ -255,23 +215,23 @@ def _rest_approximate_direction(
                 if abs(float(np.dot(exact_dir, vec))) <= _COLLINEARITY_DOT:
                     candidate = vec
 
-    if candidate is None:
-        candidate = _default_perpendicular(exact_dir)
+        if candidate is None:
+            candidate = _default_perpendicular(exact_dir)
 
-    if abs(float(np.dot(exact_dir, candidate))) > _COLLINEARITY_DOT:
-        raise ValueError(
-            f"segment {segment.name!r}: rest approximate axis is collinear with "
-            f"its exact axis — author an override"
-        )
-    return candidate
+        if abs(float(np.dot(exact_dir, candidate))) > _COLLINEARITY_DOT:
+            raise ValueError(
+                f"segment {segment.name!r}: rest approximate axis is collinear with "
+                f"its exact axis — author an override"
+            )
+        return candidate
 
 
 def _default_perpendicular(exact_dir: NDArray[np.float64]) -> NDArray[np.float64]:
-    """A deterministic unit direction orthogonal to *exact_dir*.
+    """A deterministic unit direction orthogonal to exact_dir.
 
-    Orthogonalizes a standard reference (``+X`` unless the exact direction is
-    near ``+X``, then ``+Y``) against *exact_dir*, so the result is never
-    collinear with it.
+    Orthogonalizes a standard reference (+X unless the exact direction is
+    near +X, then +Y) against exact_dir, so the result is never collinear
+    with it.
     """
     ref = np.array([1.0, 0.0, 0.0], dtype=np.float64)
     if abs(float(np.dot(exact_dir, ref))) > 0.9:

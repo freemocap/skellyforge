@@ -4,12 +4,11 @@ import math
 
 import numpy as np
 
-from skellyforge.kinematics.coordinate_frame_ops import _AXIS_TO_INDEX
+from skellyforge.kinematics.coordinate_frame_ops import axis_index_and_sign
 from skellyforge.skellymodels.standard_human.face_part import FACE_PART
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     _mirror,
-    _rest_axis_direction,
-    build_reference_geometry,
+    ReferenceGeometry,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisKind,
@@ -33,11 +32,11 @@ def _exact_axis(seg):
 
 
 def _rest_dir_with_right_mirror(name: str) -> np.ndarray:
-    """The segment's rest exact direction: the euler extrudes the DECLARED exact
-    axis name, plus the right-side Y mirror."""
+    """The segment's rest exact direction: the authored rest_direction, plus the
+    right-side Y mirror."""
     seg = _by_name(name)
     exact = _exact_axis(seg)
-    direction = _rest_axis_direction(seg.rest_rotation, exact.axis)
+    direction = np.asarray(exact.rest_direction, dtype=np.float64)
     if name.startswith("right_"):
         direction = _mirror(direction)
     return direction
@@ -49,11 +48,11 @@ def _reference_dirs() -> dict[str, np.ndarray]:
     read from the basis row NAMED by the segment's exact axis."""
     human = compose_standard_human()
     lengths = {s.name: s.length_ratio * _HEIGHT_MM for s in human.segments}
-    ref = build_reference_geometry(list(human.segments), lengths)
+    ref = ReferenceGeometry.from_segments(list(human.segments), lengths)
     out = {}
     for name in human.segment_names:
         seg = next(s for s in human.segments if s.name == name)
-        idx = _AXIS_TO_INDEX[_exact_axis(seg).axis]
+        idx = axis_index_and_sign(_exact_axis(seg).axis)[0]
         out[name] = ref.segments[name].basis[idx]
     return out
 
@@ -81,7 +80,7 @@ def test_five_face_detail_segments_exist_with_authored_declaration():
 
 
 def test_rest_directions_pin_the_head_axes():
-    # The rest long axis (rest_rotation → +Z, right side mirrored) yields the
+    # The rest long axis (rest_direction, right side mirrored) yields the
     # authored head axes.
     assert np.allclose(_rest_dir_with_right_mirror("nose"), (1.0, 0.0, 0.0), atol=1e-9)
     assert np.allclose(_rest_dir_with_right_mirror("left_ear"), (0.0, 1.0, 0.0), atol=1e-9)
@@ -100,7 +99,7 @@ def test_mouth_corner_rest_directions_are_the_mapping_corner_offsets():
 
 
 def test_reference_geometry_builds_the_correct_rest_directions():
-    # The full reference geometry (not just rest_rotation → +Z) must place the
+    # The full reference geometry (not just rest_direction) must place the
     # ears at ±Y and the mouth corners at the mirrored corner→nose directions.
     dirs = _reference_dirs()
     assert np.allclose(dirs["nose"], (1.0, 0.0, 0.0), atol=1e-9)

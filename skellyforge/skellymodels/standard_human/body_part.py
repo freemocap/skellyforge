@@ -30,14 +30,12 @@ Authoring convention for the body (VRM 1.0 local frame, stated once here per
 
 Value provenance, per the plan's §7 honesty rules:
 
-- ``rest_rotation`` — the euler triple that extrudes the declared **y** axis to
-  the toward-child direction at the standard T-pose (+Z up, +X forward, +Y =
-  subject's left, arms out along ±Y, feet forward, legs down). Single-axis
-  values: ``+π/2`` about X sends ``+Y`` up (midline), identity keeps ``+Y``
-  left (arms), ``−π/2`` about X sends ``+Y`` down (legs), ``−π/2`` about Z
-  sends ``+Y`` forward (feet/toes). Cross-checked against the Blender addon's
-  ``freemocap_tpose`` side pattern; the addon's raw eulers are bone-space and
-  not portable.
+- ``rest_direction`` — the world-space unit vector the declared **y** axis points
+  along at the standard T-pose (+Z up, +X forward, +Y = subject's left, arms
+  out along ±Y, feet forward, legs down): +Z up (midline), +Y left (arms), −Z
+  down (legs), +X forward (feet/toes). Cross-checked against the Blender
+  addon's ``freemocap_tpose`` side pattern; the addon's raw eulers are
+  bone-space and not portable.
 - ``length_ratio`` — Winter (2009) / Drillis & Contini (1966) segment-length
   ratios of stature. Estimates state so.
 - ``rotation_limits`` — ``None`` for all segments for now: the addon's LOCAL
@@ -62,10 +60,10 @@ from skellyforge.skellymodels.standard_human.segment_parts import (
 )
 
 # ── Rest orientations (standard T-pose geometry, y-exact: R · ŷ = toward-child) ─
-_REST_UP = (math.pi / 2, 0.0, 0.0)       # +Z (up) — the midline chain (+π/2 about X)
-_REST_LEFT = (0.0, 0.0, 0.0)             # +Y (subject's left; authored side) — identity
-_REST_DOWN = (-math.pi / 2, 0.0, 0.0)    # −Z — the legs (−π/2 about X)
-_REST_FORWARD = (0.0, 0.0, -math.pi / 2) # +X — feet and toes (−π/2 about Z)
+_REST_UP = (0.0, 0.0, 1.0)       # +Z (up) — the midline chain (+π/2 about X)
+_REST_LEFT = (0.0, 1.0, 0.0)             # +Y (subject's left; authored side) — identity
+_REST_DOWN = (0.0, 0.0, -1.0)    # −Z — the legs (−π/2 about X)
+_REST_FORWARD = (1.0, 0.0, 0.0) # +X — feet and toes (−π/2 about Z)
 
 # ── Length ratios (of stature) ─────────────────────────────────────
 # Winter (2009) + Drillis & Contini (1966) via _BONE_LENGTH_RATIOS.
@@ -103,42 +101,42 @@ BODY_MIDLINE_PART = SegmentPart(
             landmarks=("hips_center", "trunk_center", "left_hip", "right_hip"),
             origin_landmark="hips_center",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
-                AxisDefinition("x", AxisKind.APPROXIMATE, "right_hip"),
+                AxisDefinition("y", AxisKind.EXACT, "trunk_center", rest_direction=_REST_UP),
+                AxisDefinition("x", AxisKind.APPROXIMATE, "right_hip", rest_direction=(1.0, 0.0, 0.0)),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_HIPS,
+            length_ratio=_RATIO_HIPS,
         ),
         SegmentDefinition(
             name="spine", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("hips_center", "trunk_center"), origin_landmark="hips_center",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "trunk_center"),
+                AxisDefinition("y", AxisKind.EXACT, "trunk_center", rest_direction=_REST_UP),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_HIPS,
+            length_ratio=_RATIO_HIPS,
         ),
         SegmentDefinition(
             name="chest", parent="spine", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("trunk_center", "neck_center"), origin_landmark="trunk_center",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "neck_center"),
+                AxisDefinition("y", AxisKind.EXACT, "neck_center", rest_direction=_REST_UP),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_CHEST,
+            length_ratio=_RATIO_CHEST,
         ),
         SegmentDefinition(
             name="upper_chest", parent="chest", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("mid_sternum", "neck_center"), origin_landmark="mid_sternum",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "neck_center"),
+                AxisDefinition("y", AxisKind.EXACT, "neck_center", rest_direction=_REST_UP),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_UPPER_CHEST,
+            length_ratio=_RATIO_UPPER_CHEST,
         ),
         SegmentDefinition(
             name="neck", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("neck_center", "head_center"), origin_landmark="neck_center",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "head_center"),
+                AxisDefinition("y", AxisKind.EXACT, "head_center", rest_direction=_REST_UP),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_NECK,
+            length_ratio=_RATIO_NECK,
         ),
         SegmentDefinition(
             name="head", parent="neck", parent_attachment=ParentAttachment.DISTAL,
@@ -155,10 +153,10 @@ BODY_MIDLINE_PART = SegmentPart(
             ),
             origin_landmark="head_center",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "head_vertex"),
-                AxisDefinition("z", AxisKind.APPROXIMATE, "nose"),
+                AxisDefinition("y", AxisKind.EXACT, "head_vertex", rest_direction=_REST_UP),
+                AxisDefinition("z", AxisKind.APPROXIMATE, "nose", rest_direction=(1.0, 0.0, 0.0)),
             ),
-            rest_rotation=_REST_UP, length_ratio=_RATIO_HEAD,
+            length_ratio=_RATIO_HEAD,
         ),
     ),
 )
@@ -170,41 +168,41 @@ BODY_LIMB_PART = SegmentPart(
             name="shoulder", parent="upper_chest", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("sternoclavicular", "shoulder"), origin_landmark="sternoclavicular",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "shoulder"),
+                AxisDefinition("y", AxisKind.EXACT, "shoulder", rest_direction=_REST_LEFT),
             ),
-            rest_rotation=_REST_LEFT, length_ratio=_RATIO_SHOULDER,
+            length_ratio=_RATIO_SHOULDER,
         ),
         SegmentDefinition(
             name="upper_arm", parent="shoulder", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("shoulder", "elbow"), origin_landmark="shoulder",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "elbow"),
+                AxisDefinition("y", AxisKind.EXACT, "elbow", rest_direction=_REST_LEFT),
             ),
-            rest_rotation=_REST_LEFT, length_ratio=_RATIO_UPPER_ARM,
+            length_ratio=_RATIO_UPPER_ARM,
         ),
         SegmentDefinition(
             name="lower_arm", parent="upper_arm", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("elbow", "wrist"), origin_landmark="elbow",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "wrist"),
+                AxisDefinition("y", AxisKind.EXACT, "wrist", rest_direction=_REST_LEFT),
             ),
-            rest_rotation=_REST_LEFT, length_ratio=_RATIO_LOWER_ARM,
+            length_ratio=_RATIO_LOWER_ARM,
         ),
         SegmentDefinition(
             name="upper_leg", parent="hips", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("hip", "knee"), origin_landmark="hip",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "knee"),
+                AxisDefinition("y", AxisKind.EXACT, "knee", rest_direction=_REST_DOWN),
             ),
-            rest_rotation=_REST_DOWN, length_ratio=_RATIO_UPPER_LEG,
+            length_ratio=_RATIO_UPPER_LEG,
         ),
         SegmentDefinition(
             name="lower_leg", parent="upper_leg", parent_attachment=ParentAttachment.DISTAL,
             landmarks=("knee", "ankle"), origin_landmark="knee",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "ankle"),
+                AxisDefinition("y", AxisKind.EXACT, "ankle", rest_direction=_REST_DOWN),
             ),
-            rest_rotation=_REST_DOWN, length_ratio=_RATIO_LOWER_LEG,
+            length_ratio=_RATIO_LOWER_LEG,
         ),
         SegmentDefinition(
             name="foot", parent="lower_leg", parent_attachment=ParentAttachment.DISTAL,
@@ -214,10 +212,10 @@ BODY_LIMB_PART = SegmentPart(
             # the foot's approximate axis lands on z (down after Gram-Schmidt).
             landmarks=("ankle", "foot_ball", "heel"), origin_landmark="ankle",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "foot_ball"),
-                AxisDefinition("z", AxisKind.APPROXIMATE, "heel"),
+                AxisDefinition("y", AxisKind.EXACT, "foot_ball", rest_direction=_REST_FORWARD),
+                AxisDefinition("z", AxisKind.APPROXIMATE, "heel", rest_direction=(0.0, 0.0, -1.0)),
             ),
-            rest_rotation=_REST_FORWARD, length_ratio=_RATIO_FOOT,
+            length_ratio=_RATIO_FOOT,
         ),
         SegmentDefinition(
             name="toes", parent="foot", parent_attachment=ParentAttachment.DISTAL,
@@ -228,10 +226,10 @@ BODY_LIMB_PART = SegmentPart(
             landmarks=("foot_ball", "big_toe", "small_toe"),
             origin_landmark="foot_ball",
             axes=(
-                AxisDefinition("y", AxisKind.EXACT, "big_toe"),
-                AxisDefinition("x", AxisKind.APPROXIMATE, "small_toe"),
+                AxisDefinition("y", AxisKind.EXACT, "big_toe", rest_direction=_REST_FORWARD),
+                AxisDefinition("x", AxisKind.APPROXIMATE, "small_toe", rest_direction=(0.0, 1.0, 0.0)),
             ),
-            rest_rotation=_REST_FORWARD, length_ratio=_RATIO_TOES,
+            length_ratio=_RATIO_TOES,
         ),
     ),
 )

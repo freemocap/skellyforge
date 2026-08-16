@@ -37,8 +37,8 @@ Authoring convention for the face (VRM 1.0 local frame, per
   +X right): ``nose``/``left_mouth``/``right_mouth`` declare exact on **z**
   (forward-facing), and ``left_ear``/``right_ear`` declare exact on **x**
   (lateral).
-- Each ``rest_rotation`` extrudes the declared axis name through its euler so
-  the rest frame's named vector is the authored gaze/lateral direction.
+- Each axis's ``rest_direction`` states the rest frame's named vector directly —
+  no euler triple, no order convention.
 """
 
 from __future__ import annotations
@@ -53,12 +53,17 @@ from skellyforge.skellymodels.standard_human.segment_definition import (
 )
 from skellyforge.skellymodels.standard_human.segment_parts import SegmentPart
 
+def _normalize(x: float, y: float, z: float) -> tuple[float, float, float]:
+    """A normalized 3-vector (unit direction)."""
+    norm = math.sqrt(x * x + y * y + z * z)
+    return (x / norm, y / norm, z / norm)
+
 # Face bones + face detail declare their exact axis on z (gaze, +Z), so the
 # euler must extrude +Z toward the authored direction. Gaze is anterior (+X) at
 # the T-pose → ``R·ẑ = +X`` via a +90° Y euler. The mouth/jaw carry small
 # offsets (their corner/chin directions), encoded in the same +Z-extruded euler.
-_EYE_REST = (0.0, math.pi / 2, 0.0)                    # gaze: +Z → +X (anterior)
-_NOSE_REST = (0.0, math.pi / 2, 0.0)                   # forward: +Z → +X
+_EYE_REST = (1.0, 0.0, 0.0)                       # gaze: anterior (+X)
+_NOSE_REST = (1.0, 0.0, 0.0)                      # forward: +X
 
 # The jaw and mouth-corner rest directions are AUTHORED here, from the
 # facial-proportions canon (eye width as the facial-third unit), independent of
@@ -73,22 +78,20 @@ _NOSE_REST = (0.0, math.pi / 2, 0.0)                   # forward: +Z → +X
 # (test_face_mapping_consistency.py), not by a shared constant.
 # jaw→nose: (0.2, 0, 0.9)/√(0.2²+0.9²) anterior/down; the restoring angle from
 # +Z (toward +X) is asin(0.2 / sqrt(0.2² + 0.9²)).
-_JAW_REST = (0.0, math.asin(0.2 / math.sqrt(0.2**2 + 0.9**2)), 0.0)
+_JAW_REST = _normalize(0.2, 0.0, 0.9)             # jaw→nose: anterior-and-up
 
 # corner→nose unit direction: (0.2, ∓0.3, 0.35)/√(0.2²+0.3²+0.35²) — anterior
 # 0.2 / lateral 0.3 / down 0.35 × eye_width, the facial-proportions canon
 # estimate (same provenance as the jaw).
-_MOUTH_BETA = math.asin(0.2 / math.sqrt(0.2**2 + 0.3**2 + 0.35**2))
-_MOUTH_ALPHA = math.asin(0.3 / (math.sqrt(0.2**2 + 0.3**2 + 0.35**2) * math.cos(_MOUTH_BETA)))
-# left mouth corner sits at +Y, so nose − left_mouth has −Y: −cos β · sin α < 0 ⇒ α > 0.
-# Authored for the LEFT side; the right_mouth shares this rest_rotation and the
+# left mouth corner sits at +Y, so the left corner→nose direction has −Y.
+# Authored for the LEFT side; the right_mouth shares this rest_direction and the
 # reference geometry mirrors it to +Y, exactly like the body/hand limbs.
-_MOUTH_REST = (+_MOUTH_ALPHA, +_MOUTH_BETA, 0.0)
+_MOUTH_REST = _normalize(0.2, -0.3, 0.35)         # left corner→nose (right side mirrors)
 
 # ears: exact axis on x (lateral). Authored for the LEFT ear (+Y, subject's
-# left): ``R·x̂ = +Y`` via a +90° Z euler. The right ear shares this
-# rest_rotation and the reference geometry mirrors it to −Y (SF-AL A3).
-_EAR_REST = (0.0, 0.0, math.pi / 2)
+# left): +Y. The right ear shares this rest_direction and the reference geometry
+# mirrors it to −Y (SF-AL A3).
+_EAR_REST = (0.0, 1.0, 0.0)                       # left ear: lateral (+Y)
 
 # nominal — face segments branch from the head origin (zero-length branch);
 # the value only satisfies the > 0 validation
@@ -100,55 +103,55 @@ FACE_PART = SegmentPart(
         SegmentDefinition(
             name="left_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("left_eye", "nose"), origin_landmark="left_eye",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_EYE_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_EYE_REST),),
+            length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("right_eye", "nose"), origin_landmark="right_eye",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_EYE_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_EYE_REST),),
+            length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="jaw", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("jaw", "nose"), origin_landmark="jaw",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_JAW_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_JAW_REST),),
+            length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="nose", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("head_center", "nose"), origin_landmark="head_center",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_NOSE_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_NOSE_REST),),
+            length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="left_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("head_center", "left_ear"), origin_landmark="head_center",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "left_ear"),),
-            rest_rotation=_EAR_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("x", AxisKind.EXACT, "left_ear", rest_direction=_EAR_REST),),
+            length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="right_ear", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("head_center", "right_ear"), origin_landmark="head_center",
-            axes=(AxisDefinition("x", AxisKind.EXACT, "right_ear"),),
-            rest_rotation=_EAR_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("x", AxisKind.EXACT, "right_ear", rest_direction=_EAR_REST),),
+            length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="left_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("left_mouth", "nose"), origin_landmark="left_mouth",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_MOUTH_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_MOUTH_REST),),
+            length_ratio=_RATIO_NOMINAL,
         ),
         SegmentDefinition(
             name="right_mouth", parent="head", parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("right_mouth", "nose"), origin_landmark="right_mouth",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose"),),
-            rest_rotation=_MOUTH_REST, length_ratio=_RATIO_NOMINAL,
+            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_MOUTH_REST),),
+            length_ratio=_RATIO_NOMINAL,
         ),
     ),
 )

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from skellyforge.skellymodels.standard_human.reference_geometry import (
-    build_reference_geometry,
+    ReferenceGeometry,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import AxisKind
 from skellyforge.skellymodels.standard_human.standard_human_model import (
@@ -20,7 +20,7 @@ def _lengths(human) -> dict[str, float]:
 
 def test_reference_basis_is_right_handed_for_every_segment_both_sides():
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     assert set(geometry.segments) == set(human.segment_names)
     for name, seg in geometry.segments.items():
         assert np.isclose(np.linalg.det(seg.basis), 1.0, atol=1e-9), name
@@ -32,8 +32,8 @@ def test_reference_basis_is_right_handed_for_every_segment_both_sides():
 
 def test_reference_geometry_scales_linearly_with_measured_lengths():
     human = compose_standard_human()
-    single = build_reference_geometry(list(human.segments), _lengths(human))
-    double = build_reference_geometry(
+    single = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
+    double = ReferenceGeometry.from_segments(
         list(human.segments), {n: 2 * l for n, l in _lengths(human).items()}
     )
     for name, seg in single.segments.items():
@@ -43,14 +43,14 @@ def test_reference_geometry_scales_linearly_with_measured_lengths():
 
 def test_no_segment_has_zero_length_in_the_reference_pose():
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     for name, seg in geometry.segments.items():
         assert seg.length > 0.0, name
 
 
 def test_right_side_mirrors_positions_and_rebuilds_frames():
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     pairs = [
         (left_name, "right_" + left_name[len("left_"):])
         for left_name in human.segment_names
@@ -74,7 +74,7 @@ def test_origin_landmark_positions_agree_with_segment_origins():
     # landmark's rest position are the same point. This is what makes the
     # solver's identity-at-T-pose contract hold.
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     for segment in human.segments:
         seg_geom = geometry.segments[segment.name]
         kp_pos = geometry.landmarks[segment.origin_landmark]
@@ -88,7 +88,7 @@ def test_head_skull_landmarks_build_a_rest_map():
     # landmark — deliberately left out of the reference pose (the solver and
     # face bones supply it per frame).
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     for skull in ("head_center", "head_vertex", "left_eye", "right_eye", "left_ear", "right_ear"):
         assert skull in geometry.landmarks, skull
     assert "nose" not in geometry.landmarks  # off-chain, as before the reshape
@@ -105,7 +105,7 @@ def test_head_reference_forward_axis_is_anterior():
     # `identity == T-pose` breaks for the head at runtime (where a real
     # anterior nose is supplied). Long axis is +Z (up); forward is +X.
     human = compose_standard_human()
-    geometry = build_reference_geometry(list(human.segments), _lengths(human))
+    geometry = ReferenceGeometry.from_segments(list(human.segments), _lengths(human))
     head = geometry.segments["head"]
     # the head's exact axis is y (up); its approximate axis is z (anterior nose).
     # The rest frame is [x̂, ŷ, ẑ] = [+Y, +Z(up), +X(anterior)] — right-handed.
@@ -124,7 +124,7 @@ def test_toward_child_rule_holds_for_every_body_segment():
     # construction, so this reads the child chain where one exists.
     human = compose_standard_human()
     lengths = _lengths(human)
-    geometry = build_reference_geometry(list(human.segments), lengths)
+    geometry = ReferenceGeometry.from_segments(list(human.segments), lengths)
     by_name = {s.name: s for s in human.segments}
     for segment in human.segments:
         exact = _exact_axis(segment)
@@ -156,7 +156,7 @@ def test_face_bones_rest_z_is_gaze():
     # carries the authored downward chin offset (jaw→nose ≈ (0.217, 0, 0.976)).
     human = compose_standard_human()
     lengths = _lengths(human)
-    geometry = build_reference_geometry(list(human.segments), lengths)
+    geometry = ReferenceGeometry.from_segments(list(human.segments), lengths)
     by_name = {s.name: s for s in human.segments}
     for name in ("left_eye", "right_eye"):
         assert _exact_axis(by_name[name]).axis == "z", name

@@ -130,9 +130,12 @@ def build_segment_frame(
     if len(axes) == 1:
         return None, False
 
-    # Index declarations by name (validated distinct); each maps to one basis
-    # vector.
-    by_name: dict[str, "AxisDefinition"] = {a.axis: a for a in axes}
+    # Index declarations by basis row (unsigned name); the sign rides the
+    # resolved direction. Each declaration maps to one basis vector.
+    by_row: dict[str, "AxisDefinition"] = {}
+    for a in axes:
+        row_idx, _ = axis_index_and_sign(a.axis)
+        by_row[("x", "y", "z")[row_idx]] = a
 
     origin = positions.get(origin_landmark)
     if origin is None:
@@ -153,11 +156,12 @@ def build_segment_frame(
     # Resolve every declared direction first (so names — not order — decide
     # which hard/soft directions land on which basis vector).
     dirs: dict[str, NDArray[float64]] = {}
-    for name, decl in by_name.items():
+    for name, decl in by_row.items():
         d = _direction(decl.target_landmark)
         if d is None:
             return None, False
-        dirs[name] = d
+        _, sign = axis_index_and_sign(decl.axis)
+        dirs[name] = sign * d
 
     # ── Assemble in TWO PASSES (x, y, z name order within each) ─────────
     # Pass 1 builds every declared EXACT axis as a HARD vector on its named basis
@@ -184,7 +188,7 @@ def build_segment_frame(
     # Pass 1: every EXACT direction is hard; an exact direction that collides
     # (collinear) with another already-built exact vector is a wrong declaration.
     for name in ("x", "y", "z"):
-        decl = by_name.get(name)
+        decl = by_row.get(name)
         if decl is None or decl.kind is not AxisKind.EXACT:
             continue
         d = dirs[name]
@@ -203,7 +207,7 @@ def build_segment_frame(
     # singular (collinear) or below-floor residual degrades softly (unresolved),
     # not raise.
     for name in ("x", "y", "z"):
-        decl = by_name.get(name)
+        decl = by_row.get(name)
         if decl is None or decl.kind is not AxisKind.APPROXIMATE:
             continue
         d = dirs[name]
@@ -245,6 +249,12 @@ def build_segment_frame(
 # ── Named-row basis assembly (shared by reference geometry + solver) ──
 
 _AXIS_TO_INDEX = {"x": 0, "y": 1, "z": 2}
+
+
+def axis_index_and_sign(axis: str) -> tuple[int, float]:
+    """Map a signed axis name ("x"/"y"/"z"/"-x"/"-y"/"-z") to (row, ±1)."""
+    sign = -1.0 if axis.startswith("-") else 1.0
+    return _AXIS_TO_INDEX[axis.lstrip("-")], sign
 
 
 def assemble_named_basis(named: dict[int, NDArray[float64]]) -> NDArray[float64]:

@@ -20,7 +20,7 @@ skellyforge/
 │   ├── hand_part.py              # HAND_PART (16 segments)
 │   ├── face_part.py              # FACE_PART (8 segments: 3 VRM face bones + 5 face-detail)
 │   ├── standard_human_model.py   # frozen StandardHuman + compose_standard_human() — 60 segments
-│   ├── reference_geometry.py     # build_reference_geometry → ReferenceGeometry (T-pose, mirroring)
+│   ├── reference_geometry.py     # ReferenceGeometry.from_segments (T-pose, mirroring)
 │   ├── human_bone_aliases.py     # BONE_ALIASES (60: vrm + unreal targets)
 │   └── human_blendshapes.py      # 52 ARKit BlendShapeChannel declarations
 └── kinematics/

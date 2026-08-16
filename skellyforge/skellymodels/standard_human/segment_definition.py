@@ -30,9 +30,9 @@ length and its one axis); 3+ points open the full rigid-body fit (a graded
 capacity that lets future trackers enrich any segment by adding points, with
 no new concepts).
 
-The T-pose rest field (``rest_rotation``) stays exactly as authored — it
-defines the REST frame. The axis declarations define the LIVE frame: every
-axis resolves from the segment's own rigid geometry.
+Each axis carries an optional ``rest_direction`` (a world-space unit vector
+at the T-pose) — it defines the REST frame. The axis declarations define the
+LIVE frame: every axis resolves from the segment's own rigid geometry.
 
 Authoring convention (VRM 1.0 local frame, documented once here):
 
@@ -44,9 +44,8 @@ single fixed world direction: a declared second/third point gives the segment
 its own reference direction (Gram-Schmidt'd against the exact axis), and where
 none is declared the rest frame follows that segment's T-pose geometry — the
 third axis derives from the per-segment declarations plus the T-pose geometry,
-not a global "+X". Each segment's ``rest_rotation`` extrudes the declared axis
-name through its euler triple so that the rest frame's named vector equals that
-authored direction.
+not a global "+X". Each axis's ``rest_direction`` states the rest-frame row
+direction directly — no euler triple, no order convention.
 
 Landmark names are side-agnostic within a part; composition prefixes them.
 """
@@ -86,7 +85,7 @@ class AxisKind(str, Enum):
 class AxisDefinition:
     """One declared axis of the segment's local frame (identity == T-pose).
 
-    ``axis`` names WHICH basis vector this declaration defines ("x"/"y"/"z"); #JON NOTE - include negatics -x, -y, -z, and update claculations to handle that (remember must always maintain a right handed system)
+    ``axis`` names WHICH basis row this declaration defines, signed ("x"/"y"/"z"/"-x"/"-y"/"-z"); the sign says whether the authored direction occupies the +row or the −row, and the construction keeps the basis right-handed.
     it carries no positional meaning — the author may declare the exact axis on
     any of x/y/z, and the construction machinery reads the names. ``kind`` is
     how the direction feeds the Gram-Schmidt construction: EXACT axes are hard
@@ -97,9 +96,27 @@ class AxisDefinition:
     member of the segment's ``landmarks``.
     """
 
-    axis: Literal["x", "y", "z"]
+    axis: Literal["x", "y", "z", "-x", "-y", "-z"]
     kind: AxisKind
     target_landmark: str
+    rest_direction: tuple[float, float, float] | None = None
+
+    def __post_init__(self) -> None:
+        if self.rest_direction is not None:
+            if len(self.rest_direction) != 3:
+                raise ValueError(
+                    f"axis {self.axis!r} rest_direction must be a 3-tuple"
+                )
+            norm = math.sqrt(sum(float(c) * float(c) for c in self.rest_direction))
+            if not math.isfinite(norm) or norm <= 0.0:
+                raise ValueError(
+                    f"axis {self.axis!r} rest_direction must be non-zero and finite"
+                )
+            object.__setattr__(
+                self,
+                "rest_direction",
+                tuple(float(c) / norm for c in self.rest_direction),
+            )
 
 
 @dataclass(frozen=True)
@@ -145,7 +162,6 @@ class SegmentDefinition:
     axes and APPROXIMATE direction references follow by name. Every axis
     resolves from the segment's own rigid geometry: ``positions[target_landmark]
     − positions[origin_landmark]``."""
-    rest_rotation: tuple[float, float, float] #JON NOTE - is this.... euler angles?? could we do this with quaternion? or am i missing something?
     length_ratio: float
     rotation_limits: RotationLimits | None = None
     rigid_with_parent: bool = False

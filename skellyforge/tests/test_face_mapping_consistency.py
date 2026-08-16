@@ -7,8 +7,7 @@ independent by design; this test pins their numeric agreement without any
 runtime coupling — it loads the two body mappings through the mapping-path
 registry (the same pattern ``test_tracker_contract.py`` uses), parses the
 ``anatomical_offset`` entries' offset ratios, and asserts the unt vectors those
-ratios imply match the face part's authored ``rest_rotation`` (rotated through
-``R · unit(axis_name)``, exactly the math the reference geometry uses).
+ratios imply match the face part's authored rest direction.
 
 The offset frame is defined by the mapping's frame axes: ``up`` (exact,
 neck_center→head_center), ``lateral`` (approximate, left_eye→right_eye), and
@@ -26,7 +25,6 @@ import numpy as np
 from skellyforge.skellymodels.standard_human.face_part import FACE_PART
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     _mirror,
-    _rest_axis_direction,
 )
 
 from skellytracker.core.io.mapping_paths import (
@@ -37,7 +35,7 @@ from skellytracker.core.io.tracker_mapping import TrackerMapping
 
 # The face part's three jaw/mouth segments, by name. Each is a driven segment
 # whose EXACT axis is on ``z`` (gaze) targeting ``nose``; the authored
-# ``rest_rotation`` extrudes +Z toward the nose−corner / nose−jaw direction.
+# ``rest_direction`` is the nose−corner / nose−jaw direction (+Z-exact).
 _FACE_SEGMENTS = {"jaw": "jaw", "left_mouth": "left_mouth", "right_mouth": "right_mouth"}
 
 _BODY_MAPPING_PATHS = (RTMPOSE_BODY_MAPPING, MEDIAPIPE_BODY_MAPPING)
@@ -70,14 +68,14 @@ def _mapping_implied_direction(name: str) -> np.ndarray:
 
 
 def _authored_rest_direction(name: str) -> np.ndarray:
-    """The face part's authored rest direction: ``R · unit(axis_name)``.
+    """The face part's authored rest direction.
 
     Mirror the Y component for right-side segments, exactly as the reference
     geometry does when it builds the rest directions.
     """
     segment = next(s for s in FACE_PART.segments if s.name == name)
     exact = segment.exact_axis
-    direction = _rest_axis_direction(segment.rest_rotation, exact.axis)
+    direction = np.asarray(exact.rest_direction, dtype=np.float64)
     if name.startswith("right_"):
         direction = _mirror(direction)
     return direction
@@ -112,8 +110,8 @@ def test_face_segments_are_declared_exact_on_z_targeting_nose() -> None:
     """The three jaw/mouth segments are driven (+Z toward the nose).
 
     Guards the assumption the direction comparison rests on: every segment's
-    EXACT axis is on ``z`` targeting ``nose``, so ``R · ẑ`` is the direction the
-    authored rest_rotation encodes.
+    EXACT axis is on ``z`` targeting ``nose``, so the direction is the authored
+    rest_direction.
     """
     for name in _FACE_SEGMENTS:
         segment = next(s for s in FACE_PART.segments if s.name == name)

@@ -36,7 +36,6 @@ from skellyforge.skellymodels.standard_human.human_blendshapes import (
 from skellyforge.skellymodels.standard_human.reference_geometry import (
     ReferenceGeometry,
     SegmentReferenceGeometry,
-    build_reference_geometry,
 )
 from skellyforge.skellymodels.standard_human.standard_human_model import (
     StandardHuman,
@@ -62,7 +61,6 @@ __all__ = [
     "compose_standard_human",
     "ReferenceGeometry",
     "SegmentReferenceGeometry",
-    "build_reference_geometry",
     "BlendShapeChannel",
     "BONE_ALIASES",
     "resolve_alias",

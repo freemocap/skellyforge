@@ -36,8 +36,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
-    _AXIS_TO_INDEX,
     assemble_named_basis,
+    axis_index_and_sign,
     build_segment_frame,
     compute_rotation_from_live_basis,
     rotation_between_vectors,
@@ -81,7 +81,7 @@ def _approximate_axis_index(segment, exact_idx: int) -> int:
     """
     for a in segment.axes:
         if a.kind is AxisKind.APPROXIMATE:
-            return _AXIS_TO_INDEX[a.axis]
+            return axis_index_and_sign(a.axis)[0]
     return (exact_idx + 1) % 3
 
 
@@ -181,10 +181,11 @@ def solve_frame_orientations(
         if norm < 1e-10:
             continue  # numerically coincident this frame — data, not a declaration error
 
-        live_exact = live_vec / norm
-        # The swing aligns the reference geometry's basis vector NAMED by the
+        exact_idx, exact_sign = axis_index_and_sign(exact_axis.axis)
+        live_exact = exact_sign * (live_vec / norm)
+        # The swing aligns the reference geometry's basis row NAMED by the
         # EXACT axis onto the live exact direction — never a positional read.
-        ref_exact_vector = ref_geom.basis[_AXIS_TO_INDEX[exact_axis.axis]]
+        ref_exact_vector = ref_geom.basis[exact_idx]
         swing = rotation_between_vectors(ref_exact_vector, live_exact)
 
         # ── twist: declared direction reference (gated) or damped minimal ─────
@@ -210,7 +211,6 @@ def solve_frame_orientations(
             # after the exact axis for a twist-less segment) — rotated by the
             # swing, then reassembles the frame on the same named rows as the
             # reference geometry.
-            exact_idx = _AXIS_TO_INDEX[exact_axis.axis]
             approx_idx = _approximate_axis_index(segment, exact_idx)
             approx_ref = ref_geom.basis[approx_idx]
             approx_live = swing.rotate_vector(approx_ref)

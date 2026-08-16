@@ -3,14 +3,14 @@
 import numpy as np
 import pytest
 
-from skellyforge.kinematics.coordinate_frame_ops import _AXIS_TO_INDEX
+from skellyforge.kinematics.coordinate_frame_ops import axis_index_and_sign
 from skellyforge.kinematics.orientation_solver import (
     FrameOrientationResult,
     solve_frame_orientations,
 )
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
 from skellyforge.skellymodels.standard_human.reference_geometry import (
-    build_reference_geometry,
+    ReferenceGeometry,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
     AxisDefinition,
@@ -30,7 +30,7 @@ def rig():
     """The composed human + its T-pose reference + the rest landmark map."""
     human = compose_standard_human()
     lengths = {s.name: s.length_ratio * _HEIGHT_MM for s in human.segments}
-    reference = build_reference_geometry(list(human.segments), lengths)
+    reference = ReferenceGeometry.from_segments(list(human.segments), lengths)
     return human, reference
 
 
@@ -155,33 +155,31 @@ def test_z_exact_and_y_exact_segments_both_construct_and_solve(rig):
         name="s_y", parent=None, parent_attachment=ParentAttachment.ORIGIN,
         landmarks=("o", "p", "q"), origin_landmark="o",
         axes=(
-            AxisDefinition("y", AxisKind.EXACT, "p"),
+            AxisDefinition("y", AxisKind.EXACT, "p", rest_direction=(0.0, 0.0, 1.0)),
             AxisDefinition("z", AxisKind.APPROXIMATE, "q"),
         ),
-        rest_rotation=(math.pi / 2, 0.0, 0.0),  # up (+Z)
         length_ratio=0.1,
     )
     z_exact = SegmentDefinition(
         name="s_z", parent=None, parent_attachment=ParentAttachment.ORIGIN,
         landmarks=("o2", "p2", "q2"), origin_landmark="o2",
         axes=(
-            AxisDefinition("z", AxisKind.EXACT, "p2"),
+            AxisDefinition("z", AxisKind.EXACT, "p2", rest_direction=(1.0, 0.0, 0.0)),
             AxisDefinition("x", AxisKind.APPROXIMATE, "q2"),
         ),
-        rest_rotation=(0.0, math.pi / 2, 0.0),  # gaze (+X)
         length_ratio=0.1,
     )
     # Build reference geometry for each standalone segment directly.
     for seg in (y_exact, z_exact):
-        ref = build_reference_geometry([seg], {seg.name: 100.0})
+        ref = ReferenceGeometry.from_segments([seg], {seg.name: 100.0})
         basis = ref.segments[seg.name].basis
         assert np.isclose(np.linalg.det(basis), 1.0), seg.name
         # the exact axis's named row is unit
-        idx = _AXIS_TO_INDEX[_exact_axis_name(seg)]
+        idx = axis_index_and_sign(_exact_axis_name(seg))[0]
         assert np.isclose(np.linalg.norm(basis[idx]), 1.0), seg.name
     # y-exact: ŷ is up (+Z); z-exact: ẑ is gaze (+X)
-    y_ref = build_reference_geometry([y_exact], {"s_y": 100.0})
-    z_ref = build_reference_geometry([z_exact], {"s_z": 100.0})
+    y_ref = ReferenceGeometry.from_segments([y_exact], {"s_y": 100.0})
+    z_ref = ReferenceGeometry.from_segments([z_exact], {"s_z": 100.0})
     assert np.allclose(y_ref.segments["s_y"].basis[1], (0.0, 0.0, 1.0), atol=1e-6)
     assert np.allclose(z_ref.segments["s_z"].basis[2], (1.0, 0.0, 0.0), atol=1e-6)
 
@@ -214,7 +212,7 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
             name="bad", parent=None, parent_attachment=ParentAttachment.ORIGIN,
             landmarks=("same", "other"), origin_landmark="same",
             axes=(AxisDefinition("x", AxisKind.EXACT, "same"),),
-            rest_rotation=(0.0, 0.0, 0.0), length_ratio=0.1,
+            length_ratio=0.1,
         )
 
 
