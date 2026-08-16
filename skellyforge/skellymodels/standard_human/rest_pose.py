@@ -1,9 +1,9 @@
 """The standard-human rest pose: frozen-slots projections of the authored
-segments + reference geometry into the resolved T-pose that rides the wire.
+segments + reference geometry into the rest pose that rides the wire.
 
 These are the "third thing" that completes the ontology: SegmentDefinition is
 the authored declaration, SegmentReferenceGeometry is the per-segment resolved
-geometry, and RestSegment is the resolved segment (the two folded together).
+geometry, and RestSegment is the segment at rest (the two folded together).
 They are pure data (frozen slots) plus a to_cbor_message() that returns plain
 Python types - no cbor2 import here; the freemocap streaming layer owns the
 actual CBOR encoding.
@@ -52,8 +52,8 @@ class LongitudinalAxis:
 
 @dataclass(frozen=True, slots=True)
 class RestSegment:
-    """One RESOLVED segment, folded from SegmentDefinition + SegmentReferenceGeometry.
-    Carries resolved T-pose facts only, never a construction input."""
+    """One segment at rest, folded from SegmentDefinition + SegmentReferenceGeometry.
+    Carries rest-pose facts only, never a construction input."""
 
     name: str
     parent: str | None
@@ -88,7 +88,7 @@ class RestSegment:
 
 @dataclass(frozen=True, slots=True)
 class RestLandmark:
-    """One RESOLVED landmark: its name and its rest position."""
+    """One landmark at rest: its name and its rest position."""
 
     name: str
     rest_position: tuple[float, float, float]
