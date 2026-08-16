@@ -26,7 +26,7 @@ class ModelInfo(BaseModel):
         """
         config_path = Path(config_path)
 
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         
         aspects: dict[str, AspectInfo] = cls.get_aspects_from_config(config=config)
