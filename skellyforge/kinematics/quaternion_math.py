@@ -10,7 +10,7 @@ Convention
 ----------
 - Scalar-first ordering: **[w, x, y, z]** everywhere — on the wire, in
   numpy arrays, and in ``RotationQuaternion`` field order. This matches the
-  standard stream's ``ROTATIONS_WORLD`` and ``ROTATIONS_LOCAL`` channel
+  frame message's ``ROTATIONS_WORLD`` and ``ROTATIONS_LOCAL`` channel
   layout (``w, x, y, z`` float32 columns per doc 09).
 - All quaternions are **unit** quaternions representing rotations. The
   scalar ``RotationQuaternion`` auto-normalizes in ``__post_init__``; vectorized

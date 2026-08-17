@@ -15,7 +15,7 @@ Conventions
 - Units: position in mm, velocity in mm/s, acceleration in mm/s²,
   angular velocity in rad/s, angular acceleration in rad/s².
 - RotationQuaternion order: ``[w, x, y, z]`` — consistent with ``quaternion_math``
-  and the standard stream contract.
+  and the frame message's channel layout.
 - Derivatives use finite differences: forward at frame 0, central for
   interior frames, backward at the final frame.
 """

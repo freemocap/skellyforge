@@ -1,7 +1,7 @@
 """ARKit blendshape channel declarations for the standard human model.
 
 The 52 ARKit blendshapes are the de facto standard for face tracking data.
-They are declared here so the standard stream schema can enumerate them
+They are declared here so the frame's model can enumerate them
 and downstream adapters can map them to target expression systems (VRM,
 VRChat, Unreal Metahuman, etc.).
 
