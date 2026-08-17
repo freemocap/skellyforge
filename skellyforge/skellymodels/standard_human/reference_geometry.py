@@ -6,7 +6,7 @@ schema's rest pose. Right-side segments mirror by negating Y and REBUILDING
 frames right-handed (SF-AL A3) — a basis is never reflected.
 
 Each axis carries an optional rest_direction (a world-space unit vector at
-the T-pose): the exact axis's direction is the toward-child (longitudinal)
+the T-pose): the exact axis's direction is the toward-child (primary)
 direction; the approximate axis's direction is its twist reference. A
 rest_direction of None defaults to the axis row's positive unit vector
 (the identity rest orientation).

@@ -80,7 +80,7 @@ def test_five_face_detail_segments_exist_with_authored_declaration():
 
 
 def test_rest_directions_pin_the_head_axes():
-    # The rest long axis (rest_direction, right side mirrored) yields the
+    # The rest primary axis (rest_direction, right side mirrored) yields the
     # authored head axes.
     assert np.allclose(_rest_dir_with_right_mirror("nose"), (1.0, 0.0, 0.0), atol=1e-9)
     assert np.allclose(_rest_dir_with_right_mirror("left_ear"), (0.0, 1.0, 0.0), atol=1e-9)

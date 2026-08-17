@@ -156,7 +156,7 @@ BODY_LANDMARK_SET = {
     "mid_sternum", "head_vertex", "right_hip", "right_shoulder",
     # the head's 7-point skull rigid set (nose/head_vertex above) — eyes and
     # ears are rigid with the skull, hence body-required, but they are FACE
-    # segments' authored long-axis/landmark targets, named in the body only
+    # segments' authored primary-axis/landmark targets, named in the body only
     # because the head's landmarks name them.
     "left_eye", "right_eye", "left_ear", "right_ear",
 }

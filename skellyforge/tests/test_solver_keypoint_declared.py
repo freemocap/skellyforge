@@ -46,12 +46,12 @@ def _bent_landmarks(reference, *, straight_arms=True):
     landmarks = {name: pos.copy() for name, pos in reference.landmarks.items()}
     # nose is an off-chain landmark with no schematic rest position — a live
     # pose supplies it (anterior of head_center), so the head/neck/face
-    # long-axis solves have an endpoint; it is yawed below like head_vertex.
+    # primary-axis solves have an endpoint; it is yawed below like head_vertex.
     if "head_center" in landmarks:
         landmarks["nose"] = landmarks["head_center"] + np.array([60.0, 0.0, 0.0])
-    # the face-detail segments' long-axis landmarks (ears, mouth corners) have
+    # the face-detail segments' primary-axis landmarks (ears, mouth corners) have
     # no schematic rest position either — a live pose supplies them, placed so
-    # each segment's origin→long-axis direction is non-degenerate this frame.
+    # each segment's origin→primary-axis direction is non-degenerate this frame.
     if "head_center" in landmarks:
         landmarks["left_ear"] = landmarks["head_center"] + np.array([0.0, 40.0, 30.0])
         landmarks["right_ear"] = landmarks["head_center"] + np.array([0.0, -40.0, 30.0])
@@ -86,7 +86,7 @@ def test_every_segment_produces_an_orientation(rig):
     landmarks = _bent_landmarks(reference)
     # The nose rest position is off-chain (no segment placed it) — the fixture
     # supplies it so the face bones (left_eye/right_eye/jaw) and the face-detail
-    # segments have a long-axis endpoint to solve against this frame.
+    # segments have a primary-axis endpoint to solve against this frame.
     landmarks["nose"] = landmarks["head_center"] + np.array([60.0, 0.0, 0.0])
     result = solve_frame_orientations(
         human, reference.segments, landmarks, timestamp_seconds=1.0
@@ -219,7 +219,7 @@ def test_degenerate_declaration_raises_at_load_not_at_solve():
 def test_declared_approximate_axis_resolves_roll_undamped(rig):
     human, reference = rig
     landmarks = _bent_landmarks(reference)
-    # supply a heel off the foot's long axis: the foot's roll is resolved from
+    # supply a heel off the foot's primary axis: the foot's roll is resolved from
     # its declared approximate target (heel) — measured, not damped
     ankle = landmarks["left_ankle"]
     landmarks["left_heel"] = ankle + np.array([-10.0, 0.0, -30.0])
@@ -288,7 +288,7 @@ def test_damping_continuity_across_frames(rig):
     # change while the arm stays gated, pivot the whole raised arm sideways:
     # move the elbow and wrist together perpendicular to the arm axis (+X). The
     # arm keeps its straight (collinear) forearm, so it stays in the damped
-    # tier, but its long-axis direction changes — a real target jump that the
+    # tier, but its primary-axis direction changes — a real target jump that the
     # critically-damped filter must lag.
     human, reference = rig
     landmarks2 = _bent_landmarks(reference, straight_arms=True)
@@ -341,10 +341,10 @@ def test_identity_at_t_pose(rig):
 
 
 def test_singularity_gate_threshold_boundary(rig):
-    # The gate switches at ~5° between the long axis and the approximate-axis
-    # direction. The foot's long axis is ankle → foot_ball; rotating the heel
-    # off that axis through the ankle deflects the heel-vs-long-axis direction
-    # by the same angle. A heel within ~5° of the long axis (collinear) keeps
+    # The gate switches at ~5° between the primary axis and the approximate-axis
+    # direction. The foot's primary axis is ankle → foot_ball; rotating the heel
+    # off that axis through the ankle deflects the heel-vs-primary-axis direction
+    # by the same angle. A heel within ~5° of the primary axis (collinear) keeps
     # the foot in the damped tier; a heel further out resolves the roll from
     # the declared approximate target.
     from skellyforge.kinematics.orientation_solver import (

@@ -83,7 +83,7 @@ def test_origin_landmark_positions_agree_with_segment_origins():
 
 def test_head_skull_landmarks_build_a_rest_map():
     # The head's 7-point skull set needs NO new rest-position logic: every name
-    # except `nose` is another segment's (long-axis/origin) landmark, so the
+    # except `nose` is another segment's (primary-axis/origin) landmark, so the
     # existing rest-map rules already place it. `nose` is the one off-chain
     # landmark — deliberately left out of the reference pose (the solver and
     # face bones supply it per frame).

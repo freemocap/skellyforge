@@ -175,7 +175,7 @@ def test_drop_list_segments_declare_exactly_one_exact_axis_and_no_twist():
 
 def test_every_two_point_segment_exact_axis_target_is_its_distal_point():
     # for 2-point segments the exact axis target is the distal point: the
-    # authored origin→long-axis direction. Spot-check a few across the body,
+    # authored origin→primary-axis direction. Spot-check a few across the body,
     # hand and face.
     human = compose_standard_human()
     expected = {
