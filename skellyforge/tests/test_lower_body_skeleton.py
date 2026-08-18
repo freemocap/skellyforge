@@ -44,8 +44,8 @@ def test_sided_shares_local_geometry_and_mirrors_rest_direction():
     assert len(left_foot.landmarks) == 21
 
     # rest_positions are SIDE-AGNOSTIC local geometry (left == right, no mirroring)
-    left_mtp = next(l for l in left_foot.landmarks if l.name == "left_hallux_mtp")
-    right_mtp = next(l for l in right_foot.landmarks if l.name == "right_hallux_mtp")
+    left_mtp = next(l for l in left_foot.landmarks if l.name == "left_foot_hallux_mtp")
+    right_mtp = next(l for l in right_foot.landmarks if l.name == "right_foot_hallux_mtp")
     assert left_mtp.rest_position == (-15.0, 45.0, 30.0)
     assert right_mtp.rest_position == left_mtp.rest_position  # identical local
 
