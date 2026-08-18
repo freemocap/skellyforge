@@ -228,8 +228,22 @@ class HumanSkeleton:
             chains=chains,
         )
 
+    @classmethod
+    def standard_human(cls) -> "HumanSkeleton":
+        """The packaged standard human, loaded from its YAML definition."""
+        return cls.from_yaml(Path(__file__).parent / "definitions" / "standard_human.yaml")
+
     def segment(self, name: str) -> RigidBodySegment:
         return next(s for s in self.segments if s.name == name)
 
     def chain(self, name: str) -> KinematicChain:
         return next(c for c in self.chains if c.name == name)
+
+    @property
+    def segment_names(self) -> list[str]:
+        """Every segment's name, in hierarchy order."""
+        return [s.name for s in self.segments]
+
+    def required_landmarks(self) -> set[str]:
+        """Every landmark name any segment declares (the hydration contract set)."""
+        return {lm.name for s in self.segments for lm in s.landmarks}

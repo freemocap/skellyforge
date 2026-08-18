@@ -72,8 +72,8 @@ class RestSegment:
         q = RotationQuaternion.from_rotation_matrix(geometry.basis.T)
         return cls(
             name=segment.name,
-            parent=segment.parent,
-            primary_axis=PrimaryAxis.from_axis(segment.exact_axis.axis),
+            parent=segment.parent.name if segment.parent is not None else None,
+            primary_axis=PrimaryAxis.from_axis(segment.primary_axis.axis),
             rest_orientation=(float(q.w), float(q.x), float(q.y), float(q.z)),
             length_mm=float(geometry.length),
             rigid_with_parent=segment.rigid_with_parent,

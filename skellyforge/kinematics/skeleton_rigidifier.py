@@ -24,6 +24,17 @@ import numpy as np
 # Direction used for a bone that has never been observed.
 _FALLBACK_DIRECTION: np.ndarray = np.array([0.0, 1.0, 0.0])
 
+from typing import TYPE_CHECKING
+
+from skellyforge.kinematics.rigid_point_set import (
+    RigidPointTemplate,
+    fit_template_to_observed,
+)
+
+if TYPE_CHECKING:
+    from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
+    from skellyforge.skellymodels.standard_human.standard_human_tpose import StandardHumanTPose
+
 
 @dataclass
 class TreeRigidifier:
@@ -151,3 +162,74 @@ class TreeRigidifier:
     def reset(self) -> None:
         """Forget all carried directions (e.g. on calibration reload)."""
         self._last_direction.clear()
+
+
+def rigidify_landmarks(
+    skeleton: "HumanSkeleton",
+    tpose: "StandardHumanTPose",
+    landmarks: dict[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """Rigidify one frame of hydrated landmarks against the skeleton's rest shape.
+
+    Derived entirely from the loaded model: the joint hierarchy is the parent
+    edges, the bone lengths are the derived segment lengths, and the rigid
+    bodies are the segments whose landmark set has 3+ points (a rotation-pinned
+    Procrustes of their rest positions onto the observed set).
+    """
+    joint_hierarchy: dict[str, list[str]] = {}
+    for segment in skeleton.segments:
+        if segment.parent is None:
+            joint_hierarchy.setdefault(segment.name, [])
+        else:
+            joint_hierarchy.setdefault(segment.parent.name, []).append(segment.name)
+
+    # The tree nodes are SEGMENT ORIGINS (their shared landmark position).
+    origins = {
+        segment.name: landmarks[segment.origin_landmark.name]
+        for segment in skeleton.segments
+        if segment.origin_landmark.name in landmarks
+    }
+    # The bone from a parent to a child is the REST distance between the two
+    # segments' origins (a distal-attached child == the parent's length; an
+    # origin-attached child like the clavicle is a different span).
+    bone_lengths: dict[str, float] = {}
+    for segment in skeleton.segments:
+        if segment.parent is None:
+            continue
+        parent_origin = tpose.landmarks[segment.parent.origin_landmark.name]
+        child_origin = tpose.landmarks[segment.origin_landmark.name]
+        bone_lengths[segment.name] = float(np.linalg.norm(child_origin - parent_origin))
+    corrected_origins = TreeRigidifier(joint_hierarchy).rigidify(origins, bone_lengths)
+
+    result = dict(landmarks)
+    for name, pos in corrected_origins.items():
+        segment = next(s for s in skeleton.segments if s.name == name)
+        result[segment.origin_landmark.name] = pos
+
+    # Rigid bodies: rotation-pinned Procrustes of the rest shape onto observed.
+    for segment in skeleton.segments:
+        if len(segment.landmarks) < 3:
+            continue
+        names = tuple(lm.name for lm in segment.landmarks)
+        rest = np.asarray([tpose.landmarks[n] for n in names], dtype=np.float64)
+        anchor = segment.origin_landmark.name
+        anchor_idx = names.index(anchor) if anchor in names else 0
+        template = RigidPointTemplate(
+            point_names=names,
+            positions=rest - rest[anchor_idx],
+            pair_distances=_pairwise_distances(names, rest),
+        )
+        result.update(fit_template_to_observed(template, result, anchor_name=anchor))
+
+    return result
+
+
+def _pairwise_distances(
+    names: tuple[str, ...], positions: np.ndarray
+) -> dict[tuple[str, str], float]:
+    distances: dict[tuple[str, str], float] = {}
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            key = (names[i], names[j]) if names[i] < names[j] else (names[j], names[i])
+            distances[key] = float(np.linalg.norm(positions[i] - positions[j]))
+    return distances
