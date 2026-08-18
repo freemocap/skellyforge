@@ -1,83 +1,83 @@
 sided: true
 
 landmarks:
-  heel:
+  foot_heel:
     definition: "Contact surface of the heel with the ground, most distal point of the calcaneus"
     reference_frame: foot
     rest_position: [0, -30, 25]       # E  (backward -Y, plantar +Z)
-  hallux_mtp:
+  foot_hallux_mtp:
     definition: "Center of the first metatarsophalangeal joint (base of the hallux)"
     reference_frame: foot
     rest_position: [-15, 45, 30]      # E  (medial -X)
-  hallux_ip:
+  foot_hallux_ip:
     definition: "Center of the interphalangeal joint of the hallux"
     reference_frame: foot
     rest_position: [-15, 60, 30]      # E
-  hallux_tip:
+  foot_hallux_tip:
     definition: "Distal tip of the hallux (big toe)"
     reference_frame: foot
     rest_position: [-15, 72, 30]      # E
-  second_mtp:
+  foot_second_mtp:
     definition: "Center of the second metatarsophalangeal joint"
     reference_frame: foot
     rest_position: [-5, 50, 30]       # E
-  second_pip:
+  foot_second_pip:
     definition: "Center of the second proximal interphalangeal joint"
     reference_frame: foot
     rest_position: [-5, 65, 30]       # E
-  second_dip:
+  foot_second_dip:
     definition: "Center of the second distal interphalangeal joint"
     reference_frame: foot
     rest_position: [-5, 75, 30]       # E
-  second_tip:
+  foot_second_tip:
     definition: "Distal tip of the second toe"
     reference_frame: foot
     rest_position: [-5, 85, 30]       # E
-  third_mtp:
+  foot_third_mtp:
     definition: "Center of the third metatarsophalangeal joint"
     reference_frame: foot
     rest_position: [0, 50, 30]        # E
-  third_pip:
+  foot_third_pip:
     definition: "Center of the third proximal interphalangeal joint"
     reference_frame: foot
     rest_position: [0, 65, 30]        # E
-  third_dip:
+  foot_third_dip:
     definition: "Center of the third distal interphalangeal joint"
     reference_frame: foot
     rest_position: [0, 75, 30]        # E
-  third_tip:
+  foot_third_tip:
     definition: "Distal tip of the third toe"
     reference_frame: foot
     rest_position: [0, 85, 30]        # E
-  fourth_mtp:
+  foot_fourth_mtp:
     definition: "Center of the fourth metatarsophalangeal joint"
     reference_frame: foot
     rest_position: [5, 48, 30]        # E
-  fourth_pip:
+  foot_fourth_pip:
     definition: "Center of the fourth proximal interphalangeal joint"
     reference_frame: foot
     rest_position: [5, 62, 30]        # E
-  fourth_dip:
+  foot_fourth_dip:
     definition: "Center of the fourth distal interphalangeal joint"
     reference_frame: foot
     rest_position: [5, 72, 30]        # E
-  fourth_tip:
+  foot_fourth_tip:
     definition: "Distal tip of the fourth toe"
     reference_frame: foot
     rest_position: [5, 82, 30]        # E
-  fifth_mtp:
+  foot_fifth_mtp:
     definition: "Center of the fifth metatarsophalangeal joint"
     reference_frame: foot
     rest_position: [15, 45, 30]       # E  (lateral +X)
-  fifth_pip:
+  foot_fifth_pip:
     definition: "Center of the fifth proximal interphalangeal joint"
     reference_frame: foot
     rest_position: [15, 58, 30]       # E
-  fifth_dip:
+  foot_fifth_dip:
     definition: "Center of the fifth distal interphalangeal joint"
     reference_frame: foot
     rest_position: [15, 68, 30]       # E
-  fifth_tip:
+  foot_fifth_tip:
     definition: "Distal tip of the fifth toe"
     reference_frame: foot
     rest_position: [15, 78, 30]       # E
@@ -86,11 +86,11 @@ segments:
   foot:
     parent: lower_leg
     origin_landmark: ankle
-    landmarks: [ankle, heel, hallux_mtp, hallux_ip, hallux_tip,
-                second_mtp, second_pip, second_dip, second_tip,
-                third_mtp, third_pip, third_dip, third_tip,
-                fourth_mtp, fourth_pip, fourth_dip, fourth_tip,
-                fifth_mtp, fifth_pip, fifth_dip, fifth_tip]
+    landmarks: [ankle, foot_heel, foot_hallux_mtp, foot_hallux_ip, foot_hallux_tip,
+                foot_second_mtp, foot_second_pip, foot_second_dip, foot_second_tip,
+                foot_third_mtp, foot_third_pip, foot_third_dip, foot_third_tip,
+                foot_fourth_mtp, foot_fourth_pip, foot_fourth_dip, foot_fourth_tip,
+                foot_fifth_mtp, foot_fifth_pip, foot_fifth_dip, foot_fifth_tip]
     axes:
-      - {axis: y, target_landmark: hallux_mtp, rest_direction: [1, 0, 0]}
-      - {axis: z, target_landmark: heel,      rest_direction: [0, 0, -1]}
+      - {axis: y, target_landmark: foot_hallux_mtp, rest_direction: [1, 0, 0]}
+      - {axis: z, target_landmark: foot_heel,      rest_direction: [0, 0, -1]}
