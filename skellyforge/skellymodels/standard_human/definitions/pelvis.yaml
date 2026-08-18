@@ -34,5 +34,5 @@ segments:
     origin_landmark: hips_center
     landmarks: [hips_center, lumbosacral_junction, left_hip, right_hip, left_iliac_crest, right_iliac_crest, pubic_symphysis]
     axes:
-      - {axis: y, kind: exact,       target_landmark: lumbosacral_junction, rest_direction: [0, 0, 1]}
-      - {axis: x, kind: approximate, target_landmark: right_hip,  rest_direction: [0, -1, 0]}
+      - {axis: y, target_landmark: lumbosacral_junction, rest_direction: [0, 0, 1]}
+      - {axis: x, target_landmark: right_hip,  rest_direction: [0, -1, 0]}

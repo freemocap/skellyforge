@@ -74,7 +74,6 @@ def _instantiate_axis(
 ) -> AxisConfig:
     return AxisConfig(
         axis=config.axis,
-        kind=config.kind,
         target_landmark=prefix + config.target_landmark,
         rest_direction=(
             _mirror_y(config.rest_direction)

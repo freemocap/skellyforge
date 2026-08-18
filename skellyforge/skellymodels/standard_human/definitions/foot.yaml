@@ -92,5 +92,5 @@ segments:
                 fourth_mtp, fourth_pip, fourth_dip, fourth_tip,
                 fifth_mtp, fifth_pip, fifth_dip, fifth_tip]
     axes:
-      - {axis: y, kind: exact,       target_landmark: hallux_mtp, rest_direction: [1, 0, 0]}
-      - {axis: z, kind: approximate, target_landmark: heel,      rest_direction: [0, 0, -1]}
+      - {axis: y, target_landmark: hallux_mtp, rest_direction: [1, 0, 0]}
+      - {axis: z, target_landmark: heel,      rest_direction: [0, 0, -1]}

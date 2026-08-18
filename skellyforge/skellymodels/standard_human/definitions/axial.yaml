@@ -54,32 +54,32 @@ segments:
     origin_landmark: lumbosacral_junction
     landmarks: [lumbosacral_junction, trunk_center]
     axes:
-      - {axis: y, kind: exact, target_landmark: trunk_center, rest_direction: [0, 0, 1]}
+      - {axis: y, target_landmark: trunk_center, rest_direction: [0, 0, 1]}
   chest:
     parent: spine
     origin_landmark: trunk_center
     landmarks: [trunk_center, neck_center]
     axes:
-      - {axis: y, kind: exact, target_landmark: neck_center, rest_direction: [0, 0, 1]}
+      - {axis: y, target_landmark: neck_center, rest_direction: [0, 0, 1]}
   upper_chest:
     parent: chest
     origin_landmark: mid_sternum
     landmarks: [mid_sternum, neck_center, left_sternoclavicular, right_sternoclavicular]
     axes:
-      - {axis: y, kind: exact, target_landmark: neck_center, rest_direction: [0, 0, 1]}
+      - {axis: y, target_landmark: neck_center, rest_direction: [0, 0, 1]}
   neck:
     parent: upper_chest
     origin_landmark: neck_center
     landmarks: [neck_center, head_center]
     axes:
-      - {axis: y, kind: exact, target_landmark: head_center, rest_direction: [0, 0, 1]}
+      - {axis: y, target_landmark: head_center, rest_direction: [0, 0, 1]}
   head:
     parent: neck
     origin_landmark: head_center
     landmarks: [head_center, head_vertex, nose, left_eye, right_eye, left_ear, right_ear]
     axes:
-      - {axis: y, kind: exact,       target_landmark: head_vertex, rest_direction: [0, 0, 1]}
-      - {axis: z, kind: approximate, target_landmark: nose,        rest_direction: [1, 0, 0]}
+      - {axis: y, target_landmark: head_vertex, rest_direction: [0, 0, 1]}
+      - {axis: z, target_landmark: nose,        rest_direction: [1, 0, 0]}
 
 chains:
   axial: {start: pelvis, end: head}

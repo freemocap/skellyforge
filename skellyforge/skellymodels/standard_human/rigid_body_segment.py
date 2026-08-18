@@ -19,16 +19,21 @@ from skellyforge.skellymodels.standard_human.config_types import AxisConfig
 
 @dataclass(frozen=True, slots=True)
 class AxisDefinition:
-    """One declared axis of the segment's local frame.
+    """One direction source for the segment's local frame.
 
-    'axis' names WHICH basis row this declaration defines, signed
-    ("x"/"y"/"z"/"-x"/"-y"/"-z"). 'kind' is EXACT (the defining direction) or
-    APPROXIMATE (a soft direction reference, Gram-Schmidt'd). 'target_landmark'
-    names the point this axis points toward; it must be rigid on the segment.
+    'axis' names WHICH basis row this direction defines, signed
+    ("x"/"y"/"z"/"-x"/"-y"/"-z"). 'target_landmark' names the point the
+    direction points toward (origin -> target); it must be rigid on the
+    segment. 'rest_direction' is the authored unit direction at the T-pose
+    (defaults to the axis row's positive unit vector).
+
+    The axes tuple is the construction recipe, in order: the FIRST axis is the
+    primary direction (the frame's hard seed and the length's distal); the
+    SECOND (if present) is the twist direction (the roll reference,
+    Gram-Schmidt'd against the primary).
     """
 
     axis: Literal["x", "y", "z", "-x", "-y", "-z"]
-    kind: Literal["exact", "approximate"]
     target_landmark: str
     rest_direction: tuple[float, float, float] | None = None
 
@@ -36,7 +41,6 @@ class AxisDefinition:
     def from_config(cls, config: AxisConfig) -> "AxisDefinition":
         return cls(
             axis=config.axis,
-            kind=config.kind,
             target_landmark=config.target_landmark,
             rest_direction=config.rest_direction,
         )
@@ -71,17 +75,15 @@ class RigidBodySegment:
             raise ValueError(f"segment {self.name!r}: needs at least one axis")
 
     @property
-    def exact_axis(self) -> AxisDefinition:
-        for a in self.axes:
-            if a.kind == "exact":
-                return a
-        raise ValueError(f"segment {self.name!r} has no EXACT axis")
+    def primary_axis(self) -> AxisDefinition:
+        """The primary direction source (the frame's seed + the length's distal)."""
+        return self.axes[0]
 
     @property
     def length(self) -> float:
-        """Origin->distal distance, derived from the exact axis target's rest position
-        (authored in THIS segment's local frame)."""
-        target_name = self.exact_axis.target_landmark
+        """Origin->distal distance, derived from the primary direction's target
+        rest position (authored in THIS segment's local frame)."""
+        target_name = self.primary_axis.target_landmark
         distal = next(l for l in self.landmarks if l.name == target_name)
         x, y, z = distal.rest_position
         return math.sqrt(x * x + y * y + z * z)

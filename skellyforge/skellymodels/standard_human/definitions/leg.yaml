@@ -42,13 +42,13 @@ segments:
     origin_landmark: hip
     landmarks: [hip, knee, greater_trochanter, lateral_femoral_condyle, medial_femoral_condyle]
     axes:
-      - {axis: y, kind: exact, target_landmark: knee, rest_direction: [0, 0, -1]}
+      - {axis: y, target_landmark: knee, rest_direction: [0, 0, -1]}
   lower_leg:
     parent: upper_leg
     origin_landmark: knee
     landmarks: [knee, ankle, tibial_tuberosity, lateral_malleolus, medial_malleolus]
     axes:
-      - {axis: y, kind: exact, target_landmark: ankle, rest_direction: [0, 0, -1]}
+      - {axis: y, target_landmark: ankle, rest_direction: [0, 0, -1]}
 
 chains:
   leg: {start: pelvis, end: foot}

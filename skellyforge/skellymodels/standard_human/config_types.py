@@ -33,7 +33,6 @@ class LandmarkConfig:
 @dataclass(frozen=True, slots=True)
 class AxisConfig:
     axis: Literal["x", "y", "z", "-x", "-y", "-z"]
-    kind: Literal["exact", "approximate"]
     target_landmark: str
     rest_direction: tuple[float, float, float] | None = None
 
