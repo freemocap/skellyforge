@@ -244,6 +244,19 @@ class HumanSkeleton:
         """Every segment's name, in hierarchy order."""
         return [s.name for s in self.segments]
 
+    @property
+    def landmark_names(self) -> list[str]:
+        """Every landmark name the skeleton declares (sorted, unique)."""
+        return sorted({lm.name for s in self.segments for lm in s.landmarks})
+
     def required_landmarks(self) -> set[str]:
-        """Every landmark name any segment declares (the hydration contract set)."""
-        return {lm.name for s in self.segments for lm in s.landmarks}
+        """The anchor landmarks the solve MUST hydrate from the tracker mapping:
+        each segment's origin + its axes' target landmarks. The remaining
+        landmarks (toes, condyles, deep points) are DERIVED - they ride the
+        segment's rigid solve, not the mapping."""
+        required: set[str] = set()
+        for segment in self.segments:
+            required.add(segment.origin_landmark.name)
+            for axis in segment.axes:
+                required.add(axis.target_landmark)
+        return required
