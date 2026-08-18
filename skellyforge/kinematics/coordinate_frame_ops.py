@@ -284,6 +284,26 @@ def assemble_named_basis(named: dict[int, NDArray[float64]]) -> NDArray[float64]
     return out
 
 
+def gram_schmidt_basis(
+    seed_direction: NDArray[float64],
+    seed_row: int,
+    hint_direction: NDArray[float64],
+    hint_row: int,
+) -> NDArray[float64]:
+    """Build a right-handed (3,3) basis from a hard seed + a soft hint direction.
+
+    The seed is placed hard on its named row; the hint is Gram-Schmidt-projected
+    against the seed and placed on its named row; the third row fills via the
+    right-handed cross product. Raises if the hint is collinear with the seed.
+    """
+    hint_orth = hint_direction - float(np.dot(hint_direction, seed_direction)) * seed_direction
+    norm = float(np.linalg.norm(hint_orth))
+    if norm < 1e-10:
+        raise ValueError("hint direction is collinear with the seed direction")
+    hint_orth = hint_orth / norm
+    return assemble_named_basis({seed_row: seed_direction, hint_row: hint_orth})
+
+
 # ── Swing rotation ───────────────────────────────────────────────────
 
 

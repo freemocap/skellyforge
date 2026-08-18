@@ -16,7 +16,7 @@ landmarks:
 
 segments:
   clavicle:
-    parent: upper_chest
+    parent: chest
     origin_landmark: sternoclavicular
     landmarks: [sternoclavicular, shoulder]
     axes:

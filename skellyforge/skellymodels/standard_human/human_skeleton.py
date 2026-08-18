@@ -60,12 +60,12 @@ def _prefixed(name: str, prefix: str, sided_segments: set[str]) -> str:
 
 
 def _instantiate_landmark(
-    config: LandmarkConfig, prefix: str, mirror: bool, sided_segments: set[str]
+    config: LandmarkConfig, prefix: str, sided_segments: set[str]
 ) -> LandmarkConfig:
     return LandmarkConfig(
         definition=config.definition,
         reference_frame=_prefixed(config.reference_frame, prefix, sided_segments),
-        rest_position=_mirror_y(config.rest_position) if mirror else config.rest_position,
+        rest_position=config.rest_position,
     )
 
 
@@ -139,7 +139,7 @@ def _compose_parts(
                 new_name = prefix + name
                 if new_name not in landmarks:
                     landmarks[new_name] = _instantiate_landmark(
-                        lc, prefix, mirror, sided_segments
+                        lc, prefix, sided_segments
                     )
             for name, sc in part.segments.items():
                 segments[prefix + name] = _instantiate_segment(

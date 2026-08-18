@@ -1,36 +1,21 @@
-"""Per-segment orientation solver: declared landmarks → segment orientations.
+"""Per-segment orientation solver: hydrated landmarks -> segment orientations.
 
-Reads the composed StandardHuman's segment declarations: each segment names
-its origin and a tuple of tagged axis declarations (an exact defining
-direction, optionally an approximate direction reference), and the solver
-resolves its orientation from THIS FRAME's landmark positions against the
-T-pose reference geometry (identity == T-pose).
+Reads a loaded HumanSkeleton + its T-pose reference geometry, and resolves each
+segment's world + local quaternions from THIS FRAME's hydrated landmark
+positions (identity == T-pose).
 
-Twist is two-tier, and the declaration IS the policy:
-1. A declared APPROXIMATE direction reference, usable this frame (not occluded,
-   not within ~5° of the exact axis — the singularity gate) → the roll
-   resolves from it.
-2. Otherwise → damped minimal roll: the reference approximate axis carried
-   by the swing rotation, critically damped (the D3/D4 filter).
+A full rigid body (3+ landmarks) solves by a Kabsch fit over its whole landmark
+cloud. A 2-landmark segment solves by swing (the primary direction) + twist (the
+twist direction, or the critically damped minimal roll when the twist is
+unusable). A rigid child inherits its parent's world rotation.
 
-The EXACT axis is the segment's defining direction; its name (x/y/z) picks the
-reference geometry basis vector the swing maps to the live exact direction.
-Every tier keys off the declared axes by name.
-
-A **rigid child** (``rigid_with_parent``) skips the frame build entirely: its
-world rotation is the parent's solved world rotation (identity == T-pose, so
-the rest local is identity), with no damping of its own. Declared, never
-inferred — the model validates the landmark containment at load.
-
-Segments whose landmarks are missing or numerically coincident this frame are
-skipped — occlusion is data, and the load-time validation (segment_definition)
-makes a *declared* coincidence impossible.
+The solver is a pure function: state flows in and out explicitly (SolveState in,
+(result, state) out) - no hidden state, no mutation.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -39,8 +24,8 @@ from skellyforge.kinematics.coordinate_frame_ops import (
     align_point_sets_kabsch,
     assemble_named_basis,
     axis_index_and_sign,
-    build_segment_frame,
     compute_rotation_from_live_basis,
+    gram_schmidt_basis,
     rotation_between_vectors,
 )
 from skellyforge.kinematics.critically_damped_orientation import (
@@ -48,131 +33,94 @@ from skellyforge.kinematics.critically_damped_orientation import (
     advance_critically_damped_orientation,
 )
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
-from skellyforge.skellymodels.standard_human.segment_definition import (
-    AxisKind,
-)
+from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
+from skellyforge.skellymodels.standard_human.standard_human_tpose import StandardHumanTPose
 
-if TYPE_CHECKING:
-    from numpy import float64
-    from skellyforge.skellymodels.standard_human.reference_geometry import (
-        SegmentReferenceGeometry,
-    )
-    from skellyforge.skellymodels.standard_human.standard_human_model import (
-        StandardHuman,
-    )
-
-# Twist directions within this angle (radians) of the exact axis cannot build
-# a basis — the singularity gate degrades to the damped minimal tier.
-_SINGULARITY_THRESHOLD_RAD = np.deg2rad(5.0)
-_SINGULARITY_DOT_THRESHOLD = np.cos(_SINGULARITY_THRESHOLD_RAD)  # ≈ 0.996
-
-# The critically damped twist filter's time constant (seconds). Frame-rate
-# independent by construction — see critically_damped_orientation.py.
+_SINGULARITY_DOT_THRESHOLD = np.cos(np.deg2rad(5.0))
 DEFAULT_TWIST_TIME_CONSTANT_SECONDS = 0.05
 
 
-def _approximate_axis_index(segment, exact_idx: int) -> int:
-    """The basis row of the APPROXIMATE axis; the next row after the exact axis
-    when twist-less.
-
-    The damped-minimal tier carries the reference approximate vector. A
-    twist-less single-axis segment has none, so the reference geometry placed
-    the default perpendicular on the next basis row after the exact axis (see
-    ``reference_geometry._rest_basis``); the solver carries that same row.
-    """
-    for a in segment.axes:
-        if a.kind is AxisKind.APPROXIMATE:
-            return axis_index_and_sign(a.axis)[0]
-    return (exact_idx + 1) % 3
-
-
-@dataclass
+@dataclass(frozen=True, slots=True)
 class FrameOrientationResult:
-    """Orientations for every solved segment at one frame.
+    """Per-segment orientations for one frame (result only - no state)."""
 
-    Parameters
-    ----------
-    world_quaternions : dict
-        ``{segment_name: (4,) wxyz array}`` — world-frame rotation from the
-        T-pose for each SOLVED segment. Unsolved (occluded) segments are
-        absent.
-    local_quaternions : dict
-        ``{segment_name: (4,) wxyz array}`` — parent-relative rotation,
-        ``conjugate(world_parent) * world_child`` (D1). The root's local
-        equals its world.
-    timestamp_seconds : float
-        When this frame was solved; the next frame's dt is measured against it.
-    damping_states : dict
-        Per-segment critically damped filter state for the segments whose roll
-        was resolved by the damped minimal tier. Carried into the next frame.
-    """
+    world_quaternions: dict[str, NDArray[np.float64]]
+    local_quaternions: dict[str, NDArray[np.float64]]
 
-    world_quaternions: dict[str, NDArray[float64]]
-    local_quaternions: dict[str, NDArray[float64]]
-    timestamp_seconds: float
+
+@dataclass(frozen=True, slots=True)
+class OrientationSolveState:
+    """The solver's memory across frames (state only - no result)."""
+
+    timestamp_seconds: float = 0.0
     damping_states: dict[str, CriticallyDampedOrientationState] = field(
         default_factory=dict
     )
 
+    @classmethod
+    def empty(cls) -> "OrientationSolveState":
+        return cls()
+
+
+@dataclass(frozen=True, slots=True)
+class SolveState:
+    """One slice per action; future actions (twist, IK) add their own slices."""
+
+    orientation: OrientationSolveState = field(
+        default_factory=OrientationSolveState.empty
+    )
+
+
+def _wxyz(q: RotationQuaternion) -> NDArray[np.float64]:
+    return np.array([q.w, q.x, q.y, q.z], dtype=np.float64)
+
 
 def solve_frame_orientations(
-    standard_human: "StandardHuman",
-    reference_geometry: dict[str, "SegmentReferenceGeometry"],
-    landmarks: dict[str, NDArray[float64]],
+    skeleton: HumanSkeleton,
+    tpose: StandardHumanTPose,
+    landmarks: dict[str, NDArray[np.float64]],
     *,
-    reference_landmarks: dict[str, NDArray[float64]] | None = None,
     timestamp_seconds: float,
-    previous_result: FrameOrientationResult | None = None,
-) -> FrameOrientationResult:
+    state: SolveState,
+) -> tuple[FrameOrientationResult, SolveState]:
     """Compute per-segment world + local quaternions for one frame.
 
-    Walks segments in authoring order (hierarchy order by construction), so
-    parent world quaternions exist when children compose their locals.
+    Walks segments in hierarchy order (parents before children), so a parent's
+    world quaternion exists when a child composes its local.
 
-    Damping
-    -------
-    Segments resolved by the damped minimal tier pass through the critically
-    damped filter with ``dt = timestamp_seconds - previous.timestamp_seconds``.
-    First frame (or a non-advancing clock) seeds at rest with zero velocity.
+    Damping: segments resolved by the damped minimal roll pass through the
+    critically damped filter with dt = timestamp_seconds - the previous
+    timestamp. First frame (or a non-advancing clock) seeds at rest.
     """
-    timestep_seconds: float | None = None
-    if previous_result is not None:
-        elapsed = timestamp_seconds - previous_result.timestamp_seconds
-        timestep_seconds = elapsed if elapsed > 0.0 else None
+    previous = state.orientation
+    timestep: float | None = None
+    if previous.timestamp_seconds > 0.0:
+        elapsed = timestamp_seconds - previous.timestamp_seconds
+        if elapsed > 0.0:
+            timestep = elapsed
 
-    previous_damping_states = (
-        previous_result.damping_states if previous_result is not None else {}
-    )
-    damping_states: dict[str, CriticallyDampedOrientationState] = {}
+    damping_states = dict(previous.damping_states)
     world_quats: dict[str, RotationQuaternion] = {}
-    local_quats: dict[str, NDArray[float64]] = {}
 
-    for segment in standard_human.segments:
+    for segment in skeleton.segments:
         if segment.rigid_with_parent:
-            # Rigid child (declared): no independent solve — inherit the
-            # parent's solved world rotation (identity == T-pose, so the rest
-            # local is identity). No damping: the parent's rotation is already
-            # damped. An unsolved (occluded) parent leaves the child unsolved.
-            parent_q = world_quats.get(segment.parent)
-            if parent_q is not None:
-                world_quats[segment.name] = parent_q
+            if segment.parent is not None:
+                parent_q = world_quats.get(segment.parent.name)
+                if parent_q is not None:
+                    world_quats[segment.name] = parent_q
             continue
 
-        ref_geom = reference_geometry.get(segment.name)
-        if ref_geom is None:
-            continue  # no reference geometry — nothing to solve against
+        geom = tpose.segments.get(segment.name)
+        if geom is None:
+            continue
 
-        # Full rigid bodies (≥3 declared landmarks) solve their rotation by a
-        # Kabsch fit over the WHOLE landmark cloud — the skull (head), hips, feet
-        # and toes are rigid bodies whose orientation is over-determined by their
-        # pairwise geometry, not 2-point spans. Falls back to swing+twist when the
-        # reference cloud is absent or too few points hydrate this frame.
-        if reference_landmarks is not None and len(segment.landmarks) >= 3:
-            ref_pts: list[NDArray[float64]] = []
-            live_pts: list[NDArray[float64]] = []
-            for name in segment.landmarks:
-                ref_p = reference_landmarks.get(name)
-                live_p = landmarks.get(name)
+        # 3+ landmarks: full rigid body via Kabsch over the whole cloud
+        if len(segment.landmarks) >= 3:
+            ref_pts: list[NDArray[np.float64]] = []
+            live_pts: list[NDArray[np.float64]] = []
+            for lm in segment.landmarks:
+                ref_p = tpose.landmarks.get(lm.name)
+                live_p = landmarks.get(lm.name)
                 if ref_p is not None and live_p is not None:
                     ref_pts.append(np.asarray(ref_p, dtype=np.float64))
                     live_pts.append(np.asarray(live_p, dtype=np.float64))
@@ -185,100 +133,96 @@ def solve_frame_orientations(
                     world_quats[segment.name] = RotationQuaternion.from_rotation_matrix(R)
                     continue
                 except ValueError:
-                    pass  # collinear/degenerate this frame — fall through to swing+twist
+                    pass  # degenerate this frame -> swing + twist
 
-        origin = landmarks.get(segment.origin_landmark)
+        # 2 landmarks: swing the primary direction, then resolve twist
+        origin = landmarks.get(segment.origin_landmark.name)
         if origin is None:
-            continue  # occluded this frame
-
-        live_vec = None
-        if segment.axes:
-            # The EXACT axis is the segment's defining direction, declared on
-            # whichever local axis (x/y/z) the author chose — no positional
-            # read. The solver resolves the same direction build_segment_frame
-            # derives from the EXACT declaration: origin → target_landmark.
-            exact_axis = segment.exact_axis
-            exact_to = landmarks.get(exact_axis.target_landmark)
-            if origin is not None and exact_to is not None:
-                live_vec = np.asarray(exact_to, dtype=np.float64) - np.asarray(
-                    origin, dtype=np.float64
-                )
-        if live_vec is None:
-            continue  # occluded this frame (no usable exact-axis landmarks)
+            continue
+        primary = segment.primary_axis
+        primary_target = landmarks.get(primary.target_landmark)
+        if primary_target is None:
+            continue
+        live_vec = (
+            np.asarray(primary_target, dtype=np.float64)
+            - np.asarray(origin, dtype=np.float64)
+        )
         norm = float(np.linalg.norm(live_vec))
         if norm < 1e-10:
-            continue  # numerically coincident this frame — data, not a declaration error
+            continue
+        primary_idx, primary_sign = axis_index_and_sign(primary.axis)
+        live_primary = primary_sign * (live_vec / norm)
+        ref_primary = geom.basis[primary_idx]
+        swing = rotation_between_vectors(ref_primary, live_primary)
 
-        exact_idx, exact_sign = axis_index_and_sign(exact_axis.axis)
-        live_exact = exact_sign * (live_vec / norm)
-        # The swing aligns the reference geometry's basis row NAMED by the
-        # EXACT axis onto the live exact direction — never a positional read.
-        ref_exact_vector = ref_geom.basis[exact_idx]
-        swing = rotation_between_vectors(ref_exact_vector, live_exact)
-
-        # ── twist: declared direction reference (gated) or damped minimal ─────
-        # ``build_segment_frame`` builds the LIVE frame from the tagged axis
-        # declarations directly from this frame's landmark positions. Its
-        # internal singularity gate (collinearity_threshold) reproduces the
-        # solver's ~5° gate: the APPROXIMATE axis resolves the roll only when
-        # non-collinear.
-        live_basis, resolved = build_segment_frame(
-            segment.axes,
-            landmarks,
-            segment.origin_landmark,
-            collinearity_threshold=_SINGULARITY_DOT_THRESHOLD,
-        )
-
-        if resolved:
-            world_quats[segment.name] = compute_rotation_from_live_basis(
-                live_basis, ref_geom.basis
-            )
-        else:
-            # The damped-minimal tier carries the reference approximate vector —
-            # the basis vector NAMED by the APPROXIMATE axis (or the next row
-            # after the exact axis for a twist-less segment) — rotated by the
-            # swing, then reassembles the frame on the same named rows as the
-            # reference geometry.
-            approx_idx = _approximate_axis_index(segment, exact_idx)
-            approx_ref = ref_geom.basis[approx_idx]
-            approx_live = swing.rotate_vector(approx_ref)
-            live_basis = assemble_named_basis(
-                {exact_idx: live_exact, approx_idx: approx_live}
-            )
-            q_raw = compute_rotation_from_live_basis(live_basis, ref_geom.basis)
-            previous_state = previous_damping_states.get(segment.name)
-            if previous_state is None or timestep_seconds is None:
-                damped_state = CriticallyDampedOrientationState.at_rest(q_raw)
-            else:
-                damped_state = advance_critically_damped_orientation(
-                    state=previous_state,
-                    target_orientation=q_raw,
-                    time_constant_seconds=DEFAULT_TWIST_TIME_CONSTANT_SECONDS,
-                    timestep_seconds=timestep_seconds,
+        # twist: the declared twist direction resolves the roll when usable
+        if len(segment.axes) >= 2:
+            twist = segment.axes[1]
+            twist_target = landmarks.get(twist.target_landmark)
+            if twist_target is not None:
+                twist_vec = (
+                    np.asarray(twist_target, dtype=np.float64)
+                    - np.asarray(origin, dtype=np.float64)
                 )
-            damping_states[segment.name] = damped_state
-            world_quats[segment.name] = damped_state.orientation
+                twist_norm = float(np.linalg.norm(twist_vec))
+                if twist_norm > 1e-10:
+                    twist_idx, twist_sign = axis_index_and_sign(twist.axis)
+                    live_twist = twist_sign * (twist_vec / twist_norm)
+                    if (
+                        abs(float(np.dot(live_twist, live_primary)))
+                        <= _SINGULARITY_DOT_THRESHOLD
+                    ):
+                        try:
+                            live_basis = gram_schmidt_basis(
+                                live_primary, primary_idx, live_twist, twist_idx
+                            )
+                            world_quats[segment.name] = (
+                                compute_rotation_from_live_basis(live_basis, geom.basis)
+                            )
+                            continue
+                        except ValueError:
+                            pass  # collinear -> damped minimal roll
 
-    # ── local quaternions (D1: q_child_local = conj(q_parent) · q_child) ──
-    for segment in standard_human.segments:
+        # damped minimal roll: carry the reference second row by the swing
+        approx_idx = (primary_idx + 1) % 3
+        approx_ref = geom.basis[approx_idx]
+        approx_live = swing.rotate_vector(approx_ref)
+        live_basis = assemble_named_basis(
+            {primary_idx: live_primary, approx_idx: approx_live}
+        )
+        q_raw = compute_rotation_from_live_basis(live_basis, geom.basis)
+        prev_state = damping_states.get(segment.name)
+        if prev_state is None or timestep is None:
+            damped = CriticallyDampedOrientationState.at_rest(q_raw)
+        else:
+            damped = advance_critically_damped_orientation(
+                state=prev_state,
+                target_orientation=q_raw,
+                time_constant_seconds=DEFAULT_TWIST_TIME_CONSTANT_SECONDS,
+                timestep_seconds=timestep,
+            )
+        damping_states[segment.name] = damped
+        world_quats[segment.name] = damped.orientation
+
+    # local quaternions (q_child_local = conj(q_parent) * q_child)
+    local_quats: dict[str, NDArray[np.float64]] = {}
+    for segment in skeleton.segments:
         world = world_quats.get(segment.name)
         if world is None:
             continue
-        if segment.parent is None or segment.parent not in world_quats:
+        if segment.parent is None or segment.parent.name not in world_quats:
             local = world
         else:
-            local = world_quats[segment.parent].conjugate() * world
-        local_quats[segment.name] = np.array(
-            [local.w, local.x, local.y, local.z], dtype=np.float64
-        )
+            local = world_quats[segment.parent.name].conjugate() * world
+        local_quats[segment.name] = _wxyz(local)
 
-    world_wxyz = {
-        name: np.array([q.w, q.x, q.y, q.z], dtype=np.float64)
-        for name, q in world_quats.items()
-    }
-    return FrameOrientationResult(
-        world_quaternions=world_wxyz,
-        local_quaternions=local_quats,
-        timestamp_seconds=timestamp_seconds,
-        damping_states=damping_states,
+    world_wxyz = {name: _wxyz(q) for name, q in world_quats.items()}
+    result = FrameOrientationResult(
+        world_quaternions=world_wxyz, local_quaternions=local_quats
     )
+    new_state = SolveState(
+        orientation=OrientationSolveState(
+            timestamp_seconds=timestamp_seconds, damping_states=damping_states
+        )
+    )
+    return result, new_state

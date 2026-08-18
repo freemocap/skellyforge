@@ -18,9 +18,9 @@ def test_lower_body_loads():
     thigh = skeleton.segment("left_upper_leg")
     assert thigh.parent.name == "pelvis"
     assert thigh.origin_landmark.name == "left_hip"
-    assert thigh.length == 429.0             # |(0, 0, -429)|
+    assert thigh.length == 429.0             # |(0, 429, 0)| — primary target along +Y
 
-    # sidedness: right side shares the pelvis's right_hip + mirrors Y
+    # sidedness: the right side shares the pelvis's right_hip
     rthigh = skeleton.segment("right_upper_leg")
     assert rthigh.origin_landmark.name == "right_hip"
 
@@ -35,7 +35,7 @@ def test_lower_body_loads():
     assert knee.shared_landmark.name == "left_knee"
 
 
-def test_sided_mirrors_y():
+def test_sided_shares_local_geometry_and_mirrors_rest_direction():
     skeleton = HumanSkeleton.from_yaml(YAML_PATH)
 
     # full toe complexity: 21 landmarks on each foot
@@ -43,7 +43,14 @@ def test_sided_mirrors_y():
     right_foot = skeleton.segment("right_foot")
     assert len(left_foot.landmarks) == 21
 
+    # rest_positions are SIDE-AGNOSTIC local geometry (left == right, no mirroring)
     left_mtp = next(l for l in left_foot.landmarks if l.name == "left_hallux_mtp")
     right_mtp = next(l for l in right_foot.landmarks if l.name == "right_hallux_mtp")
-    assert left_mtp.rest_position == (45.0, 15.0, -30.0)
-    assert right_mtp.rest_position == (45.0, -15.0, -30.0)  # Y negated
+    assert left_mtp.rest_position == (-15.0, 45.0, 30.0)
+    assert right_mtp.rest_position == left_mtp.rest_position  # identical local
+
+    # the WORLD rest_direction mirrors Y for the right side
+    left_twist = skeleton.segment("left_upper_leg").axes[1].rest_direction
+    right_twist = skeleton.segment("right_upper_leg").axes[1].rest_direction
+    assert left_twist == (0.0, 1.0, 0.0)
+    assert right_twist == (0.0, -1.0, 0.0)
