@@ -1,0 +1,96 @@
+sided: true
+
+landmarks:
+  heel:
+    definition: "Contact surface of the heel with the ground, most distal point of the calcaneus"
+    reference_frame: foot
+    rest_position: [-30, 0, -25]      # E
+  hallux_mtp:
+    definition: "Center of the first metatarsophalangeal joint (base of the hallux)"
+    reference_frame: foot
+    rest_position: [45, 15, -30]      # E
+  hallux_ip:
+    definition: "Center of the interphalangeal joint of the hallux"
+    reference_frame: foot
+    rest_position: [60, 15, -30]      # E
+  hallux_tip:
+    definition: "Distal tip of the hallux (big toe)"
+    reference_frame: foot
+    rest_position: [72, 15, -30]      # E
+  second_mtp:
+    definition: "Center of the second metatarsophalangeal joint"
+    reference_frame: foot
+    rest_position: [50, 5, -30]       # E
+  second_pip:
+    definition: "Center of the second proximal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [65, 5, -30]       # E
+  second_dip:
+    definition: "Center of the second distal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [75, 5, -30]       # E
+  second_tip:
+    definition: "Distal tip of the second toe"
+    reference_frame: foot
+    rest_position: [85, 5, -30]       # E
+  third_mtp:
+    definition: "Center of the third metatarsophalangeal joint"
+    reference_frame: foot
+    rest_position: [50, 0, -30]       # E
+  third_pip:
+    definition: "Center of the third proximal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [65, 0, -30]       # E
+  third_dip:
+    definition: "Center of the third distal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [75, 0, -30]       # E
+  third_tip:
+    definition: "Distal tip of the third toe"
+    reference_frame: foot
+    rest_position: [85, 0, -30]       # E
+  fourth_mtp:
+    definition: "Center of the fourth metatarsophalangeal joint"
+    reference_frame: foot
+    rest_position: [48, -5, -30]      # E
+  fourth_pip:
+    definition: "Center of the fourth proximal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [62, -5, -30]      # E
+  fourth_dip:
+    definition: "Center of the fourth distal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [72, -5, -30]      # E
+  fourth_tip:
+    definition: "Distal tip of the fourth toe"
+    reference_frame: foot
+    rest_position: [82, -5, -30]      # E
+  fifth_mtp:
+    definition: "Center of the fifth metatarsophalangeal joint"
+    reference_frame: foot
+    rest_position: [45, -15, -30]     # E
+  fifth_pip:
+    definition: "Center of the fifth proximal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [58, -15, -30]     # E
+  fifth_dip:
+    definition: "Center of the fifth distal interphalangeal joint"
+    reference_frame: foot
+    rest_position: [68, -15, -30]     # E
+  fifth_tip:
+    definition: "Distal tip of the fifth toe"
+    reference_frame: foot
+    rest_position: [78, -15, -30]     # E
+
+segments:
+  foot:
+    parent: lower_leg
+    origin_landmark: ankle
+    landmarks: [ankle, heel, hallux_mtp, hallux_ip, hallux_tip,
+                second_mtp, second_pip, second_dip, second_tip,
+                third_mtp, third_pip, third_dip, third_tip,
+                fourth_mtp, fourth_pip, fourth_dip, fourth_tip,
+                fifth_mtp, fifth_pip, fifth_dip, fifth_tip]
+    axes:
+      - {axis: y, kind: exact,       target_landmark: hallux_mtp, rest_direction: [1, 0, 0]}
+      - {axis: z, kind: approximate, target_landmark: heel,      rest_direction: [0, 0, -1]}

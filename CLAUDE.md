@@ -7,34 +7,38 @@ on disk and report stopping points.
 
 ## What this repo is (current architecture, 2026-08)
 
-The **segment model** of the canonical standard human — VRM 1.0 rigid bodies whose reference geometry is
-defined from tracker keypoints mapped onto per-segment **landmarks** (named points in each segment's local
-frame); see the human-reconstruction plans in `freemocap/current-work-plans/` (start with `ontology.md`). Layout:
+The **standard human**, rebuilt onto the seven-layer ontology (keypoint → mapping → landmark → segment →
+linkage → chain → skeleton), defined in **YAML** and compiled into typed objects whose references are
+objects, not strings. See `freemocap/current-work-plans/ontology.md` first. Layout:
 
 ```
 skellyforge/
 ├── skellymodels/standard_human/
-│   ├── segment_definition.py     # SegmentDefinition / RotationLimits / ParentAttachment — the authored unit
-│   ├── segment_parts.py          # SegmentPart + compose_parts (prefixing + midline name-agreement fallback)
-│   ├── body_part.py              # BODY_MIDLINE_PART + BODY_LIMB_PART (20 segments)
-│   ├── hand_part.py              # HAND_PART (16 segments)
-│   ├── face_part.py              # FACE_PART (8 segments: 3 VRM face bones + 5 face-detail)
-│   ├── standard_human_model.py   # frozen StandardHuman + compose_standard_human() — 60 segments
-│   ├── reference_geometry.py     # ReferenceGeometry.from_segments (T-pose, mirroring)
-│   ├── human_bone_aliases.py     # BONE_ALIASES (60: vrm + unreal targets)
-│   └── human_blendshapes.py      # 52 ARKit BlendShapeChannel declarations
+│   ├── anatomical_landmark.py   # AnatomicalLandmark (name + anatomical_definition + rest_position + reference_frame)
+│   ├── rigid_body_segment.py    # RigidBodySegment + AxisDefinition (length derived from rest_position)
+│   ├── joint_linkage.py         # JointLinkage (parent + child + shared landmark, derived from parent edges)
+│   ├── kinematic_chain.py       # KinematicChain (start → end path; the IK/FABRIK unit)
+│   ├── human_skeleton.py        # HumanSkeleton.from_yaml (parts + sidedness + Y-mirroring + $include)
+│   ├── face_blendshapes.py      # FaceBlendShapes (52 ARKit blendshapes; eyes/ears/nose are skull LANDMARKS)
+│   ├── config_types.py          # typed YAML config shapes (cls(**data), no string-key indexing)
+│   ├── definitions/             # flat part files: standard_human, pelvis, axial, arm, hand, leg, foot, face
+│   ├── segment_definition.py    # OLD — SegmentDefinition (being retired)
+│   ├── reference_geometry.py    # OLD — ReferenceGeometry / SegmentReferenceGeometry (being retired)
+│   ├── rest_pose.py             # OLD — RestSegment / RestLandmark (wire projection)
+│   └── … (body_part.py / hand_part.py / face_part.py / standard_human_model.py — OLD, being retired)
 └── kinematics/
-    ├── quaternion_math.py        # RotationQuaternion (wxyz) + vectorized ops
-    ├── coordinate_frame_ops.py   # basis construction, Kabsch, rotation_between_vectors
-    ├── orientation_solver.py     # solve_frame_orientations — landmark-declared two-tier twist
+    ├── quaternion_math.py       # RotationQuaternion (wxyz) + vectorized ops
+    ├── coordinate_frame_ops.py  # basis construction, Kabsch, rotation_between_vectors
+    ├── orientation_solver.py    # solve_frame_orientations (being ported to Kabsch for 3+ landmarks)
     ├── critically_damped_orientation.py  # the D3/D4 filter (per-segment state, time-constant based)
-    ├── online_segment_lengths.py # SegmentLengthEstimator (window_seconds=None = unbounded posthoc)
-    └── … (rigid_body_kinematics, skeleton_rigidifier, segment_lengths, inertial/)
+    └── …
 ```
 
-**Still old-architecture** (pending Phase D/E of the plan — do NOT build on them): `skellymodels/models/`
-+ `managers/` (the pre-standard-human model layer), `skellymodels/tracker_info/canonical_body.yaml` +
-`canonical_hand.yaml`, `skellyforge/biomechanics/` (dead duplicate), `pipelines/dlc_pipeline.py` (dead).
+**Old-architecture (being retired — do NOT build on them):** `segment_definition.py` (`SegmentDefinition`),
+`reference_geometry.py` (`ReferenceGeometry`/`SegmentReferenceGeometry`), `rest_pose.py`
+(`RestSegment`/`RestLandmark`), the Python-authored `body_part.py` / `hand_part.py` / `face_part.py` /
+`standard_human_model.py`, plus `skellymodels/models/` + `managers/`,
+`tracker_info/*.yaml`, `skellyforge/biomechanics/` (dead), `pipelines/dlc_pipeline.py` (dead).
 
 ## Commands
 

@@ -1,0 +1,85 @@
+landmarks:
+  neck_center:
+    definition: "Geometric center of the top surface of the first thoracic vertebra (T1)"
+    reference_frame: chest
+    rest_position: [0, 0, 271]        # E  (thoracic spine length)
+  mid_sternum:
+    definition: "Geometric center of the xiphoid process, the bottom tip of the sternum"
+    reference_frame: upper_chest
+    rest_position: [0, 0, 0]
+  head_center:
+    definition: "Geometric center of the foramen magnum, the hole at the base of the skull"
+    reference_frame: neck
+    rest_position: [0, 0, 157]        # E  (cervical spine length)
+  head_vertex:
+    definition: "Tippy top of the head, intersection of the coronal and sagittal sutures (bregma)"
+    reference_frame: head
+    rest_position: [0, 0, 70]         # E
+  nose:
+    definition: "Tip of the nose"
+    reference_frame: head
+    rest_position: [40, 0, -5]        # E
+  left_eye:
+    definition: "Center of the left orbit (inner/outer canthus midpoint)"
+    reference_frame: head
+    rest_position: [32, 15, 10]       # E
+  right_eye:
+    definition: "Center of the right orbit (inner/outer canthus midpoint)"
+    reference_frame: head
+    rest_position: [32, -15, 10]      # E
+  left_ear:
+    definition: "Entrance to the left ear canal (acoustic meatus)"
+    reference_frame: head
+    rest_position: [0, 35, -5]        # E
+  right_ear:
+    definition: "Entrance to the right ear canal (acoustic meatus)"
+    reference_frame: head
+    rest_position: [0, -35, -5]       # E
+  left_sternoclavicular:
+    definition: "Center of the left sternoclavicular joint"
+    reference_frame: upper_chest
+    rest_position: [0, 15, 271]        # E
+  right_sternoclavicular:
+    definition: "Center of the right sternoclavicular joint"
+    reference_frame: upper_chest
+    rest_position: [0, -15, 271]       # E
+  trunk_center:
+    definition: "Geometric center of the top surface of the first lumbar vertebra (L1)"
+    reference_frame: spine
+    rest_position: [0, 0, 134]        # E  (lumbar spine length)
+
+segments:
+  spine:
+    parent: pelvis
+    origin_landmark: lumbosacral_junction
+    landmarks: [lumbosacral_junction, trunk_center]
+    axes:
+      - {axis: y, kind: exact, target_landmark: trunk_center, rest_direction: [0, 0, 1]}
+  chest:
+    parent: spine
+    origin_landmark: trunk_center
+    landmarks: [trunk_center, neck_center]
+    axes:
+      - {axis: y, kind: exact, target_landmark: neck_center, rest_direction: [0, 0, 1]}
+  upper_chest:
+    parent: chest
+    origin_landmark: mid_sternum
+    landmarks: [mid_sternum, neck_center, left_sternoclavicular, right_sternoclavicular]
+    axes:
+      - {axis: y, kind: exact, target_landmark: neck_center, rest_direction: [0, 0, 1]}
+  neck:
+    parent: upper_chest
+    origin_landmark: neck_center
+    landmarks: [neck_center, head_center]
+    axes:
+      - {axis: y, kind: exact, target_landmark: head_center, rest_direction: [0, 0, 1]}
+  head:
+    parent: neck
+    origin_landmark: head_center
+    landmarks: [head_center, head_vertex, nose, left_eye, right_eye, left_ear, right_ear]
+    axes:
+      - {axis: y, kind: exact,       target_landmark: head_vertex, rest_direction: [0, 0, 1]}
+      - {axis: z, kind: approximate, target_landmark: nose,        rest_direction: [1, 0, 0]}
+
+chains:
+  axial: {start: pelvis, end: head}

@@ -1,0 +1,188 @@
+sided: true
+
+landmarks:
+  thumb_mcp:
+    definition: "Center of the metacarpophalangeal joint of the thumb"
+    reference_frame: hand
+    rest_position: [20, 20, 0]        # E
+  thumb_cmc:
+    definition: "Center of the carpometacarpal joint of the thumb (base of the thumb, in the palm)"
+    reference_frame: hand
+    rest_position: [0, 22, 0]         # E
+  thumb_ip:
+    definition: "Center of the interphalangeal joint of the thumb"
+    reference_frame: thumb_proximal
+    rest_position: [0, 30, 0]         # E
+  thumb_tip:
+    definition: "Distal tip of the thumb"
+    reference_frame: thumb_distal
+    rest_position: [0, 25, 0]         # E
+  index_mcp:
+    definition: "Center of the metacarpophalangeal joint of the index finger"
+    reference_frame: hand
+    rest_position: [20, 5, 0]         # E
+  index_pip:
+    definition: "Center of the proximal interphalangeal joint of the index finger"
+    reference_frame: index_proximal
+    rest_position: [0, 45, 0]         # E
+  index_dip:
+    definition: "Center of the distal interphalangeal joint of the index finger"
+    reference_frame: index_intermediate
+    rest_position: [0, 25, 0]         # E
+  index_tip:
+    definition: "Distal tip of the index finger"
+    reference_frame: index_distal
+    rest_position: [0, 20, 0]         # E
+  middle_mcp:
+    definition: "Center of the metacarpophalangeal joint of the middle finger"
+    reference_frame: hand
+    rest_position: [20, 0, 0]         # E
+  middle_pip:
+    definition: "Center of the proximal interphalangeal joint of the middle finger"
+    reference_frame: middle_proximal
+    rest_position: [0, 50, 0]         # E
+  middle_dip:
+    definition: "Center of the distal interphalangeal joint of the middle finger"
+    reference_frame: middle_intermediate
+    rest_position: [0, 28, 0]         # E
+  middle_tip:
+    definition: "Distal tip of the middle finger"
+    reference_frame: middle_distal
+    rest_position: [0, 22, 0]         # E
+  ring_mcp:
+    definition: "Center of the metacarpophalangeal joint of the ring finger"
+    reference_frame: hand
+    rest_position: [20, -5, 0]        # E
+  ring_pip:
+    definition: "Center of the proximal interphalangeal joint of the ring finger"
+    reference_frame: ring_proximal
+    rest_position: [0, 42, 0]         # E
+  ring_dip:
+    definition: "Center of the distal interphalangeal joint of the ring finger"
+    reference_frame: ring_intermediate
+    rest_position: [0, 23, 0]         # E
+  ring_tip:
+    definition: "Distal tip of the ring finger"
+    reference_frame: ring_distal
+    rest_position: [0, 18, 0]         # E
+  little_mcp:
+    definition: "Center of the metacarpophalangeal joint of the little finger"
+    reference_frame: hand
+    rest_position: [20, -10, 0]       # E
+  little_pip:
+    definition: "Center of the proximal interphalangeal joint of the little finger"
+    reference_frame: little_proximal
+    rest_position: [0, 35, 0]         # E
+  little_dip:
+    definition: "Center of the distal interphalangeal joint of the little finger"
+    reference_frame: little_intermediate
+    rest_position: [0, 20, 0]         # E
+  little_tip:
+    definition: "Distal tip of the little finger"
+    reference_frame: little_distal
+    rest_position: [0, 15, 0]         # E
+
+segments:
+  hand:
+    parent: lower_arm
+    origin_landmark: wrist
+    landmarks: [wrist, thumb_cmc, thumb_mcp, index_mcp, middle_mcp, ring_mcp, little_mcp]
+    axes:
+      - {axis: y, kind: exact, target_landmark: middle_mcp, rest_direction: [0, 1, 0]}
+  thumb_metacarpal:
+    parent: hand
+    origin_landmark: thumb_cmc
+    landmarks: [thumb_cmc, thumb_mcp]
+    axes:
+      - {axis: y, kind: exact, target_landmark: thumb_mcp, rest_direction: [0, 1, 0]}
+  thumb_proximal:
+    parent: thumb_metacarpal
+    origin_landmark: thumb_mcp
+    landmarks: [thumb_mcp, thumb_ip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: thumb_ip, rest_direction: [0, 1, 0]}
+  thumb_distal:
+    parent: thumb_proximal
+    origin_landmark: thumb_ip
+    landmarks: [thumb_ip, thumb_tip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: thumb_tip, rest_direction: [0, 1, 0]}
+  index_proximal:
+    parent: hand
+    origin_landmark: index_mcp
+    landmarks: [index_mcp, index_pip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: index_pip, rest_direction: [0, 1, 0]}
+  index_intermediate:
+    parent: index_proximal
+    origin_landmark: index_pip
+    landmarks: [index_pip, index_dip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: index_dip, rest_direction: [0, 1, 0]}
+  index_distal:
+    parent: index_intermediate
+    origin_landmark: index_dip
+    landmarks: [index_dip, index_tip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: index_tip, rest_direction: [0, 1, 0]}
+  middle_proximal:
+    parent: hand
+    origin_landmark: middle_mcp
+    landmarks: [middle_mcp, middle_pip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: middle_pip, rest_direction: [0, 1, 0]}
+  middle_intermediate:
+    parent: middle_proximal
+    origin_landmark: middle_pip
+    landmarks: [middle_pip, middle_dip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: middle_dip, rest_direction: [0, 1, 0]}
+  middle_distal:
+    parent: middle_intermediate
+    origin_landmark: middle_dip
+    landmarks: [middle_dip, middle_tip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: middle_tip, rest_direction: [0, 1, 0]}
+  ring_proximal:
+    parent: hand
+    origin_landmark: ring_mcp
+    landmarks: [ring_mcp, ring_pip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: ring_pip, rest_direction: [0, 1, 0]}
+  ring_intermediate:
+    parent: ring_proximal
+    origin_landmark: ring_pip
+    landmarks: [ring_pip, ring_dip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: ring_dip, rest_direction: [0, 1, 0]}
+  ring_distal:
+    parent: ring_intermediate
+    origin_landmark: ring_dip
+    landmarks: [ring_dip, ring_tip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: ring_tip, rest_direction: [0, 1, 0]}
+  little_proximal:
+    parent: hand
+    origin_landmark: little_mcp
+    landmarks: [little_mcp, little_pip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: little_pip, rest_direction: [0, 1, 0]}
+  little_intermediate:
+    parent: little_proximal
+    origin_landmark: little_pip
+    landmarks: [little_pip, little_dip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: little_dip, rest_direction: [0, 1, 0]}
+  little_distal:
+    parent: little_intermediate
+    origin_landmark: little_dip
+    landmarks: [little_dip, little_tip]
+    axes:
+      - {axis: y, kind: exact, target_landmark: little_tip, rest_direction: [0, 1, 0]}
+
+chains:
+  thumb:  {start: hand, end: thumb_distal}
+  index:  {start: hand, end: index_distal}
+  middle: {start: hand, end: middle_distal}
+  ring:   {start: hand, end: ring_distal}
+  little: {start: hand, end: little_distal}

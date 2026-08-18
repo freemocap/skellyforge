@@ -1,0 +1,38 @@
+landmarks:
+  hips_center:
+    definition: "Geometric center of the left and right hip sockets, anterior to the sacrum"
+    reference_frame: pelvis
+    rest_position: [0, 0, 0]
+  lumbosacral_junction:
+    definition: "Geometric center of the lumbosacral junction (L5/S1), the top of the sacrum"
+    reference_frame: pelvis
+    rest_position: [0, 0, 120]        # E  (top of the sacrum)
+  left_hip:
+    definition: "Geometric center of the proximal surface of the left hip socket (acetabulum)"
+    reference_frame: pelvis
+    rest_position: [0, 88, 0]         # E
+  right_hip:
+    definition: "Geometric center of the proximal surface of the right hip socket (acetabulum)"
+    reference_frame: pelvis
+    rest_position: [0, -88, 0]        # E
+  left_iliac_crest:
+    definition: "Most superior point of the left iliac crest"
+    reference_frame: pelvis
+    rest_position: [0, 88, 80]        # E
+  right_iliac_crest:
+    definition: "Most superior point of the right iliac crest"
+    reference_frame: pelvis
+    rest_position: [0, -88, 80]       # E
+  pubic_symphysis:
+    definition: "Geometric center of the pubic symphysis"
+    reference_frame: pelvis
+    rest_position: [0, 0, -40]        # E
+
+segments:
+  pelvis:
+    parent: null
+    origin_landmark: hips_center
+    landmarks: [hips_center, lumbosacral_junction, left_hip, right_hip, left_iliac_crest, right_iliac_crest, pubic_symphysis]
+    axes:
+      - {axis: y, kind: exact,       target_landmark: lumbosacral_junction, rest_direction: [0, 0, 1]}
+      - {axis: x, kind: approximate, target_landmark: right_hip,  rest_direction: [0, -1, 0]}

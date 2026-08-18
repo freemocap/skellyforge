@@ -1,0 +1,38 @@
+sided: true
+
+landmarks:
+  shoulder:
+    definition: "Center of the glenohumeral joint"
+    reference_frame: clavicle
+    rest_position: [0, 180, 0]        # E  (clavicle + shoulder width)
+  elbow:
+    definition: "Center of the elbow joint, near the trochlea of the humerus"
+    reference_frame: upper_arm
+    rest_position: [0, 325, 0]        # E  (humerus length)
+  wrist:
+    definition: "Center of the radiocarpal joint, near the lunate fossa of the radius"
+    reference_frame: lower_arm
+    rest_position: [0, 255, 0]        # E  (forearm length)
+
+segments:
+  clavicle:
+    parent: upper_chest
+    origin_landmark: sternoclavicular
+    landmarks: [sternoclavicular, shoulder]
+    axes:
+      - {axis: y, kind: exact, target_landmark: shoulder, rest_direction: [0, 1, 0]}
+  upper_arm:
+    parent: clavicle
+    origin_landmark: shoulder
+    landmarks: [shoulder, elbow]
+    axes:
+      - {axis: y, kind: exact, target_landmark: elbow, rest_direction: [0, 1, 0]}
+  lower_arm:
+    parent: upper_arm
+    origin_landmark: elbow
+    landmarks: [elbow, wrist]
+    axes:
+      - {axis: y, kind: exact, target_landmark: wrist, rest_direction: [0, 1, 0]}
+
+chains:
+  arm: {start: clavicle, end: lower_arm}

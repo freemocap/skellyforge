@@ -11,9 +11,13 @@ actual CBOR encoding.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TypeAlias
 
 _SIGNED_AXES = ("x", "y", "z", "-x", "-y", "-z")
+
+CborValue: TypeAlias = (
+    str | int | float | bool | None | bytes | list["CborValue"] | dict[str, "CborValue"]
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +79,7 @@ class RestSegment:
             rigid_with_parent=segment.rigid_with_parent,
         )
 
-    def to_cbor_message(self) -> dict[str, Any]:
+    def to_cbor_message(self) -> CborValue:
         return {
             "name": self.name,
             "parent": self.parent,
@@ -98,7 +102,7 @@ class RestLandmark:
     def from_position(cls, name: str, position) -> "RestLandmark":
         return cls(name=name, rest_position=(float(position[0]), float(position[1]), float(position[2])))
 
-    def to_cbor_message(self) -> dict[str, Any]:
+    def to_cbor_message(self) -> CborValue:
         result = {"name": self.name}
         if self.rest_position is not None:
             result["rest_position"] = list(self.rest_position)

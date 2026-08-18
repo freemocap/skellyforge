@@ -36,6 +36,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
+    align_point_sets_kabsch,
     assemble_named_basis,
     axis_index_and_sign,
     build_segment_frame,
@@ -119,6 +120,7 @@ def solve_frame_orientations(
     reference_geometry: dict[str, "SegmentReferenceGeometry"],
     landmarks: dict[str, NDArray[float64]],
     *,
+    reference_landmarks: dict[str, NDArray[float64]] | None = None,
     timestamp_seconds: float,
     previous_result: FrameOrientationResult | None = None,
 ) -> FrameOrientationResult:
@@ -159,6 +161,32 @@ def solve_frame_orientations(
         ref_geom = reference_geometry.get(segment.name)
         if ref_geom is None:
             continue  # no reference geometry — nothing to solve against
+
+        # Full rigid bodies (≥3 declared landmarks) solve their rotation by a
+        # Kabsch fit over the WHOLE landmark cloud — the skull (head), hips, feet
+        # and toes are rigid bodies whose orientation is over-determined by their
+        # pairwise geometry, not 2-point spans. Falls back to swing+twist when the
+        # reference cloud is absent or too few points hydrate this frame.
+        if reference_landmarks is not None and len(segment.landmarks) >= 3:
+            ref_pts: list[NDArray[float64]] = []
+            live_pts: list[NDArray[float64]] = []
+            for name in segment.landmarks:
+                ref_p = reference_landmarks.get(name)
+                live_p = landmarks.get(name)
+                if ref_p is not None and live_p is not None:
+                    ref_pts.append(np.asarray(ref_p, dtype=np.float64))
+                    live_pts.append(np.asarray(live_p, dtype=np.float64))
+            if len(ref_pts) >= 3:
+                try:
+                    R = align_point_sets_kabsch(
+                        np.asarray(ref_pts, dtype=np.float64),
+                        np.asarray(live_pts, dtype=np.float64),
+                    )
+                    world_quats[segment.name] = RotationQuaternion.from_rotation_matrix(R)
+                    continue
+                except ValueError:
+                    pass  # collinear/degenerate this frame — fall through to swing+twist
+
         origin = landmarks.get(segment.origin_landmark)
         if origin is None:
             continue  # occluded this frame

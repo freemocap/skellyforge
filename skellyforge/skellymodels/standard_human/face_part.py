@@ -102,15 +102,15 @@ FACE_PART = SegmentPart(
     segments=(
         SegmentDefinition(
             name="left_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            landmarks=("left_eye", "nose"), origin_landmark="left_eye",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_EYE_REST),),
+            landmarks=("head_center", "left_eye"), origin_landmark="head_center",
+            axes=(AxisDefinition("z", AxisKind.EXACT, "left_eye", rest_direction=_EYE_REST),),
             length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
         SegmentDefinition(
             name="right_eye", parent="head", parent_attachment=ParentAttachment.ORIGIN,
-            landmarks=("right_eye", "nose"), origin_landmark="right_eye",
-            axes=(AxisDefinition("z", AxisKind.EXACT, "nose", rest_direction=_EYE_REST),),
+            landmarks=("head_center", "right_eye"), origin_landmark="head_center",
+            axes=(AxisDefinition("z", AxisKind.EXACT, "right_eye", rest_direction=_EYE_REST),),
             length_ratio=_RATIO_NOMINAL,
             rigid_with_parent=True,
         ),
