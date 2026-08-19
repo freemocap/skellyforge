@@ -11,9 +11,10 @@ YAML_PATH = (
 def test_lower_body_loads():
     skeleton = HumanSkeleton.from_yaml(YAML_PATH)
     assert skeleton.name == "lower_body"
-    assert len(skeleton.segments) == 7       # pelvis + 2 thighs + 2 calves + 2 feet
-    assert len(skeleton.linkages) == 6       # 2 hips + 2 knees + 2 ankles
-    assert len(skeleton.chains) == 2         # left + right leg
+    # pelvis + per side: thigh + calf + foot + 7 tarsals + 5 metatarsals + 14 phalanges
+    assert len(skeleton.segments) == 45
+    assert len(skeleton.linkages) == 44      # one per non-root segment
+    assert len(skeleton.chains) == 12        # 2 legs + 2 x 5 toe chains
 
     thigh = skeleton.segment("left_upper_leg")
     assert thigh.parent.name == "pelvis"
@@ -38,16 +39,24 @@ def test_lower_body_loads():
 def test_sided_shares_local_geometry_and_mirrors_rest_direction():
     skeleton = HumanSkeleton.from_yaml(YAML_PATH)
 
-    # full toe complexity: 21 landmarks on each foot
+    # the tarsus carries the ankle + 7 tarsal bones + 5 metatarsophalangeal joints
     left_foot = skeleton.segment("left_foot")
     right_foot = skeleton.segment("right_foot")
-    assert len(left_foot.landmarks) == 21
+    assert len(left_foot.landmarks) == 13
 
-    # rest_positions are SIDE-AGNOSTIC local geometry (left == right, no mirroring)
-    left_mtp = next(l for l in left_foot.landmarks if l.name == "left_foot_hallux_mtp")
-    right_mtp = next(l for l in right_foot.landmarks if l.name == "right_foot_hallux_mtp")
-    assert left_mtp.rest_position == (-15.0, 45.0, 30.0)
-    assert right_mtp.rest_position == left_mtp.rest_position  # identical local
+    # rest_positions are SIDE-AGNOSTIC local geometry (left == right, no mirroring):
+    # the right side mirrors only the world rest_direction, never the rest_position
+    left_mtp = next(
+        l for l in left_foot.landmarks
+        if l.name == "left_foot_big_toe_metatarsophalangeal_joint"
+    )
+    right_mtp = next(
+        l for l in right_foot.landmarks
+        if l.name == "right_foot_big_toe_metatarsophalangeal_joint"
+    )
+    assert left_mtp.rest_position == right_mtp.rest_position  # identical local geometry
+    assert left_mtp.reference_frame == "left_first_metatarsal"
+    assert right_mtp.reference_frame == "right_first_metatarsal"
 
     # the WORLD rest_direction mirrors Y for the right side
     left_twist = skeleton.segment("left_upper_leg").axes[1].rest_direction
