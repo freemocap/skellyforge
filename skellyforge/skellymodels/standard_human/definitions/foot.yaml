@@ -1,96 +1,256 @@
 sided: true
 
 landmarks:
-  foot_heel:
-    definition: "Contact surface of the heel with the ground, most distal point of the calcaneus"
+  # ---- Tarsal bones (hindfoot + midfoot) ----
+  foot_talus:
+    definition: "Center of the talus tarsal bone of the ankle"
     reference_frame: foot
-    rest_position: [0, -30, 25]       # E  (backward -Y, plantar +Z)
-  foot_hallux_mtp:
-    definition: "Center of the first metatarsophalangeal joint (base of the hallux)"
+    rest_position: [0, 0, 0]
+  foot_calcaneus:
+    definition: "Center of the calcaneus tarsal bone of the heel"
     reference_frame: foot
-    rest_position: [-15, 45, 30]      # E  (medial -X)
-  foot_hallux_ip:
-    definition: "Center of the interphalangeal joint of the hallux"
+    rest_position: [0, -30, 25]
+  foot_navicular:
+    definition: "Center of the navicular tarsal bone of the midfoot"
     reference_frame: foot
-    rest_position: [-15, 60, 30]      # E
-  foot_hallux_tip:
-    definition: "Distal tip of the hallux (big toe)"
+    rest_position: [-5, 15, 25]
+  foot_cuboid:
+    definition: "Center of the cuboid tarsal bone of the midfoot"
     reference_frame: foot
-    rest_position: [-15, 72, 30]      # E
-  foot_second_mtp:
-    definition: "Center of the second metatarsophalangeal joint"
+    rest_position: [10, 15, 25]
+  foot_medial_cuneiform:
+    definition: "Center of the medial cuneiform tarsal bone of the midfoot"
     reference_frame: foot
-    rest_position: [-5, 50, 30]       # E
-  foot_second_pip:
-    definition: "Center of the second proximal interphalangeal joint"
+    rest_position: [-5, 30, 25]
+  foot_intermediate_cuneiform:
+    definition: "Center of the intermediate cuneiform tarsal bone of the midfoot"
     reference_frame: foot
-    rest_position: [-5, 65, 30]       # E
-  foot_second_dip:
-    definition: "Center of the second distal interphalangeal joint"
+    rest_position: [0, 32, 25]
+  foot_lateral_cuneiform:
+    definition: "Center of the lateral cuneiform tarsal bone of the midfoot"
     reference_frame: foot
-    rest_position: [-5, 75, 30]       # E
-  foot_second_tip:
+    rest_position: [5, 30, 25]
+
+  # ---- Big toe ----
+  foot_big_toe_metatarsophalangeal_joint:
+    definition: "Center of the metatarsophalangeal joint of the big toe"
+    reference_frame: first_metatarsal
+    rest_position: [0, 18, 0]
+  foot_big_toe_interphalangeal_joint:
+    definition: "Center of the interphalangeal joint of the big toe"
+    reference_frame: big_toe_proximal_phalanx
+    rest_position: [0, 15, 0]
+  foot_big_toe_tip:
+    definition: "Distal tip of the big toe"
+    reference_frame: big_toe_distal_phalanx
+    rest_position: [0, 12, 0]
+
+  # ---- Second toe ----
+  foot_second_toe_metatarsophalangeal_joint:
+    definition: "Center of the metatarsophalangeal joint of the second toe"
+    reference_frame: second_metatarsal
+    rest_position: [0, 20, 0]
+  foot_second_toe_proximal_interphalangeal_joint:
+    definition: "Center of the proximal interphalangeal joint of the second toe"
+    reference_frame: second_toe_proximal_phalanx
+    rest_position: [0, 15, 0]
+  foot_second_toe_distal_interphalangeal_joint:
+    definition: "Center of the distal interphalangeal joint of the second toe"
+    reference_frame: second_toe_middle_phalanx
+    rest_position: [0, 10, 0]
+  foot_second_toe_tip:
     definition: "Distal tip of the second toe"
-    reference_frame: foot
-    rest_position: [-5, 85, 30]       # E
-  foot_third_mtp:
-    definition: "Center of the third metatarsophalangeal joint"
-    reference_frame: foot
-    rest_position: [0, 50, 30]        # E
-  foot_third_pip:
-    definition: "Center of the third proximal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [0, 65, 30]        # E
-  foot_third_dip:
-    definition: "Center of the third distal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [0, 75, 30]        # E
-  foot_third_tip:
+    reference_frame: second_toe_distal_phalanx
+    rest_position: [0, 10, 0]
+
+  # ---- Third toe ----
+  foot_third_toe_metatarsophalangeal_joint:
+    definition: "Center of the metatarsophalangeal joint of the third toe"
+    reference_frame: third_metatarsal
+    rest_position: [0, 21, 0]
+  foot_third_toe_proximal_interphalangeal_joint:
+    definition: "Center of the proximal interphalangeal joint of the third toe"
+    reference_frame: third_toe_proximal_phalanx
+    rest_position: [0, 15, 0]
+  foot_third_toe_distal_interphalangeal_joint:
+    definition: "Center of the distal interphalangeal joint of the third toe"
+    reference_frame: third_toe_middle_phalanx
+    rest_position: [0, 10, 0]
+  foot_third_toe_tip:
     definition: "Distal tip of the third toe"
-    reference_frame: foot
-    rest_position: [0, 85, 30]        # E
-  foot_fourth_mtp:
-    definition: "Center of the fourth metatarsophalangeal joint"
-    reference_frame: foot
-    rest_position: [5, 48, 30]        # E
-  foot_fourth_pip:
-    definition: "Center of the fourth proximal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [5, 62, 30]        # E
-  foot_fourth_dip:
-    definition: "Center of the fourth distal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [5, 72, 30]        # E
-  foot_fourth_tip:
+    reference_frame: third_toe_distal_phalanx
+    rest_position: [0, 10, 0]
+
+  # ---- Fourth toe ----
+  foot_fourth_toe_metatarsophalangeal_joint:
+    definition: "Center of the metatarsophalangeal joint of the fourth toe"
+    reference_frame: fourth_metatarsal
+    rest_position: [0, 33, 0]
+  foot_fourth_toe_proximal_interphalangeal_joint:
+    definition: "Center of the proximal interphalangeal joint of the fourth toe"
+    reference_frame: fourth_toe_proximal_phalanx
+    rest_position: [0, 14, 0]
+  foot_fourth_toe_distal_interphalangeal_joint:
+    definition: "Center of the distal interphalangeal joint of the fourth toe"
+    reference_frame: fourth_toe_middle_phalanx
+    rest_position: [0, 10, 0]
+  foot_fourth_toe_tip:
     definition: "Distal tip of the fourth toe"
-    reference_frame: foot
-    rest_position: [5, 82, 30]        # E
-  foot_fifth_mtp:
-    definition: "Center of the fifth metatarsophalangeal joint"
-    reference_frame: foot
-    rest_position: [15, 45, 30]       # E  (lateral +X)
-  foot_fifth_pip:
-    definition: "Center of the fifth proximal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [15, 58, 30]       # E
-  foot_fifth_dip:
-    definition: "Center of the fifth distal interphalangeal joint"
-    reference_frame: foot
-    rest_position: [15, 68, 30]       # E
-  foot_fifth_tip:
-    definition: "Distal tip of the fifth toe"
-    reference_frame: foot
-    rest_position: [15, 78, 30]       # E
+    reference_frame: fourth_toe_distal_phalanx
+    rest_position: [0, 10, 0]
+
+  # ---- Pinky toe ----
+  foot_pinky_toe_metatarsophalangeal_joint:
+    definition: "Center of the metatarsophalangeal joint of the pinky toe"
+    reference_frame: fifth_metatarsal
+    rest_position: [0, 30, 0]
+  foot_pinky_toe_proximal_interphalangeal_joint:
+    definition: "Center of the proximal interphalangeal joint of the pinky toe"
+    reference_frame: pinky_toe_proximal_phalanx
+    rest_position: [0, 13, 0]
+  foot_pinky_toe_distal_interphalangeal_joint:
+    definition: "Center of the distal interphalangeal joint of the pinky toe"
+    reference_frame: pinky_toe_middle_phalanx
+    rest_position: [0, 10, 0]
+  foot_pinky_toe_tip:
+    definition: "Distal tip of the pinky toe"
+    reference_frame: pinky_toe_distal_phalanx
+    rest_position: [0, 10, 0]
 
 segments:
   foot:
     parent: lower_leg
     origin_landmark: ankle
-    landmarks: [ankle, foot_heel, foot_hallux_mtp, foot_hallux_ip, foot_hallux_tip,
-                foot_second_mtp, foot_second_pip, foot_second_dip, foot_second_tip,
-                foot_third_mtp, foot_third_pip, foot_third_dip, foot_third_tip,
-                foot_fourth_mtp, foot_fourth_pip, foot_fourth_dip, foot_fourth_tip,
-                foot_fifth_mtp, foot_fifth_pip, foot_fifth_dip, foot_fifth_tip]
+    landmarks: [ankle, foot_talus, foot_calcaneus, foot_navicular, foot_cuboid, foot_medial_cuneiform, foot_intermediate_cuneiform, foot_lateral_cuneiform,
+                foot_big_toe_metatarsophalangeal_joint, foot_second_toe_metatarsophalangeal_joint, foot_third_toe_metatarsophalangeal_joint,
+                foot_fourth_toe_metatarsophalangeal_joint, foot_pinky_toe_metatarsophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: foot_hallux_mtp, rest_direction: [1, 0, 0]}
-      - {axis: z, target_landmark: foot_heel,      rest_direction: [0, 0, -1]}
+      - {axis: y, target_landmark: foot_intermediate_cuneiform, rest_direction: [1, 0, 0]}
+      - {axis: x, target_landmark: foot_cuboid,                 rest_direction: [0, 1, 0]}
+
+  first_metatarsal:
+    parent: foot
+    origin_landmark: foot_medial_cuneiform
+    landmarks: [foot_medial_cuneiform, foot_big_toe_metatarsophalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_big_toe_metatarsophalangeal_joint, rest_direction: [1, 0, 0]}
+  second_metatarsal:
+    parent: foot
+    origin_landmark: foot_intermediate_cuneiform
+    landmarks: [foot_intermediate_cuneiform, foot_second_toe_metatarsophalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_second_toe_metatarsophalangeal_joint, rest_direction: [1, 0, 0]}
+  third_metatarsal:
+    parent: foot
+    origin_landmark: foot_lateral_cuneiform
+    landmarks: [foot_lateral_cuneiform, foot_third_toe_metatarsophalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_third_toe_metatarsophalangeal_joint, rest_direction: [1, 0, 0]}
+  fourth_metatarsal:
+    parent: foot
+    origin_landmark: foot_cuboid
+    landmarks: [foot_cuboid, foot_fourth_toe_metatarsophalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_fourth_toe_metatarsophalangeal_joint, rest_direction: [1, 0, 0]}
+  fifth_metatarsal:
+    parent: foot
+    origin_landmark: foot_cuboid
+    landmarks: [foot_cuboid, foot_pinky_toe_metatarsophalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_pinky_toe_metatarsophalangeal_joint, rest_direction: [1, 0, 0]}
+
+  big_toe_proximal_phalanx:
+    parent: first_metatarsal
+    origin_landmark: foot_big_toe_metatarsophalangeal_joint
+    landmarks: [foot_big_toe_metatarsophalangeal_joint, foot_big_toe_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_big_toe_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  big_toe_distal_phalanx:
+    parent: big_toe_proximal_phalanx
+    origin_landmark: foot_big_toe_interphalangeal_joint
+    landmarks: [foot_big_toe_interphalangeal_joint, foot_big_toe_tip]
+    axes:
+      - {axis: y, target_landmark: foot_big_toe_tip, rest_direction: [1, 0, 0]}
+
+  second_toe_proximal_phalanx:
+    parent: second_metatarsal
+    origin_landmark: foot_second_toe_metatarsophalangeal_joint
+    landmarks: [foot_second_toe_metatarsophalangeal_joint, foot_second_toe_proximal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_second_toe_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  second_toe_middle_phalanx:
+    parent: second_toe_proximal_phalanx
+    origin_landmark: foot_second_toe_proximal_interphalangeal_joint
+    landmarks: [foot_second_toe_proximal_interphalangeal_joint, foot_second_toe_distal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_second_toe_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  second_toe_distal_phalanx:
+    parent: second_toe_middle_phalanx
+    origin_landmark: foot_second_toe_distal_interphalangeal_joint
+    landmarks: [foot_second_toe_distal_interphalangeal_joint, foot_second_toe_tip]
+    axes:
+      - {axis: y, target_landmark: foot_second_toe_tip, rest_direction: [1, 0, 0]}
+
+  third_toe_proximal_phalanx:
+    parent: third_metatarsal
+    origin_landmark: foot_third_toe_metatarsophalangeal_joint
+    landmarks: [foot_third_toe_metatarsophalangeal_joint, foot_third_toe_proximal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_third_toe_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  third_toe_middle_phalanx:
+    parent: third_toe_proximal_phalanx
+    origin_landmark: foot_third_toe_proximal_interphalangeal_joint
+    landmarks: [foot_third_toe_proximal_interphalangeal_joint, foot_third_toe_distal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_third_toe_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  third_toe_distal_phalanx:
+    parent: third_toe_middle_phalanx
+    origin_landmark: foot_third_toe_distal_interphalangeal_joint
+    landmarks: [foot_third_toe_distal_interphalangeal_joint, foot_third_toe_tip]
+    axes:
+      - {axis: y, target_landmark: foot_third_toe_tip, rest_direction: [1, 0, 0]}
+
+  fourth_toe_proximal_phalanx:
+    parent: fourth_metatarsal
+    origin_landmark: foot_fourth_toe_metatarsophalangeal_joint
+    landmarks: [foot_fourth_toe_metatarsophalangeal_joint, foot_fourth_toe_proximal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_fourth_toe_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  fourth_toe_middle_phalanx:
+    parent: fourth_toe_proximal_phalanx
+    origin_landmark: foot_fourth_toe_proximal_interphalangeal_joint
+    landmarks: [foot_fourth_toe_proximal_interphalangeal_joint, foot_fourth_toe_distal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_fourth_toe_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  fourth_toe_distal_phalanx:
+    parent: fourth_toe_middle_phalanx
+    origin_landmark: foot_fourth_toe_distal_interphalangeal_joint
+    landmarks: [foot_fourth_toe_distal_interphalangeal_joint, foot_fourth_toe_tip]
+    axes:
+      - {axis: y, target_landmark: foot_fourth_toe_tip, rest_direction: [1, 0, 0]}
+
+  pinky_toe_proximal_phalanx:
+    parent: fifth_metatarsal
+    origin_landmark: foot_pinky_toe_metatarsophalangeal_joint
+    landmarks: [foot_pinky_toe_metatarsophalangeal_joint, foot_pinky_toe_proximal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_pinky_toe_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  pinky_toe_middle_phalanx:
+    parent: pinky_toe_proximal_phalanx
+    origin_landmark: foot_pinky_toe_proximal_interphalangeal_joint
+    landmarks: [foot_pinky_toe_proximal_interphalangeal_joint, foot_pinky_toe_distal_interphalangeal_joint]
+    axes:
+      - {axis: y, target_landmark: foot_pinky_toe_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
+  pinky_toe_distal_phalanx:
+    parent: pinky_toe_middle_phalanx
+    origin_landmark: foot_pinky_toe_distal_interphalangeal_joint
+    landmarks: [foot_pinky_toe_distal_interphalangeal_joint, foot_pinky_toe_tip]
+    axes:
+      - {axis: y, target_landmark: foot_pinky_toe_tip, rest_direction: [1, 0, 0]}
+
+chains:
+  big_toe:  {start: first_metatarsal, end: big_toe_distal_phalanx}
+  second_toe: {start: second_metatarsal, end: second_toe_distal_phalanx}
+  third_toe:  {start: third_metatarsal, end: third_toe_distal_phalanx}
+  fourth_toe: {start: fourth_metatarsal, end: fourth_toe_distal_phalanx}
+  pinky_toe:  {start: fifth_metatarsal, end: pinky_toe_distal_phalanx}
