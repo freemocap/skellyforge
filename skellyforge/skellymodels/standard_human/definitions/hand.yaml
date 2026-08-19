@@ -253,8 +253,8 @@ segments:
       - {axis: y, target_landmark: hand_pinky_finger_tip, rest_direction: [1, 0, 0]}
 
 chains:
-  thumb:  {start: thumb_metacarpal, end: thumb_distal_phalanx}
-  index:  {start: index_finger_metacarpal, end: index_finger_distal_phalanx}
-  middle: {start: middle_finger_metacarpal, end: middle_finger_distal_phalanx}
-  ring:   {start: ring_finger_metacarpal, end: ring_finger_distal_phalanx}
-  pinky:  {start: pinky_finger_metacarpal, end: pinky_finger_distal_phalanx}
+  thumb:         {start: thumb_metacarpal,         end: thumb_distal_phalanx}
+  index_finger:  {start: index_finger_metacarpal,  end: index_finger_distal_phalanx}
+  middle_finger: {start: middle_finger_metacarpal, end: middle_finger_distal_phalanx}
+  ring_finger:   {start: ring_finger_metacarpal,   end: ring_finger_distal_phalanx}
+  pinky_finger:  {start: pinky_finger_metacarpal,  end: pinky_finger_distal_phalanx}

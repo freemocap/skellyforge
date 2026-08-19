@@ -29,8 +29,11 @@ skellyforge/
 └── kinematics/
     ├── quaternion_math.py       # RotationQuaternion (wxyz) + vectorized ops
     ├── coordinate_frame_ops.py  # basis construction, Kabsch, rotation_between_vectors
-    ├── orientation_solver.py    # solve_frame_orientations (being ported to Kabsch for 3+ landmarks)
+    ├── orientation_solver.py    # solve_frame_orientations (Kabsch for 3+, swing+twist for 2)
     ├── critically_damped_orientation.py  # the D3/D4 filter (per-segment state, time-constant based)
+    ├── tpose.py                 # build_standard_human_tpose (the T-pose reference geometry)
+    ├── skeleton_rigidifier.py   # rigidify_landmarks (forward-pass tree + rotation-pinned Procrustes)
+    ├── segment_length_estimation.py  # estimate_segment_lengths (per-segment rolling median)
     └── …
 ```
 
@@ -57,12 +60,11 @@ default env either (no lint gate here yet).
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once at load.
 - The authored data carries **provenance comments** (sourced vs. estimated-with-said-so) — the honesty
   rules in `freemocap/current-work-plans/archive/phase-1-work-plans/09-segment-model.md` §7.
-- Boundary rule: skellyforge **never imports** skellytracker or freemocap — with one sanctioned
-  exception. `skellymodels/standard_human/tracker_contract.py` imports skellytracker's `core.io`
-  mapping machinery (mapping-path registry + `TrackerMapping` — base install only, no detector or
-  onnxruntime/mediapipe extras) to validate the tracker→standard-human completeness contract at load
-  time. The boundary deliberately leaks in exactly that one module; nothing else in skellyforge may
-  import skellytracker, and `skellyforge/__init__.py` must NOT import `tracker_contract`.
+- Boundary rule: skellyforge **never imports** skellytracker or freemocap — the tracker→standard-human
+  mapping is applied in freemocap (e.g. `biomechanics.tracker_mapping.apply(filtered_keypoints)`), never
+  inside skellyforge. The old `tracker_contract.py` (the one sanctioned exception, which imported
+  skellytracker to validate the "every landmark must be produced" completeness contract) was deleted
+  together with that contract.
 - Vocabulary: **keypoint / landmark / segment**. A **keypoint** is tracker-side — a point measured by
   a detector, triangulated to 3D. A **landmark** is model-side — a named point in a segment's local
   frame with a static rest definition and a per-frame world hydration (the mapping hydrates its name
