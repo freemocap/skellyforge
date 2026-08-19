@@ -35,4 +35,4 @@ segments:
       - {axis: y, target_landmark: wrist, rest_direction: [0, 1, 0]}
 
 chains:
-  arm: {start: clavicle, end: lower_arm}
+  arm: {start: clavicle, end: hand}   # includes the carpus, mirroring leg -> foot

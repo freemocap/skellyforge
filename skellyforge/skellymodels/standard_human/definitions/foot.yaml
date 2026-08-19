@@ -35,21 +35,21 @@ landmarks:
   foot_big_toe_metatarsophalangeal_joint:
     definition: "Center of the metatarsophalangeal joint of the big toe"
     reference_frame: first_metatarsal
-    rest_position: [0, 18, 0]
+    rest_position: [0, 62, 0]       # E  first metatarsal length (~62 mm)
   foot_big_toe_interphalangeal_joint:
     definition: "Center of the interphalangeal joint of the big toe"
     reference_frame: big_toe_proximal_phalanx
-    rest_position: [0, 15, 0]
+    rest_position: [0, 30, 0]       # E  hallux proximal phalanx length (~30 mm)
   foot_big_toe_tip:
     definition: "Distal tip of the big toe"
     reference_frame: big_toe_distal_phalanx
-    rest_position: [0, 12, 0]
+    rest_position: [0, 20, 0]       # E  hallux distal phalanx length (~20 mm)
 
   # ---- Second toe ----
   foot_second_toe_metatarsophalangeal_joint:
     definition: "Center of the metatarsophalangeal joint of the second toe"
     reference_frame: second_metatarsal
-    rest_position: [0, 20, 0]
+    rest_position: [0, 72, 0]       # E  second metatarsal length (~72 mm, longest)
   foot_second_toe_proximal_interphalangeal_joint:
     definition: "Center of the proximal interphalangeal joint of the second toe"
     reference_frame: second_toe_proximal_phalanx
@@ -67,7 +67,7 @@ landmarks:
   foot_third_toe_metatarsophalangeal_joint:
     definition: "Center of the metatarsophalangeal joint of the third toe"
     reference_frame: third_metatarsal
-    rest_position: [0, 21, 0]
+    rest_position: [0, 65, 0]       # E  third metatarsal length (~65 mm)
   foot_third_toe_proximal_interphalangeal_joint:
     definition: "Center of the proximal interphalangeal joint of the third toe"
     reference_frame: third_toe_proximal_phalanx
@@ -85,7 +85,7 @@ landmarks:
   foot_fourth_toe_metatarsophalangeal_joint:
     definition: "Center of the metatarsophalangeal joint of the fourth toe"
     reference_frame: fourth_metatarsal
-    rest_position: [0, 33, 0]
+    rest_position: [0, 60, 0]       # E  fourth metatarsal length (~60 mm)
   foot_fourth_toe_proximal_interphalangeal_joint:
     definition: "Center of the proximal interphalangeal joint of the fourth toe"
     reference_frame: fourth_toe_proximal_phalanx
@@ -103,7 +103,7 @@ landmarks:
   foot_pinky_toe_metatarsophalangeal_joint:
     definition: "Center of the metatarsophalangeal joint of the pinky toe"
     reference_frame: fifth_metatarsal
-    rest_position: [0, 30, 0]
+    rest_position: [0, 53, 0]       # E  fifth metatarsal length (~53 mm)
   foot_pinky_toe_proximal_interphalangeal_joint:
     definition: "Center of the proximal interphalangeal joint of the pinky toe"
     reference_frame: pinky_toe_proximal_phalanx
