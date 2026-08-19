@@ -86,7 +86,7 @@ segments:
   hand:
     parent: lower_arm
     origin_landmark: wrist
-    landmarks: [wrist, hand_thumb_cmc, hand_thumb_mcp, hand_index_mcp, hand_middle_mcp, hand_ring_mcp, hand_little_mcp]
+    landmarks: [wrist, hand_thumb_cmc, hand_index_mcp, hand_middle_mcp, hand_ring_mcp, hand_little_mcp]
     axes:
       - {axis: y, target_landmark: hand_middle_mcp, rest_direction: [1, 0, 0]}
       - {axis: x, target_landmark: hand_little_mcp,  rest_direction: [0, 1, 0]}

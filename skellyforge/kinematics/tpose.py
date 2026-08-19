@@ -85,8 +85,33 @@ def _build_rest_basis(segment: RigidBodySegment) -> NDArray[np.float64]:
     return assemble_named_basis({primary_idx: primary_dir, twist_idx: twist_orth})
 
 
-def build_standard_human_tpose(skeleton: HumanSkeleton) -> StandardHumanTPose:
-    """Build the T-pose reference geometry from a loaded HumanSkeleton."""
+def _segment_scale_factors(
+    skeleton: HumanSkeleton,
+    lengths: dict[str, float] | None,
+) -> dict[str, float]:
+    """Per-segment scale factor (measured / nominal); 1.0 when lengths is None."""
+    scales: dict[str, float] = {}
+    for segment in skeleton.segments:
+        if lengths is None:
+            scales[segment.name] = 1.0
+            continue
+        nominal = segment.length
+        measured = lengths.get(segment.name, nominal)
+        scales[segment.name] = measured / nominal if nominal > 0.0 else 1.0
+    return scales
+
+def build_standard_human_tpose(
+    skeleton: HumanSkeleton,
+    lengths: dict[str, float] | None = None,
+) -> StandardHumanTPose:
+    """Build the T-pose reference geometry from a loaded HumanSkeleton.
+
+    When lengths is provided it overrides the derived per-segment length:
+    each landmark rest position scales by its reference_frame segment ratio
+    lengths[frame] / segment.length, and each segment length becomes
+    lengths[segment.name]. None builds the nominal (rest-position) pose.
+    """
+    scales = _segment_scale_factors(skeleton, lengths)
     children: dict[str, list[RigidBodySegment]] = defaultdict(list)
     roots: list[RigidBodySegment] = []
     for segment in skeleton.segments:
@@ -106,10 +131,12 @@ def build_standard_human_tpose(skeleton: HumanSkeleton) -> StandardHumanTPose:
             origin = np.zeros(3, dtype=np.float64)
         else:
             offset = np.asarray(segment.origin_landmark.rest_position, dtype=np.float64)
+            offset = offset * scales[segment.parent.name]
             origin = parent_origin + parent_basis.T @ offset
         basis = _build_rest_basis(segment)
+        length = lengths[segment.name] if lengths is not None else segment.length
         geometries[segment.name] = SegmentTposeGeometry(
-            origin=origin, basis=basis, length=segment.length
+            origin=origin, basis=basis, length=length
         )
         for child in children.get(segment.name, []):
             build(child, origin, basis)
@@ -124,6 +151,7 @@ def build_standard_human_tpose(skeleton: HumanSkeleton) -> StandardHumanTPose:
                 continue
             geometry = geometries[lm.reference_frame]
             offset = np.asarray(lm.rest_position, dtype=np.float64)
+            offset = offset * scales[lm.reference_frame]
             landmarks[lm.name] = geometry.origin + geometry.basis.T @ offset
 
     return StandardHumanTPose(segments=geometries, landmarks=landmarks)

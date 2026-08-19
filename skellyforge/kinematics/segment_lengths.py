@@ -18,7 +18,6 @@ callers pass canonical-named positions.
 
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -390,80 +389,6 @@ def build_segment_length_report(
         segments=segments,
         thresholds=thresholds,
     )
-
-
-# ---------------------------------------------------------------------------
-# Streaming monitor
-# ---------------------------------------------------------------------------
-
-DEFAULT_DIAGNOSTIC_WINDOW: int = 120
-DEFAULT_DIAGNOSTIC_INTERVAL: int = 60
-
-
-class StreamingSegmentLengthMonitor:
-    """Rolling-window segment-length monitor for live use.
-
-    ``update`` is called once per frame (cheap: one distance per limb
-    segment). ``report`` summarizes the rolling window.
-    """
-
-    def __init__(
-        self,
-        *,
-        window: int = DEFAULT_DIAGNOSTIC_WINDOW,
-        segments: tuple[SegmentDef, ...] = LIMB_SEGMENTS,
-        thresholds: HumanShapeThresholds = DEFAULT_THRESHOLDS,
-        ratios: dict[str, float] | None = None,
-    ) -> None:
-        self.window = window
-        self.segments = segments
-        self.thresholds = thresholds
-        self._ratios = (
-            ratios if ratios is not None else canonical_bone_length_ratios()
-        )
-        self._buffers = {
-            seg.name: deque(maxlen=window) for seg in segments
-        }
-        self._n_seen = 0
-
-    @property
-    def n_seen(self) -> int:
-        return self._n_seen
-
-    def update(
-        self, canonical_positions: dict[str, np.ndarray]
-    ) -> None:
-        """Append this frame's per-segment lengths to the rolling buffers."""
-        for seg in self.segments:
-            proximal = canonical_positions.get(seg.proximal)
-            distal = canonical_positions.get(seg.distal)
-            if proximal is None or distal is None:
-                self._buffers[seg.name].append(float("nan"))
-                continue
-            length = float(
-                np.linalg.norm(
-                    np.asarray(distal, dtype=float).reshape(3)
-                    - np.asarray(proximal, dtype=float).reshape(3)
-                )
-            )
-            self._buffers[seg.name].append(
-                length
-                if np.isfinite(length) and length > 0
-                else float("nan")
-            )
-        self._n_seen += 1
-
-    def report(self) -> SegmentLengthReport:
-        lengths = {
-            name: np.asarray(buf, dtype=float)
-            for name, buf in self._buffers.items()
-        }
-        return report_from_segment_lengths(
-            lengths,
-            ratios=self._ratios,
-            segments=self.segments,
-            thresholds=self.thresholds,
-        )
 
 
 def equivalence_violations(

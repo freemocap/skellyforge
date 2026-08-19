@@ -12,7 +12,7 @@ Package structure:
     rigid_body_kinematics.py    — Aggregate model + vectorized kinematics
     orientation_solver.py       — Per-bone orientation from live landmarks
     skeleton_rigidifier.py      — Forward-pass skeleton rigidifier
-    online_segment_lengths.py   — Rolling-window median segment-length estimator
+    segment_length_estimation.py — Per-segment length estimation (pure action)
     segment_lengths.py          — Segment-length measurement + diagnostics
     inertial/                   — Anthropometric BSIP + composite inertia
 """
@@ -23,8 +23,10 @@ from skellyforge.kinematics.coordinate_frame_ops import (
     compute_rotation_from_live_basis,
     rotation_between_vectors,
 )
-from skellyforge.kinematics.online_segment_lengths import (
-    SegmentLengthEstimator,
+from skellyforge.kinematics.segment_length_estimation import (
+    SegmentLengthResult,
+    SegmentLengthState,
+    estimate_segment_lengths,
 )
 from skellyforge.kinematics.orientation_solver import (
     FrameOrientationResult,
@@ -64,7 +66,6 @@ from skellyforge.kinematics.segment_lengths import (
     SegmentDef,
     SegmentLengthReport,
     SegmentStats,
-    StreamingSegmentLengthMonitor,
     build_segment_length_report,
     canonical_bone_length_ratios,
     equivalence_violations,
@@ -107,8 +108,10 @@ __all__ = [
     "compute_linear_velocity",
     # skeleton_rigidifier
     "TreeRigidifier",
-    # online_segment_lengths
-    "SegmentLengthEstimator",
+    # segment_length_estimation
+    "SegmentLengthResult",
+    "SegmentLengthState",
+    "estimate_segment_lengths",
     # segment_lengths
     "SegmentDef",
     "SegmentStats",
@@ -116,7 +119,6 @@ __all__ = [
     "HumanShapeThresholds",
     "DEFAULT_THRESHOLDS",
     "LIMB_SEGMENTS",
-    "StreamingSegmentLengthMonitor",
     "measure_segment_lengths",
     "report_from_segment_lengths",
     "build_segment_length_report",
