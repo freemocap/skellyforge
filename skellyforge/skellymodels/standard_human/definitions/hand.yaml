@@ -129,128 +129,128 @@ segments:
                 hand_thumb_metacarpophalangeal_joint, hand_index_finger_metacarpophalangeal_joint, hand_middle_finger_metacarpophalangeal_joint,
                 hand_ring_finger_metacarpophalangeal_joint, hand_pinky_finger_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_capitate, rest_direction: [0, 1, 0]}
-      - {axis: x, target_landmark: hand_hamate,   rest_direction: [1, 0, 0]}
+      - {axis: y, target_landmark: hand_capitate, rest_direction: [1, 0, 0]}
+      - {axis: x, target_landmark: hand_hamate,   rest_direction: [0, 1, 0]}
 
   thumb_metacarpal:
     parent: hand
     origin_landmark: hand_trapezium
     landmarks: [hand_trapezium, hand_thumb_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_thumb_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_thumb_metacarpophalangeal_joint, rest_direction: [1, 0, 0]}
   index_finger_metacarpal:
     parent: hand
     origin_landmark: hand_trapezoid
     landmarks: [hand_trapezoid, hand_index_finger_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_index_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_index_finger_metacarpophalangeal_joint, rest_direction: [1, 0, 0]}
   middle_finger_metacarpal:
     parent: hand
     origin_landmark: hand_capitate
     landmarks: [hand_capitate, hand_middle_finger_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_middle_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_middle_finger_metacarpophalangeal_joint, rest_direction: [1, 0, 0]}
   ring_finger_metacarpal:
     parent: hand
     origin_landmark: hand_hamate
     landmarks: [hand_hamate, hand_ring_finger_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_ring_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_ring_finger_metacarpophalangeal_joint, rest_direction: [1, 0, 0]}
   pinky_finger_metacarpal:
     parent: hand
     origin_landmark: hand_hamate
     landmarks: [hand_hamate, hand_pinky_finger_metacarpophalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_pinky_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_pinky_finger_metacarpophalangeal_joint, rest_direction: [1, 0, 0]}
 
   thumb_proximal_phalanx:
     parent: thumb_metacarpal
     origin_landmark: hand_thumb_metacarpophalangeal_joint
     landmarks: [hand_thumb_metacarpophalangeal_joint, hand_thumb_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_thumb_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_thumb_interphalangeal_joint, rest_direction: [1, 0, 0]}
   thumb_distal_phalanx:
     parent: thumb_proximal_phalanx
     origin_landmark: hand_thumb_interphalangeal_joint
     landmarks: [hand_thumb_interphalangeal_joint, hand_thumb_tip]
     axes:
-      - {axis: y, target_landmark: hand_thumb_tip, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_thumb_tip, rest_direction: [1, 0, 0]}
 
   index_finger_proximal_phalanx:
     parent: index_finger_metacarpal
     origin_landmark: hand_index_finger_metacarpophalangeal_joint
     landmarks: [hand_index_finger_metacarpophalangeal_joint, hand_index_finger_proximal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_index_finger_proximal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_index_finger_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   index_finger_middle_phalanx:
     parent: index_finger_proximal_phalanx
     origin_landmark: hand_index_finger_proximal_interphalangeal_joint
     landmarks: [hand_index_finger_proximal_interphalangeal_joint, hand_index_finger_distal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_index_finger_distal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_index_finger_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   index_finger_distal_phalanx:
     parent: index_finger_middle_phalanx
     origin_landmark: hand_index_finger_distal_interphalangeal_joint
     landmarks: [hand_index_finger_distal_interphalangeal_joint, hand_index_finger_tip]
     axes:
-      - {axis: y, target_landmark: hand_index_finger_tip, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_index_finger_tip, rest_direction: [1, 0, 0]}
 
   middle_finger_proximal_phalanx:
     parent: middle_finger_metacarpal
     origin_landmark: hand_middle_finger_metacarpophalangeal_joint
     landmarks: [hand_middle_finger_metacarpophalangeal_joint, hand_middle_finger_proximal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_middle_finger_proximal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_middle_finger_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   middle_finger_middle_phalanx:
     parent: middle_finger_proximal_phalanx
     origin_landmark: hand_middle_finger_proximal_interphalangeal_joint
     landmarks: [hand_middle_finger_proximal_interphalangeal_joint, hand_middle_finger_distal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_middle_finger_distal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_middle_finger_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   middle_finger_distal_phalanx:
     parent: middle_finger_middle_phalanx
     origin_landmark: hand_middle_finger_distal_interphalangeal_joint
     landmarks: [hand_middle_finger_distal_interphalangeal_joint, hand_middle_finger_tip]
     axes:
-      - {axis: y, target_landmark: hand_middle_finger_tip, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_middle_finger_tip, rest_direction: [1, 0, 0]}
 
   ring_finger_proximal_phalanx:
     parent: ring_finger_metacarpal
     origin_landmark: hand_ring_finger_metacarpophalangeal_joint
     landmarks: [hand_ring_finger_metacarpophalangeal_joint, hand_ring_finger_proximal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_ring_finger_proximal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_ring_finger_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   ring_finger_middle_phalanx:
     parent: ring_finger_proximal_phalanx
     origin_landmark: hand_ring_finger_proximal_interphalangeal_joint
     landmarks: [hand_ring_finger_proximal_interphalangeal_joint, hand_ring_finger_distal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_ring_finger_distal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_ring_finger_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   ring_finger_distal_phalanx:
     parent: ring_finger_middle_phalanx
     origin_landmark: hand_ring_finger_distal_interphalangeal_joint
     landmarks: [hand_ring_finger_distal_interphalangeal_joint, hand_ring_finger_tip]
     axes:
-      - {axis: y, target_landmark: hand_ring_finger_tip, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_ring_finger_tip, rest_direction: [1, 0, 0]}
 
   pinky_finger_proximal_phalanx:
     parent: pinky_finger_metacarpal
     origin_landmark: hand_pinky_finger_metacarpophalangeal_joint
     landmarks: [hand_pinky_finger_metacarpophalangeal_joint, hand_pinky_finger_proximal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_pinky_finger_proximal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_pinky_finger_proximal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   pinky_finger_middle_phalanx:
     parent: pinky_finger_proximal_phalanx
     origin_landmark: hand_pinky_finger_proximal_interphalangeal_joint
     landmarks: [hand_pinky_finger_proximal_interphalangeal_joint, hand_pinky_finger_distal_interphalangeal_joint]
     axes:
-      - {axis: y, target_landmark: hand_pinky_finger_distal_interphalangeal_joint, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_pinky_finger_distal_interphalangeal_joint, rest_direction: [1, 0, 0]}
   pinky_finger_distal_phalanx:
     parent: pinky_finger_middle_phalanx
     origin_landmark: hand_pinky_finger_distal_interphalangeal_joint
     landmarks: [hand_pinky_finger_distal_interphalangeal_joint, hand_pinky_finger_tip]
     axes:
-      - {axis: y, target_landmark: hand_pinky_finger_tip, rest_direction: [0, 1, 0]}
+      - {axis: y, target_landmark: hand_pinky_finger_tip, rest_direction: [1, 0, 0]}
 
 chains:
   thumb:         {start: thumb_metacarpal,         end: thumb_distal_phalanx}
