@@ -90,24 +90,26 @@ segments:
     axes:
       - {axis: y, target_landmark: hand_middle_mcp, rest_direction: [1, 0, 0]}
       - {axis: x, target_landmark: hand_little_mcp,  rest_direction: [0, 1, 0]}
+
   thumb_metacarpal:
-    parent: hand
-    origin_landmark: hand_thumb_cmc
+    parent: lower_arm
+    origin_landmark: wrist
     landmarks: [hand_thumb_cmc, hand_thumb_mcp]
     axes:
       - {axis: y, target_landmark: hand_thumb_mcp, rest_direction: [1, 0, 0]}
   thumb_proximal:
     parent: thumb_metacarpal
-    origin_landmark: hand_thumb_mcp
+    origin_landmark: hand_thumb_cmc
     landmarks: [hand_thumb_mcp, hand_thumb_ip]
     axes:
       - {axis: y, target_landmark: hand_thumb_ip, rest_direction: [1, 0, 0]}
   thumb_distal:
     parent: thumb_proximal
-    origin_landmark: hand_thumb_ip
+    origin_landmark: hand_thumb_mcp
     landmarks: [hand_thumb_ip, hand_thumb_tip]
     axes:
       - {axis: y, target_landmark: hand_thumb_tip, rest_direction: [1, 0, 0]}
+      -
   index_proximal:
     parent: hand
     origin_landmark: hand_index_mcp
