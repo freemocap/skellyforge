@@ -9,7 +9,7 @@
   },
   "counts": {
     "bones": 95,
-    "landmarks": 150
+    "landmarks": 156
   },
   "bones": [
     {
@@ -3107,6 +3107,54 @@
         0.0,
         0.0,
         -40.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "left_anterior_superior_iliac_spine": {
+      "position": [
+        55.0,
+        100.0,
+        40.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "right_anterior_superior_iliac_spine": {
+      "position": [
+        55.0,
+        -100.0,
+        40.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "left_posterior_superior_iliac_spine": {
+      "position": [
+        -55.0,
+        25.0,
+        50.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "right_posterior_superior_iliac_spine": {
+      "position": [
+        -55.0,
+        -25.0,
+        50.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "sacral_base": {
+      "position": [
+        -25.0,
+        0.0,
+        100.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "coccyx_tip": {
+      "position": [
+        -35.0,
+        0.0,
+        -35.0
       ],
       "reference_frame": "pelvis"
     },

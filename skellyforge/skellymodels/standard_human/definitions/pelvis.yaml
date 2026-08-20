@@ -27,12 +27,43 @@ landmarks:
     definition: "Geometric center of the pubic symphysis"
     reference_frame: pelvis
     rest_position: [0, -40, 0]        # E  (down = -Y)
+  # ---- Palpable pelvic spines (ASIS / PSIS) ----
+  # pelvis frame: +X = right, +Y = up, +Z = posterior (so anterior = -Z).
+  # All # E estimates -- tune visually in Blender, then read back.
+  left_anterior_superior_iliac_spine:
+    definition: "Left anterior superior iliac spine (ASIS), the anterior bony prominence of the iliac crest"
+    reference_frame: pelvis
+    rest_position: [-100, 40, -55]    # E  (left, superior, anterior)
+  right_anterior_superior_iliac_spine:
+    definition: "Right anterior superior iliac spine (ASIS), the anterior bony prominence of the iliac crest"
+    reference_frame: pelvis
+    rest_position: [100, 40, -55]     # E  (right, superior, anterior)
+  left_posterior_superior_iliac_spine:
+    definition: "Left posterior superior iliac spine (PSIS), the posterior bony prominence of the iliac crest"
+    reference_frame: pelvis
+    rest_position: [-25, 50, 55]      # E  (left, superior, posterior, near midline)
+  right_posterior_superior_iliac_spine:
+    definition: "Right posterior superior iliac spine (PSIS), the posterior bony prominence of the iliac crest"
+    reference_frame: pelvis
+    rest_position: [25, 50, 55]       # E  (right, superior, posterior, near midline)
+  # ---- Sacrum + coccyx midline endpoints ----
+  sacral_base:
+    definition: "Superior aspect (base) of the sacrum at S1 -- the top of the sacrum (near lumbosacral_junction)"
+    reference_frame: pelvis
+    rest_position: [0, 100, 25]       # E  (midline, superior, slightly posterior)
+  coccyx_tip:
+    definition: "Distal tip of the coccyx (tailbone apex)"
+    reference_frame: pelvis
+    rest_position: [0, -35, 35]       # E  (midline, inferior, posterior)
 
 segments:
   pelvis:
     parent: null
     origin_landmark: hips_center
-    landmarks: [hips_center, lumbosacral_junction, left_hip, right_hip, left_iliac_crest, right_iliac_crest, pubic_symphysis]
+    landmarks: [hips_center, lumbosacral_junction, left_hip, right_hip, left_iliac_crest, right_iliac_crest, pubic_symphysis,
+                left_anterior_superior_iliac_spine, right_anterior_superior_iliac_spine,
+                left_posterior_superior_iliac_spine, right_posterior_superior_iliac_spine,
+                sacral_base, coccyx_tip]
     axes:
       - {axis: y, target_landmark: lumbosacral_junction, rest_direction: [0, 0, 1]}
       - {axis: x, target_landmark: right_hip,  rest_direction: [0, -1, 0]}

@@ -71,7 +71,7 @@ def _get_or_make_collection(name: str):
     return collection
 
 
-def _build_armature(document: dict) -> None:
+def _build_armature(document: dict, include_mirrored: bool) -> None:
     armature_data = bpy.data.armatures.new(_ARMATURE_NAME)
     armature_object = bpy.data.objects.new(_ARMATURE_NAME, armature_data)
     bpy.context.scene.collection.objects.link(armature_object)
@@ -80,8 +80,14 @@ def _build_armature(document: dict) -> None:
     bpy.context.view_layer.objects.active = armature_object
     bpy.ops.object.mode_set(mode="EDIT")
 
+    bones = [
+        bone for bone in document["bones"]
+        if include_mirrored or _is_editable(bone["name"])
+    ]
+    included = {bone["name"] for bone in bones}
+
     edit_bones = armature_data.edit_bones
-    for bone in document["bones"]:
+    for bone in bones:
         head = Vector(bone["head"]) * _SCALE
         tail = Vector(bone["tail"]) * _SCALE
         if (tail - head).length < _MIN_BONE_LENGTH:
@@ -91,17 +97,20 @@ def _build_armature(document: dict) -> None:
         edit_bone.tail = tail
         edit_bone.align_roll(Vector(bone["basis"][2]))
 
-    for bone in document["bones"]:
-        if bone["parent"]:
+    for bone in bones:
+        if bone["parent"] and bone["parent"] in included:
             edit_bones[bone["name"]].parent = edit_bones[bone["parent"]]
             edit_bones[bone["name"]].use_connect = False
 
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def _is_editable(landmark_name: str) -> bool:
-    # midline (unprefixed) and left_* landmarks are authored; right_* is mirrored.
-    return not landmark_name.startswith("right_")
+def _is_editable(reference_frame: str) -> bool:
+    # A landmark is authored (editable) unless it lives in a mirror-derived
+    # right-side sided segment (right_hand, right_lower_leg, ...). Midline parts
+    # (pelvis, spine, ...) author BOTH sides explicitly, so their right_* landmarks
+    # (right_hip, right_asis, ...) are editable too -- key off the frame, not the name.
+    return not reference_frame.startswith("right_")
 
 
 def _build_landmark_empties(document: dict) -> None:
@@ -116,7 +125,8 @@ def _build_landmark_empties(document: dict) -> None:
         empty["standard_human_landmark"] = True
         empty["reference_frame"] = entry["reference_frame"]
         empty["original_location"] = tuple(world)  # metres, for change detection
-        (editable if _is_editable(name) else mirrored).objects.link(empty)
+        collection = editable if _is_editable(entry["reference_frame"]) else mirrored
+        collection.objects.link(empty)
 
 
 def load_rest_pose(json_path: str = JSON_PATH) -> None:
@@ -137,10 +147,14 @@ def load_rest_pose(json_path: str = JSON_PATH) -> None:
 # read-back: moved editable empties -> local rest_position (paste into YAML)
 # ----------------------------------------------------------------------------- #
 
-def _authored_name(landmark_name: str) -> str:
-    for prefix in ("left_", "right_"):
-        if landmark_name.startswith(prefix):
-            return landmark_name[len(prefix):]
+def _authored_name(landmark_name: str, reference_frame: str) -> str:
+    # Sided parts author a GENERIC name (hand_capitate) that the loader prefixes to
+    # left_/right_; strip back to what's in the part YAML. Midline parts author the
+    # full name (left_hip, right_asis, ...), so keep it as-is.
+    if reference_frame.startswith(("left_", "right_")):
+        for prefix in ("left_", "right_"):
+            if landmark_name.startswith(prefix):
+                return landmark_name[len(prefix):]
     return landmark_name
 
 
@@ -155,7 +169,7 @@ def read_back_to_yaml(json_path: str = JSON_PATH) -> list[str]:
 
     lines: list[str] = []
     for name, entry in document["landmarks"].items():
-        if not _is_editable(name):
+        if not _is_editable(entry["reference_frame"]):
             continue
         empty = bpy.data.objects.get(name)
         if empty is None or empty.get("standard_human_landmark") is None:
@@ -169,7 +183,7 @@ def read_back_to_yaml(json_path: str = JSON_PATH) -> list[str]:
         # world = origin + basis^T @ local  =>  local = basis @ (world - origin)
         local = basis @ (world_mm - head_mm)
         lines.append(
-            f"  {_authored_name(name)}:\n"
+            f"  {_authored_name(name, entry['reference_frame'])}:\n"
             f"    rest_position: [{local.x:.1f}, {local.y:.1f}, {local.z:.1f}]"
             f"    # moved {moved_mm:.1f} mm  (from {name})"
         )
