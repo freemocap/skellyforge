@@ -151,7 +151,7 @@ segments:
       - {axis: y, target_landmark: hand_pinky_finger_tip, rest_direction: [0, 1, 0]}
 
 chains:
-  thumb:          {start: thumb_proximal,   end: thumb_distal}
+  thumb:          {start: thumb_intermediate, end: thumb_distal}
   index_finger:   {start: index_proximal,   end: index_distal}
   middle_finger:  {start: middle_proximal,  end: middle_distal}
   ring_finger:    {start: ring_proximal,    end: ring_distal}
