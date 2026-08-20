@@ -53,14 +53,18 @@ def _mirror_y(vec: tuple[float, float, float]) -> tuple[float, float, float]:
     return (vec[0], -vec[1], vec[2])
 
 
-def _prefixed(name: str, prefix: str, sided_segments: set[str]) -> str:
-    """Prefix a reference when it names a segment in ANY sided part, so a foot's
-    parent 'lower_leg' resolves to left_lower_leg / right_lower_leg."""
-    return prefix + name if name in sided_segments else name
+def _side_suffix(prefix: str) -> str:
+    """The VRM bone-name side suffix for a side prefix (left_ -> .L, right_ -> .R)."""
+    return ".L" if prefix == "left_" else ".R"
+
+
+def _prefixed(name: str, suffix: str, sided_segments: set[str]) -> str:
+    """Append the side suffix (.L/.R) when name is a SEGMENT in a sided part."""
+    return name + suffix if name in sided_segments else name
 
 
 def _instantiate_landmark(
-    config: LandmarkConfig, prefix: str, mirror: bool, sided_segments: set[str]
+    config: LandmarkConfig, prefix: str, suffix: str, mirror: bool, sided_segments: set[str]
 ) -> LandmarkConfig:
     # The mirrored (right) side reflects the frame's out-of-plane (local z) axis.
     # Every sided part is primary-y + twist-x, so the chiral mirror of the local
@@ -72,7 +76,7 @@ def _instantiate_landmark(
     rest_position = (x, y, -z) if mirror else config.rest_position
     return LandmarkConfig(
         definition=config.definition,
-        reference_frame=_prefixed(config.reference_frame, prefix, sided_segments),
+        reference_frame=_prefixed(config.reference_frame, suffix, sided_segments),
         rest_position=rest_position,
     )
 
@@ -92,11 +96,11 @@ def _instantiate_axis(
 
 
 def _instantiate_segment(
-    config: SegmentConfig, prefix: str, mirror: bool, sided_segments: set[str]
+    config: SegmentConfig, prefix: str, suffix: str, mirror: bool, sided_segments: set[str]
 ) -> SegmentConfig:
     return SegmentConfig(
         parent=(
-            _prefixed(config.parent, prefix, sided_segments)
+            _prefixed(config.parent, suffix, sided_segments)
             if config.parent is not None
             else None
         ),
@@ -108,11 +112,11 @@ def _instantiate_segment(
 
 
 def _instantiate_chain(
-    config: ChainConfig, prefix: str, sided_segments: set[str]
+    config: ChainConfig, suffix: str, sided_segments: set[str]
 ) -> ChainConfig:
     return ChainConfig(
-        start=_prefixed(config.start, prefix, sided_segments),
-        end=_prefixed(config.end, prefix, sided_segments),
+        start=_prefixed(config.start, suffix, sided_segments),
+        end=_prefixed(config.end, suffix, sided_segments),
     )
 
 
@@ -143,18 +147,19 @@ def _compose_parts(
             continue
 
         for prefix, mirror in (("left_", False), ("right_", True)):
+            suffix = _side_suffix(prefix)
             for name, lc in part.landmarks.items():
                 new_name = prefix + name
                 if new_name not in landmarks:
                     landmarks[new_name] = _instantiate_landmark(
-                        lc, prefix, mirror, sided_segments
+                        lc, prefix, suffix, mirror, sided_segments
                     )
             for name, sc in part.segments.items():
-                segments[prefix + name] = _instantiate_segment(
-                    sc, prefix, mirror, sided_segments
+                segments[name + suffix] = _instantiate_segment(
+                    sc, prefix, suffix, mirror, sided_segments
                 )
             for name, cc in part.chains.items():
-                chains[prefix + name] = _instantiate_chain(cc, prefix, sided_segments)
+                chains[prefix + name] = _instantiate_chain(cc, suffix, sided_segments)
 
     return landmarks, segments, chains
 

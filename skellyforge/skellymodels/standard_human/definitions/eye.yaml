@@ -1,0 +1,19 @@
+# Eye bones (VRM eye.L / eye.R), children of the head. Sided.
+# The eye ORIGIN is the existing head landmark 'eye' (left_eye / right_eye);
+# the distal 'eye_tip' is the anterior pole of the eyeball. rest_direction is
+# +X (forward) from default-vrm.gltf.json5.
+sided: true
+
+landmarks:
+  eye_tip:
+    definition: "Distal tip of the eyeball (anterior pole)"
+    reference_frame: eye
+    rest_position: [0, 15, 0]         # E  eye bone ~15 mm forward
+
+segments:
+  eye:
+    parent: head
+    origin_landmark: eye
+    landmarks: [eye, eye_tip]
+    axes:
+      - {axis: y, target_landmark: eye_tip, rest_direction: [1, 0, 0]}

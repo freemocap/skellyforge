@@ -1,28 +1,30 @@
+# Arm (sided): shoulder (VRM name, was clavicle) + upper/lower arm.
+# +Y = long axis, +X = twist. Left points +Y (left). Sided.
 sided: true
 
 landmarks:
   shoulder:
     definition: "Center of the glenohumeral joint"
-    reference_frame: clavicle
-    rest_position: [0, 180, 0]        # E  (clavicle + shoulder width)
+    reference_frame: shoulder
+    rest_position: [0, 80, 0]         # E  VRM shoulder length ~80 mm
   elbow:
     definition: "Center of the elbow joint, near the trochlea of the humerus"
     reference_frame: upper_arm
-    rest_position: [0, 325, 0]        # E  (humerus length)
+    rest_position: [0, 319, 0]        # E  VRM upper_arm length ~319 mm
   wrist:
     definition: "Center of the radiocarpal joint, near the lunate fossa of the radius"
     reference_frame: lower_arm
-    rest_position: [0, 255, 0]        # E  (forearm length)
+    rest_position: [0, 255, 0]        # E  VRM lower_arm length ~255 mm
 
 segments:
-  clavicle:
+  shoulder:
     parent: chest
     origin_landmark: sternoclavicular
     landmarks: [sternoclavicular, shoulder]
     axes:
       - {axis: y, target_landmark: shoulder, rest_direction: [0, 1, 0]}
   upper_arm:
-    parent: clavicle
+    parent: shoulder
     origin_landmark: shoulder
     landmarks: [shoulder, elbow]
     axes:
@@ -35,4 +37,4 @@ segments:
       - {axis: y, target_landmark: wrist, rest_direction: [0, 1, 0]}
 
 chains:
-  arm: {start: clavicle, end: hand}   # includes the carpus, mirroring leg -> foot
+  arm: {start: shoulder, end: hand}

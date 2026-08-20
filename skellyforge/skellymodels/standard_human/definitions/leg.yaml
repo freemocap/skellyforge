@@ -5,7 +5,7 @@ landmarks:
   knee:
     definition: "Center of the knee joint, intersection of the medial condyle of the femur and the tibia"
     reference_frame: upper_leg
-    rest_position: [0, 429, 0]        # E  (femur length, +Y toward the knee)
+    rest_position: [0, 422, 0]        # E  (VRM upper_leg length, +Y toward the knee)
   greater_trochanter:
     definition: "Tip of the greater trochanter of the femur"
     reference_frame: upper_leg
@@ -22,7 +22,7 @@ landmarks:
   ankle:
     definition: "Center of the ankle joint, geometric center of the medial and lateral malleoli"
     reference_frame: lower_leg
-    rest_position: [0, 430, 0]        # E  (tibia length, +Y toward the ankle)
+    rest_position: [0, 422, 0]        # E  (VRM lower_leg length, +Y toward the ankle)
   tibial_tuberosity:
     definition: "Most anterior point of the tibial tuberosity"
     reference_frame: lower_leg
@@ -38,7 +38,7 @@ landmarks:
 
 segments:
   upper_leg:
-    parent: pelvis
+    parent: hips
     origin_landmark: hip
     landmarks: [hip, knee, greater_trochanter, lateral_femoral_condyle, medial_femoral_condyle]
     axes:
@@ -53,4 +53,4 @@ segments:
       - {axis: x, target_landmark: lateral_malleolus, rest_direction: [0, 1, 0]}
 
 chains:
-  leg: {start: pelvis, end: foot}
+  leg: {start: hips, end: foot}

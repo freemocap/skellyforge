@@ -46,7 +46,7 @@ landmarks:
 
 segments:
   spine:
-    parent: pelvis
+    parent: hips
     origin_landmark: lumbosacral_junction
     landmarks: [lumbosacral_junction, trunk_center]
     axes:
@@ -73,4 +73,4 @@ segments:
       - {axis: z, target_landmark: nose,        rest_direction: [1, 0, 0]}
 
 chains:
-  axial: {start: pelvis, end: head}
+  axial: {start: hips, end: head}

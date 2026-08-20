@@ -81,10 +81,10 @@ def test_every_segment_with_its_landmarks_produces_an_orientation(skeleton_and_t
 
 
 def test_kabsch_segment_recovers_a_known_rotation(skeleton_and_tpose):
-    """A 3+-landmark rigid body (pelvis, 7 landmarks) solved by Kabsch returns the
+    """A 3+-landmark rigid body (hips, 7 landmarks) solved by Kabsch returns the
     exact world rotation applied to its rest cloud."""
     skeleton, tpose = skeleton_and_tpose
-    pelvis = skeleton.segment("pelvis")
+    pelvis = skeleton.segment("hips")
     pivot = tpose.landmarks[pelvis.origin_landmark.name]
     rotation = _rotation_about_axis(np.array([0.3, 0.7, 0.65]), np.deg2rad(37.0))
 
@@ -94,7 +94,7 @@ def test_kabsch_segment_recovers_a_known_rotation(skeleton_and_tpose):
     }
     result, _ = _solve(skeleton, tpose, live)
 
-    solved = RotationQuaternion(*result.world_quaternions["pelvis"].tolist())
+    solved = RotationQuaternion(*result.world_quaternions["hips"].tolist())
     expected = RotationQuaternion.from_rotation_matrix(rotation)
     # compare by action on a probe vector (avoids the q ~ -q sign ambiguity)
     for probe in (np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])):
@@ -133,7 +133,7 @@ def test_kabsch_segment_does_not_damp(skeleton_and_tpose):
     damped tier (no twist ambiguity to damp)."""
     skeleton, tpose = skeleton_and_tpose
     _, state = _solve(skeleton, tpose, dict(tpose.landmarks))
-    assert "pelvis" not in state.orientation.damping_states
+    assert "hips" not in state.orientation.damping_states
 
 
 def test_single_axis_limb_uses_the_damped_tier(skeleton_and_tpose):
@@ -141,7 +141,7 @@ def test_single_axis_limb_uses_the_damped_tier(skeleton_and_tpose):
     its roll through the critically-damped tier -- e.g. the upper arm."""
     skeleton, tpose = skeleton_and_tpose
     _, state = _solve(skeleton, tpose, dict(tpose.landmarks))
-    assert "left_upper_arm" in state.orientation.damping_states
+    assert "upper_arm.L" in state.orientation.damping_states
 
 
 def test_missing_primary_target_skips_the_segment_without_raising(skeleton_and_tpose):
@@ -153,8 +153,8 @@ def test_missing_primary_target_skips_the_segment_without_raising(skeleton_and_t
     # left_upper_arm is shoulder -> elbow; drop the elbow (its primary target)
     del landmarks["left_elbow"]
     result, _ = _solve(skeleton, tpose, landmarks)
-    assert "left_upper_arm" not in result.world_quaternions
-    assert "left_clavicle" in result.world_quaternions  # the parent still solves
+    assert "upper_arm.L" not in result.world_quaternions
+    assert "shoulder.L" in result.world_quaternions  # the parent still solves
 
 
 def test_orphaned_child_emits_world_but_no_local(skeleton_and_tpose):
@@ -167,9 +167,9 @@ def test_orphaned_child_emits_world_but_no_local(skeleton_and_tpose):
     # is skipped, while left_lower_arm (elbow -> wrist) still solves.
     del landmarks["left_shoulder"]
     result, _ = _solve(skeleton, tpose, landmarks)
-    assert "left_upper_arm" not in result.world_quaternions   # parent skipped
-    assert "left_lower_arm" in result.world_quaternions       # child solved (world)
-    assert "left_lower_arm" not in result.local_quaternions   # no orphan local
+    assert "upper_arm.L" not in result.world_quaternions   # parent skipped
+    assert "lower_arm.L" in result.world_quaternions       # child solved (world)
+    assert "lower_arm.L" not in result.local_quaternions   # no orphan local
 
 
 def _bent_pose(skeleton, tpose):

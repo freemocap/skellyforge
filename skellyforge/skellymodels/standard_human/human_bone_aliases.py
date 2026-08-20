@@ -90,7 +90,7 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
     },
 
     # ── Left arm ───────────────────────────────────────────────────
-    "left_shoulder": {
+    "left_clavicle": {
         "vrm": "leftShoulder",
         "unreal": "clavicle_l",
     },
@@ -108,7 +108,7 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
     },
 
     # ── Right arm ──────────────────────────────────────────────────
-    "right_shoulder": {
+    "right_clavicle": {
         "vrm": "rightShoulder",
         "unreal": "clavicle_r",
     },
@@ -162,12 +162,12 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
     },
 
     # ── Left hand fingers ──────────────────────────────────────────
-    # Thumb (VRM 1.0: metacarpal/proximal/distal)
-    "left_thumb_metacarpal": {
+    # Thumb (file: proximal/intermediate/distal; file "proximal" = spec thumbMetacarpal)
+    "left_thumb_proximal": {
         "vrm": "leftThumbMetacarpal",
         "unreal": "thumb_01_l",
     },
-    "left_thumb_proximal": {
+    "left_thumb_intermediate": {
         "vrm": "leftThumbProximal",
         "unreal": "thumb_02_l",
     },
@@ -230,11 +230,11 @@ BONE_ALIASES: dict[str, dict[str, str | None]] = {
 
     # ── Right hand fingers ─────────────────────────────────────────
     # Thumb
-    "right_thumb_metacarpal": {
+    "right_thumb_proximal": {
         "vrm": "rightThumbMetacarpal",
         "unreal": "thumb_01_r",
     },
-    "right_thumb_proximal": {
+    "right_thumb_intermediate": {
         "vrm": "rightThumbProximal",
         "unreal": "thumb_02_r",
     },

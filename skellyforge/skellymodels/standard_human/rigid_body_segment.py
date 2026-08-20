@@ -59,8 +59,9 @@ class RigidBodySegment:
     rigid_with_parent: bool = False
 
     def __post_init__(self) -> None:
-        if not self.name or self.name != self.name.lower() or " " in self.name:
-            raise ValueError(f"segment name must be snake_case, got {self.name!r}")
+        base_name = self.name[:-2] if self.name.endswith((".L", ".R")) else self.name
+        if not base_name or base_name != base_name.lower() or " " in base_name:
+            raise ValueError(f"segment name must be snake_case (optionally .L/.R), got {self.name!r}")
         if len(self.landmarks) < 2:
             raise ValueError(f"segment {self.name!r}: needs at least 2 landmarks")
         names = [l.name for l in self.landmarks]

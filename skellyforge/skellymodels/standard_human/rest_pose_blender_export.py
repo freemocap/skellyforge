@@ -96,7 +96,7 @@ def _main() -> None:
     counts = document["counts"]
     print(f"wrote {written}")
     print(f"  bones: {counts['bones']}  landmarks: {counts['landmarks']}")
-    for name in ("pelvis", "left_hand", "left_upper_leg"):
+    for name in ("hips", "hand.L", "upper_leg.L"):
         bone = next(b for b in document["bones"] if b["name"] == name)
         head = np.round(bone["head"], 1)
         tail = np.round(bone["tail"], 1)

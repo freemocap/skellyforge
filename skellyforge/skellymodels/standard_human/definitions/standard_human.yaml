@@ -1,9 +1,10 @@
 name: standard_human
 
 parts:
-  pelvis: {$include: pelvis.yaml}
-  axial:  {$include: axial.yaml}
-  arm:    {$include: arm.yaml}
-  hand:   {$include: hand.yaml}
-  leg:    {$include: leg.yaml}
-  foot:   {$include: foot.yaml}
+  root:  {$include: pelvis.yaml}
+  axial: {$include: axial.yaml}
+  eye:   {$include: eye.yaml}
+  arm:   {$include: arm.yaml}
+  hand:  {$include: hand.yaml}
+  leg:   {$include: leg.yaml}
+  foot:  {$include: foot.yaml}
