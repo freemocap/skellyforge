@@ -149,10 +149,15 @@ def rigidify_landmarks(
 ) -> dict[str, np.ndarray]:
     """Rigidify one frame of hydrated landmarks against the skeleton's rest shape.
 
-    Derived entirely from the loaded model: the joint hierarchy is the parent
-    edges, the bone lengths are the derived segment lengths, and the rigid
-    bodies are the segments whose landmark set has 3+ points (a rotation-pinned
-    Procrustes of their rest positions onto the observed set).
+    Two passes, in dependency order:
+
+    1. Multi-point rigid bodies (3+ landmarks) are Procrustes-fitted FIRST, off
+       the raw hydrated landmarks, so their DERIVED landmarks (carpals, knuckles)
+       are correct before anything hangs off them.
+    2. The two-point chains are then forward-passed from those corrected origins
+       (enforcing bone lengths along the observed directions), and each two-point
+       segment's distal landmark (fingertips, toes) is placed at the enforced
+       segment length so a terminal bone is not left at its raw keypoint.
     """
     joint_hierarchy: dict[str, list[str]] = {}
     origin_name_by_segment: dict[str, str] = {}
@@ -163,12 +168,6 @@ def rigidify_landmarks(
         else:
             joint_hierarchy.setdefault(segment.parent.name, []).append(segment.name)
 
-    # The tree nodes are SEGMENT ORIGINS (their shared landmark position).
-    origins = {
-        segment.name: landmarks[segment.origin_landmark.name]
-        for segment in skeleton.segments
-        if segment.origin_landmark.name in landmarks
-    }
     # The bone from a parent to a child is the REST offset between the two
     # segments' origins (a distal-attached child == the parent's length; an
     # origin-attached child like the clavicle is a different span). Its length is
@@ -188,15 +187,11 @@ def rigidify_landmarks(
         rest_directions[segment.name] = (
             offset / length if length > 1e-9 else np.zeros(3, dtype=float)
         )
-    corrected_origins = TreeRigidifier(joint_hierarchy).rigidify(
-        origins, bone_lengths, rest_directions
-    )
 
     result = dict(landmarks)
-    for name, pos in corrected_origins.items():
-        result[origin_name_by_segment[name]] = pos
 
-    # Rigid bodies: rotation-pinned Procrustes of the rest shape onto observed.
+    # 1. Fit multi-point rigid bodies first, so their derived landmarks are
+    #    correct before the two-point chains hang off them.
     for segment in skeleton.segments:
         if len(segment.landmarks) < 3:
             continue
@@ -210,6 +205,48 @@ def rigidify_landmarks(
             pair_distances=_pairwise_distances(names, rest),
         )
         result.update(fit_template_to_observed(template, result, anchor_name=anchor))
+
+    # 2. Forward-pass the segment origins (two-point chains) from the corrected
+    #    multi-point origins.
+    origins = {
+        segment.name: result[segment.origin_landmark.name]
+        for segment in skeleton.segments
+        if segment.origin_landmark.name in result
+    }
+    corrected_origins = TreeRigidifier(joint_hierarchy).rigidify(
+        origins, bone_lengths, rest_directions
+    )
+    for name, pos in corrected_origins.items():
+        result[origin_name_by_segment[name]] = pos
+
+    # 3. Place each two-point segment's distal landmark (fingertips, toes) at the
+    #    enforced segment length along the observed direction. The forward pass
+    #    only places ORIGINS, so a terminal landmark would otherwise stay at its
+    #    raw keypoint and the terminal bone length would not be enforced.
+    for segment in skeleton.segments:
+        if len(segment.landmarks) != 2:
+            continue
+        origin_name = segment.origin_landmark.name
+        origin = result.get(origin_name)
+        if origin is None:
+            continue
+        distal = next(
+            (lm for lm in segment.landmarks if lm.name != origin_name), None
+        )
+        if distal is None or distal.name not in landmarks:
+            continue
+        length = tpose.segments[segment.name].length
+        if length <= 0.0:
+            continue
+        vector = (
+            np.asarray(landmarks[distal.name], dtype=float)
+            - np.asarray(origin, dtype=float)
+        )
+        norm = float(np.linalg.norm(vector))
+        if math.isfinite(norm) and norm > 1e-6:
+            result[distal.name] = (
+                np.asarray(origin, dtype=float) + (vector / norm) * length
+            )
 
     return result
 
