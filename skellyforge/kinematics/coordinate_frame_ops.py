@@ -525,41 +525,9 @@ def compute_rotation_from_live_basis(
             f"reference_basis must be (3, 3), got {ref.shape}"
         )
 
-    # R = live_basis^T @ reference_basis? Or R = live_basis @ reference_basis^T?
-    #
-    # The reference basis rows are the axis directions at T-pose.
-    # The live basis rows are the same axes in the current configuration.
-    #
-    # We want R such that for a vector v in reference coordinates:
-    #   v_live = R @ v_ref
-    #
-    # The reference basis matrix (rows = axes) maps from axis-index
-    # coordinates to Cartesian: axis_vec_ref = ref_basis @ e_i = ref_basis[i]
-    # Actually the rows ARE the axis vectors in world space.
-    #
-    # We want R @ ref_basis[i] = live_basis[i] for each row i.
-    # In matrix form: R @ ref_basis^T = live_basis^T (treating rows as column vectors)
-    # So: R = live_basis^T @ inv(ref_basis^T)
-    # Since ref_basis is orthonormal, ref_basis^T = ref_basis^{-1}
-    # Wait, let me be more careful.
-    #
-    # Each row of the basis matrix is a unit vector in world space.
-    # Row 0 = exact axis direction in world coords.
-    #
-    # We want R such that applying R to the reference axis gives the live axis:
-    #   R @ ref[0] = live[0]
-    #   R @ ref[1] = live[1]
-    #   R @ ref[2] = live[2]
-    #
-    # Packing: let B_ref be (3,3) with rows = axis directions.
-    # We want R @ B_ref^T = B_live^T  (treat rows as columns for matrix multiply)
-    # So R = B_live^T @ (B_ref^T)^{-1} = B_live^T @ B_ref
-    #
-    # Since B_ref is orthonormal (rows are mutually orthogonal unit vectors),
-    # B_ref^{-1} = B_ref^T, i.e., B_ref @ B_ref^T = I.
-    # So (B_ref^T)^{-1} = B_ref.
-    #
-    # Therefore: R = B_live^T @ B_ref
+    # Each basis row is a world-space axis of the frame. We want R with
+    # R @ ref[i] == live[i] for every axis i, i.e. R @ ref^T == live^T. ref is
+    # orthonormal (ref^-1 == ref^T), so R = live^T @ ref.
     R = live.T @ ref
 
     # Numerical cleanup: ensure R is a proper rotation matrix

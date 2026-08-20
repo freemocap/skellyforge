@@ -39,10 +39,11 @@ def test_lower_body_loads():
 def test_sided_shares_local_geometry_and_mirrors_rest_direction():
     skeleton = HumanSkeleton.from_yaml(YAML_PATH)
 
-    # the tarsus carries the ankle + 7 tarsal bones + 5 metatarsophalangeal joints
+    # the tarsus carries the ankle + 7 tarsal bones + the distinct 5th-metatarsal
+    # base + 5 metatarsophalangeal joints
     left_foot = skeleton.segment("left_foot")
     right_foot = skeleton.segment("right_foot")
-    assert len(left_foot.landmarks) == 13
+    assert len(left_foot.landmarks) == 14
 
     # rest_positions are SIDE-AGNOSTIC local geometry (left == right, no mirroring):
     # the right side mirrors only the world rest_direction, never the rest_position
