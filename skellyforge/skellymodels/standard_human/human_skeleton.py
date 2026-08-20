@@ -60,12 +60,20 @@ def _prefixed(name: str, prefix: str, sided_segments: set[str]) -> str:
 
 
 def _instantiate_landmark(
-    config: LandmarkConfig, prefix: str, sided_segments: set[str]
+    config: LandmarkConfig, prefix: str, mirror: bool, sided_segments: set[str]
 ) -> LandmarkConfig:
+    # The mirrored (right) side reflects the frame's out-of-plane (local z) axis.
+    # Every sided part is primary-y + twist-x, so the chiral mirror of the local
+    # geometry is (x, y, -z) (directions still mirror Y in _instantiate_axis).
+    # Keeping local z unchanged would make the right side a ROTATION of the left
+    # rather than a REFLECTION -- chirally wrong for any off-plane landmark
+    # (the foot tarsals, the hand carpals). z == 0 landmarks are unaffected.
+    x, y, z = config.rest_position
+    rest_position = (x, y, -z) if mirror else config.rest_position
     return LandmarkConfig(
         definition=config.definition,
         reference_frame=_prefixed(config.reference_frame, prefix, sided_segments),
-        rest_position=config.rest_position,
+        rest_position=rest_position,
     )
 
 
@@ -139,7 +147,7 @@ def _compose_parts(
                 new_name = prefix + name
                 if new_name not in landmarks:
                     landmarks[new_name] = _instantiate_landmark(
-                        lc, prefix, sided_segments
+                        lc, prefix, mirror, sided_segments
                     )
             for name, sc in part.segments.items():
                 segments[prefix + name] = _instantiate_segment(

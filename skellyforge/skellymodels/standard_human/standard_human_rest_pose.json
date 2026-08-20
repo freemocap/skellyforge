@@ -1,0 +1,4258 @@
+{
+  "model": "standard_human",
+  "convention": {
+    "units": "mm",
+    "handedness": "right",
+    "up": "+z",
+    "forward": "+x",
+    "left": "+y"
+  },
+  "counts": {
+    "bones": 95,
+    "landmarks": 150
+  },
+  "bones": [
+    {
+      "name": "pelvis",
+      "parent": null,
+      "head": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "tail": [
+        0.0,
+        0.0,
+        120.0
+      ],
+      "length_mm": 120.0,
+      "basis": [
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "spine",
+      "parent": "pelvis",
+      "head": [
+        0.0,
+        0.0,
+        120.0
+      ],
+      "tail": [
+        0.0,
+        0.0,
+        254.0
+      ],
+      "length_mm": 134.0,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "chest",
+      "parent": "spine",
+      "head": [
+        0.0,
+        0.0,
+        254.0
+      ],
+      "tail": [
+        0.0,
+        0.0,
+        525.0
+      ],
+      "length_mm": 271.0,
+      "basis": [
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "neck",
+      "parent": "chest",
+      "head": [
+        0.0,
+        0.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        0.0,
+        682.0
+      ],
+      "length_mm": 157.0,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "head": [
+        0.0,
+        0.0,
+        682.0
+      ],
+      "tail": [
+        0.0,
+        0.0,
+        752.0
+      ],
+      "length_mm": 70.0,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_clavicle",
+      "parent": "chest",
+      "head": [
+        0.0,
+        15.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        195.0,
+        525.0
+      ],
+      "length_mm": 180.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_upper_arm",
+      "parent": "left_clavicle",
+      "head": [
+        0.0,
+        195.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        520.0,
+        525.0
+      ],
+      "length_mm": 325.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_lower_arm",
+      "parent": "left_upper_arm",
+      "head": [
+        0.0,
+        520.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        775.0,
+        525.0
+      ],
+      "length_mm": 255.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_clavicle",
+      "parent": "chest",
+      "head": [
+        0.0,
+        -15.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -195.0,
+        525.0
+      ],
+      "length_mm": 180.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_upper_arm",
+      "parent": "right_clavicle",
+      "head": [
+        0.0,
+        -195.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -520.0,
+        525.0
+      ],
+      "length_mm": 325.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_lower_arm",
+      "parent": "right_upper_arm",
+      "head": [
+        0.0,
+        -520.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -775.0,
+        525.0
+      ],
+      "length_mm": 255.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_hand",
+      "parent": "left_lower_arm",
+      "head": [
+        0.0,
+        775.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        803.0,
+        525.0
+      ],
+      "length_mm": 28.0,
+      "basis": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ]
+      ]
+    },
+    {
+      "name": "left_thumb_metacarpal",
+      "parent": "left_hand",
+      "head": [
+        18.0,
+        799.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        865.0,
+        525.0
+      ],
+      "length_mm": 66.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_index_finger_metacarpal",
+      "parent": "left_hand",
+      "head": [
+        5.0,
+        801.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        875.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_middle_finger_metacarpal",
+      "parent": "left_hand",
+      "head": [
+        0.0,
+        803.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        875.0,
+        525.0
+      ],
+      "length_mm": 72.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_ring_finger_metacarpal",
+      "parent": "left_hand",
+      "head": [
+        -10.0,
+        801.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        875.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_finger_metacarpal",
+      "parent": "left_hand",
+      "head": [
+        -13.0,
+        805.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        879.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_thumb_proximal_phalanx",
+      "parent": "left_thumb_metacarpal",
+      "head": [
+        18.0,
+        865.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        895.0,
+        525.0
+      ],
+      "length_mm": 30.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_thumb_distal_phalanx",
+      "parent": "left_thumb_proximal_phalanx",
+      "head": [
+        18.0,
+        895.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        920.0,
+        525.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_index_finger_proximal_phalanx",
+      "parent": "left_index_finger_metacarpal",
+      "head": [
+        5.0,
+        875.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        920.0,
+        525.0
+      ],
+      "length_mm": 45.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_index_finger_middle_phalanx",
+      "parent": "left_index_finger_proximal_phalanx",
+      "head": [
+        5.0,
+        920.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        945.0,
+        525.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_index_finger_distal_phalanx",
+      "parent": "left_index_finger_middle_phalanx",
+      "head": [
+        5.0,
+        945.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        965.0,
+        525.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_middle_finger_proximal_phalanx",
+      "parent": "left_middle_finger_metacarpal",
+      "head": [
+        0.0,
+        875.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        925.0,
+        525.0
+      ],
+      "length_mm": 50.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_middle_finger_middle_phalanx",
+      "parent": "left_middle_finger_proximal_phalanx",
+      "head": [
+        0.0,
+        925.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        953.0,
+        525.0
+      ],
+      "length_mm": 28.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_middle_finger_distal_phalanx",
+      "parent": "left_middle_finger_middle_phalanx",
+      "head": [
+        0.0,
+        953.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        975.0,
+        525.0
+      ],
+      "length_mm": 22.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_ring_finger_proximal_phalanx",
+      "parent": "left_ring_finger_metacarpal",
+      "head": [
+        -10.0,
+        875.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        917.0,
+        525.0
+      ],
+      "length_mm": 42.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_ring_finger_middle_phalanx",
+      "parent": "left_ring_finger_proximal_phalanx",
+      "head": [
+        -10.0,
+        917.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        940.0,
+        525.0
+      ],
+      "length_mm": 23.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_ring_finger_distal_phalanx",
+      "parent": "left_ring_finger_middle_phalanx",
+      "head": [
+        -10.0,
+        940.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        958.0,
+        525.0
+      ],
+      "length_mm": 18.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_finger_proximal_phalanx",
+      "parent": "left_pinky_finger_metacarpal",
+      "head": [
+        -13.0,
+        879.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        914.0,
+        525.0
+      ],
+      "length_mm": 35.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_finger_middle_phalanx",
+      "parent": "left_pinky_finger_proximal_phalanx",
+      "head": [
+        -13.0,
+        914.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        934.0,
+        525.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_finger_distal_phalanx",
+      "parent": "left_pinky_finger_middle_phalanx",
+      "head": [
+        -13.0,
+        934.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        949.0,
+        525.0
+      ],
+      "length_mm": 15.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_hand",
+      "parent": "right_lower_arm",
+      "head": [
+        0.0,
+        -775.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -803.0,
+        525.0
+      ],
+      "length_mm": 28.0,
+      "basis": [
+        [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "right_thumb_metacarpal",
+      "parent": "right_hand",
+      "head": [
+        18.0,
+        -799.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        -865.0,
+        525.0
+      ],
+      "length_mm": 66.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_index_finger_metacarpal",
+      "parent": "right_hand",
+      "head": [
+        5.0,
+        -801.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        -875.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_middle_finger_metacarpal",
+      "parent": "right_hand",
+      "head": [
+        0.0,
+        -803.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -875.0,
+        525.0
+      ],
+      "length_mm": 72.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_ring_finger_metacarpal",
+      "parent": "right_hand",
+      "head": [
+        -10.0,
+        -801.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        -875.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_finger_metacarpal",
+      "parent": "right_hand",
+      "head": [
+        -13.0,
+        -805.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        -879.0,
+        525.0
+      ],
+      "length_mm": 74.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_thumb_proximal_phalanx",
+      "parent": "right_thumb_metacarpal",
+      "head": [
+        18.0,
+        -865.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        -895.0,
+        525.0
+      ],
+      "length_mm": 30.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_thumb_distal_phalanx",
+      "parent": "right_thumb_proximal_phalanx",
+      "head": [
+        18.0,
+        -895.0,
+        525.0
+      ],
+      "tail": [
+        18.0,
+        -920.0,
+        525.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_index_finger_proximal_phalanx",
+      "parent": "right_index_finger_metacarpal",
+      "head": [
+        5.0,
+        -875.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        -920.0,
+        525.0
+      ],
+      "length_mm": 45.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_index_finger_middle_phalanx",
+      "parent": "right_index_finger_proximal_phalanx",
+      "head": [
+        5.0,
+        -920.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        -945.0,
+        525.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_index_finger_distal_phalanx",
+      "parent": "right_index_finger_middle_phalanx",
+      "head": [
+        5.0,
+        -945.0,
+        525.0
+      ],
+      "tail": [
+        5.0,
+        -965.0,
+        525.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_middle_finger_proximal_phalanx",
+      "parent": "right_middle_finger_metacarpal",
+      "head": [
+        0.0,
+        -875.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -925.0,
+        525.0
+      ],
+      "length_mm": 50.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_middle_finger_middle_phalanx",
+      "parent": "right_middle_finger_proximal_phalanx",
+      "head": [
+        0.0,
+        -925.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -953.0,
+        525.0
+      ],
+      "length_mm": 28.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_middle_finger_distal_phalanx",
+      "parent": "right_middle_finger_middle_phalanx",
+      "head": [
+        0.0,
+        -953.0,
+        525.0
+      ],
+      "tail": [
+        0.0,
+        -975.0,
+        525.0
+      ],
+      "length_mm": 22.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_ring_finger_proximal_phalanx",
+      "parent": "right_ring_finger_metacarpal",
+      "head": [
+        -10.0,
+        -875.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        -917.0,
+        525.0
+      ],
+      "length_mm": 42.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_ring_finger_middle_phalanx",
+      "parent": "right_ring_finger_proximal_phalanx",
+      "head": [
+        -10.0,
+        -917.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        -940.0,
+        525.0
+      ],
+      "length_mm": 23.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_ring_finger_distal_phalanx",
+      "parent": "right_ring_finger_middle_phalanx",
+      "head": [
+        -10.0,
+        -940.0,
+        525.0
+      ],
+      "tail": [
+        -10.0,
+        -958.0,
+        525.0
+      ],
+      "length_mm": 18.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_finger_proximal_phalanx",
+      "parent": "right_pinky_finger_metacarpal",
+      "head": [
+        -13.0,
+        -879.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        -914.0,
+        525.0
+      ],
+      "length_mm": 35.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_finger_middle_phalanx",
+      "parent": "right_pinky_finger_proximal_phalanx",
+      "head": [
+        -13.0,
+        -914.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        -934.0,
+        525.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_finger_distal_phalanx",
+      "parent": "right_pinky_finger_middle_phalanx",
+      "head": [
+        -13.0,
+        -934.0,
+        525.0
+      ],
+      "tail": [
+        -13.0,
+        -949.0,
+        525.0
+      ],
+      "length_mm": 15.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_upper_leg",
+      "parent": "pelvis",
+      "head": [
+        0.0,
+        88.0,
+        0.0
+      ],
+      "tail": [
+        0.0,
+        88.0,
+        -429.0
+      ],
+      "length_mm": 429.0,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_lower_leg",
+      "parent": "left_upper_leg",
+      "head": [
+        0.0,
+        88.0,
+        -429.0
+      ],
+      "tail": [
+        0.0,
+        88.0,
+        -859.0
+      ],
+      "length_mm": 430.0,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          -1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_upper_leg",
+      "parent": "pelvis",
+      "head": [
+        0.0,
+        -88.0,
+        0.0
+      ],
+      "tail": [
+        0.0,
+        -88.0,
+        -429.0
+      ],
+      "length_mm": 429.0,
+      "basis": [
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          -0.0,
+          -1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_lower_leg",
+      "parent": "right_upper_leg",
+      "head": [
+        0.0,
+        -88.0,
+        -429.0
+      ],
+      "tail": [
+        0.0,
+        -88.0,
+        -859.0
+      ],
+      "length_mm": 430.0,
+      "basis": [
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          0.0,
+          -0.0,
+          -1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_foot",
+      "parent": "left_lower_leg",
+      "head": [
+        0.0,
+        88.0,
+        -859.0
+      ],
+      "tail": [
+        53.0,
+        85.0,
+        -877.0
+      ],
+      "length_mm": 56.05354582896607,
+      "basis": [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0
+        ]
+      ]
+    },
+    {
+      "name": "left_first_metatarsal",
+      "parent": "left_foot",
+      "head": [
+        50.0,
+        73.0,
+        -879.0
+      ],
+      "tail": [
+        105.45448584199478,
+        45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 62.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.8944271909999159,
+          -0.4472135954999579,
+          0.0
+        ],
+        [
+          0.4472135954999581,
+          0.8944271909999159,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_second_metatarsal",
+      "parent": "left_foot",
+      "head": [
+        53.0,
+        85.0,
+        -877.0
+      ],
+      "tail": [
+        124.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 72.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.9889363528682975,
+          -0.14834045293024462,
+          0.0
+        ],
+        [
+          0.14834045293024464,
+          0.9889363528682976,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_third_metatarsal",
+      "parent": "left_foot",
+      "head": [
+        49.0,
+        98.0,
+        -880.0
+      ],
+      "tail": [
+        113.6774173636493,
+        104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 65.0,
+      "basis": [
+        [
+          0.0,
+          -0.0,
+          1.0
+        ],
+        [
+          0.9950371902099893,
+          0.09950371902099893,
+          0.0
+        ],
+        [
+          -0.09950371902099894,
+          0.9950371902099892,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_fourth_metatarsal",
+      "parent": "left_foot",
+      "head": [
+        22.0,
+        103.0,
+        -885.0
+      ],
+      "tail": [
+        78.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 60.0,
+      "basis": [
+        [
+          0.0,
+          -0.0,
+          1.0
+        ],
+        [
+          0.9438583563660174,
+          0.33035042472810605,
+          0.0
+        ],
+        [
+          -0.33035042472810605,
+          0.9438583563660174,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_fifth_metatarsal",
+      "parent": "left_foot",
+      "head": [
+        26.0,
+        106.0,
+        -884.0
+      ],
+      "tail": [
+        71.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 53.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.8574929257125443,
+          0.5144957554275266,
+          0.0
+        ],
+        [
+          0.514495755427526,
+          -0.8574929257125444,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_big_toe_proximal_phalanx",
+      "parent": "left_first_metatarsal",
+      "head": [
+        105.45448584199478,
+        45.27275707900261,
+        -879.0
+      ],
+      "tail": [
+        135.45448584199477,
+        45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 30.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_big_toe_distal_phalanx",
+      "parent": "left_big_toe_proximal_phalanx",
+      "head": [
+        135.45448584199477,
+        45.27275707900261,
+        -879.0
+      ],
+      "tail": [
+        155.45448584199477,
+        45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_second_toe_proximal_phalanx",
+      "parent": "left_second_metatarsal",
+      "head": [
+        124.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        149.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_second_toe_middle_phalanx",
+      "parent": "left_second_toe_proximal_phalanx",
+      "head": [
+        149.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        159.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_second_toe_distal_phalanx",
+      "parent": "left_second_toe_middle_phalanx",
+      "head": [
+        159.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        169.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_third_toe_proximal_phalanx",
+      "parent": "left_third_metatarsal",
+      "head": [
+        113.6774173636493,
+        104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        135.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 22.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_third_toe_middle_phalanx",
+      "parent": "left_third_toe_proximal_phalanx",
+      "head": [
+        135.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        145.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_third_toe_distal_phalanx",
+      "parent": "left_third_toe_middle_phalanx",
+      "head": [
+        145.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        155.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_fourth_toe_proximal_phalanx",
+      "parent": "left_fourth_metatarsal",
+      "head": [
+        78.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        96.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 18.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_fourth_toe_middle_phalanx",
+      "parent": "left_fourth_toe_proximal_phalanx",
+      "head": [
+        96.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        106.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_fourth_toe_distal_phalanx",
+      "parent": "left_fourth_toe_middle_phalanx",
+      "head": [
+        106.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        116.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_toe_proximal_phalanx",
+      "parent": "left_fifth_metatarsal",
+      "head": [
+        71.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        86.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 15.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_toe_middle_phalanx",
+      "parent": "left_pinky_toe_proximal_phalanx",
+      "head": [
+        86.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        96.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "left_pinky_toe_distal_phalanx",
+      "parent": "left_pinky_toe_middle_phalanx",
+      "head": [
+        96.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        106.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_foot",
+      "parent": "right_lower_leg",
+      "head": [
+        0.0,
+        -88.0,
+        -859.0
+      ],
+      "tail": [
+        53.0,
+        -85.0,
+        -877.0
+      ],
+      "length_mm": 56.05354582896607,
+      "basis": [
+        [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "right_first_metatarsal",
+      "parent": "right_foot",
+      "head": [
+        50.0,
+        -73.0,
+        -879.0
+      ],
+      "tail": [
+        105.45448584199478,
+        -45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 62.0,
+      "basis": [
+        [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        [
+          0.8944271909999159,
+          0.4472135954999579,
+          0.0
+        ],
+        [
+          0.4472135954999581,
+          -0.8944271909999159,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_second_metatarsal",
+      "parent": "right_foot",
+      "head": [
+        53.0,
+        -85.0,
+        -877.0
+      ],
+      "tail": [
+        124.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 72.0,
+      "basis": [
+        [
+          0.0,
+          -0.0,
+          1.0
+        ],
+        [
+          0.9889363528682975,
+          0.14834045293024462,
+          0.0
+        ],
+        [
+          -0.14834045293024464,
+          0.9889363528682976,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_third_metatarsal",
+      "parent": "right_foot",
+      "head": [
+        49.0,
+        -98.0,
+        -880.0
+      ],
+      "tail": [
+        113.6774173636493,
+        -104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 65.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.9950371902099893,
+          -0.09950371902099893,
+          0.0
+        ],
+        [
+          0.09950371902099894,
+          0.9950371902099892,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_fourth_metatarsal",
+      "parent": "right_foot",
+      "head": [
+        22.0,
+        -103.0,
+        -885.0
+      ],
+      "tail": [
+        78.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 60.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.9438583563660174,
+          -0.33035042472810605,
+          0.0
+        ],
+        [
+          0.33035042472810605,
+          0.9438583563660174,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_fifth_metatarsal",
+      "parent": "right_foot",
+      "head": [
+        26.0,
+        -106.0,
+        -884.0
+      ],
+      "tail": [
+        71.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 53.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          0.8574929257125443,
+          -0.5144957554275266,
+          0.0
+        ],
+        [
+          0.514495755427526,
+          0.8574929257125444,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_big_toe_proximal_phalanx",
+      "parent": "right_first_metatarsal",
+      "head": [
+        105.45448584199478,
+        -45.27275707900261,
+        -879.0
+      ],
+      "tail": [
+        135.45448584199477,
+        -45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 30.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_big_toe_distal_phalanx",
+      "parent": "right_big_toe_proximal_phalanx",
+      "head": [
+        135.45448584199477,
+        -45.27275707900261,
+        -879.0
+      ],
+      "tail": [
+        155.45448584199477,
+        -45.27275707900261,
+        -879.0
+      ],
+      "length_mm": 20.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_second_toe_proximal_phalanx",
+      "parent": "right_second_metatarsal",
+      "head": [
+        124.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        149.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 25.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_second_toe_middle_phalanx",
+      "parent": "right_second_toe_proximal_phalanx",
+      "head": [
+        149.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        159.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_second_toe_distal_phalanx",
+      "parent": "right_second_toe_middle_phalanx",
+      "head": [
+        159.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "tail": [
+        169.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_third_toe_proximal_phalanx",
+      "parent": "right_third_metatarsal",
+      "head": [
+        113.6774173636493,
+        -104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        135.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 22.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_third_toe_middle_phalanx",
+      "parent": "right_third_toe_proximal_phalanx",
+      "head": [
+        135.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        145.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_third_toe_distal_phalanx",
+      "parent": "right_third_toe_middle_phalanx",
+      "head": [
+        145.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "tail": [
+        155.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_fourth_toe_proximal_phalanx",
+      "parent": "right_fourth_metatarsal",
+      "head": [
+        78.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        96.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 18.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_fourth_toe_middle_phalanx",
+      "parent": "right_fourth_toe_proximal_phalanx",
+      "head": [
+        96.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        106.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_fourth_toe_distal_phalanx",
+      "parent": "right_fourth_toe_middle_phalanx",
+      "head": [
+        106.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "tail": [
+        116.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_toe_proximal_phalanx",
+      "parent": "right_fifth_metatarsal",
+      "head": [
+        71.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        86.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 15.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_toe_middle_phalanx",
+      "parent": "right_pinky_toe_proximal_phalanx",
+      "head": [
+        86.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        96.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "name": "right_pinky_toe_distal_phalanx",
+      "parent": "right_pinky_toe_middle_phalanx",
+      "head": [
+        96.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "tail": [
+        106.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "length_mm": 10.0,
+      "basis": [
+        [
+          -0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          -0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "landmarks": {
+    "hips_center": {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "lumbosacral_junction": {
+      "position": [
+        0.0,
+        0.0,
+        120.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "left_hip": {
+      "position": [
+        0.0,
+        88.0,
+        0.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "right_hip": {
+      "position": [
+        0.0,
+        -88.0,
+        0.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "left_iliac_crest": {
+      "position": [
+        0.0,
+        88.0,
+        80.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "right_iliac_crest": {
+      "position": [
+        0.0,
+        -88.0,
+        80.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "pubic_symphysis": {
+      "position": [
+        0.0,
+        0.0,
+        -40.0
+      ],
+      "reference_frame": "pelvis"
+    },
+    "trunk_center": {
+      "position": [
+        0.0,
+        0.0,
+        254.0
+      ],
+      "reference_frame": "spine"
+    },
+    "neck_center": {
+      "position": [
+        0.0,
+        0.0,
+        525.0
+      ],
+      "reference_frame": "chest"
+    },
+    "left_sternoclavicular": {
+      "position": [
+        0.0,
+        15.0,
+        525.0
+      ],
+      "reference_frame": "chest"
+    },
+    "right_sternoclavicular": {
+      "position": [
+        0.0,
+        -15.0,
+        525.0
+      ],
+      "reference_frame": "chest"
+    },
+    "head_center": {
+      "position": [
+        0.0,
+        0.0,
+        682.0
+      ],
+      "reference_frame": "neck"
+    },
+    "head_vertex": {
+      "position": [
+        0.0,
+        0.0,
+        752.0
+      ],
+      "reference_frame": "head"
+    },
+    "nose": {
+      "position": [
+        40.0,
+        0.0,
+        677.0
+      ],
+      "reference_frame": "head"
+    },
+    "left_eye": {
+      "position": [
+        32.0,
+        15.0,
+        692.0
+      ],
+      "reference_frame": "head"
+    },
+    "right_eye": {
+      "position": [
+        32.0,
+        -15.0,
+        692.0
+      ],
+      "reference_frame": "head"
+    },
+    "left_ear": {
+      "position": [
+        0.0,
+        35.0,
+        677.0
+      ],
+      "reference_frame": "head"
+    },
+    "right_ear": {
+      "position": [
+        0.0,
+        -35.0,
+        677.0
+      ],
+      "reference_frame": "head"
+    },
+    "left_shoulder": {
+      "position": [
+        0.0,
+        195.0,
+        525.0
+      ],
+      "reference_frame": "left_clavicle"
+    },
+    "left_elbow": {
+      "position": [
+        0.0,
+        520.0,
+        525.0
+      ],
+      "reference_frame": "left_upper_arm"
+    },
+    "left_wrist": {
+      "position": [
+        0.0,
+        775.0,
+        525.0
+      ],
+      "reference_frame": "left_lower_arm"
+    },
+    "right_shoulder": {
+      "position": [
+        0.0,
+        -195.0,
+        525.0
+      ],
+      "reference_frame": "right_clavicle"
+    },
+    "right_elbow": {
+      "position": [
+        0.0,
+        -520.0,
+        525.0
+      ],
+      "reference_frame": "right_upper_arm"
+    },
+    "right_wrist": {
+      "position": [
+        0.0,
+        -775.0,
+        525.0
+      ],
+      "reference_frame": "right_lower_arm"
+    },
+    "left_hand_scaphoid": {
+      "position": [
+        15.0,
+        787.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_lunate": {
+      "position": [
+        5.0,
+        785.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_triquetrum": {
+      "position": [
+        -10.0,
+        785.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_pisiform": {
+      "position": [
+        -12.0,
+        783.0,
+        531.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_trapezium": {
+      "position": [
+        18.0,
+        799.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_trapezoid": {
+      "position": [
+        5.0,
+        801.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_capitate": {
+      "position": [
+        0.0,
+        803.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_hamate": {
+      "position": [
+        -10.0,
+        801.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_fifth_metacarpal_base": {
+      "position": [
+        -13.0,
+        805.0,
+        525.0
+      ],
+      "reference_frame": "left_hand"
+    },
+    "left_hand_thumb_metacarpophalangeal_joint": {
+      "position": [
+        18.0,
+        865.0,
+        525.0
+      ],
+      "reference_frame": "left_thumb_metacarpal"
+    },
+    "left_hand_index_finger_metacarpophalangeal_joint": {
+      "position": [
+        5.0,
+        875.0,
+        525.0
+      ],
+      "reference_frame": "left_index_finger_metacarpal"
+    },
+    "left_hand_middle_finger_metacarpophalangeal_joint": {
+      "position": [
+        0.0,
+        875.0,
+        525.0
+      ],
+      "reference_frame": "left_middle_finger_metacarpal"
+    },
+    "left_hand_ring_finger_metacarpophalangeal_joint": {
+      "position": [
+        -10.0,
+        875.0,
+        525.0
+      ],
+      "reference_frame": "left_ring_finger_metacarpal"
+    },
+    "left_hand_pinky_finger_metacarpophalangeal_joint": {
+      "position": [
+        -13.0,
+        879.0,
+        525.0
+      ],
+      "reference_frame": "left_pinky_finger_metacarpal"
+    },
+    "left_hand_thumb_interphalangeal_joint": {
+      "position": [
+        18.0,
+        895.0,
+        525.0
+      ],
+      "reference_frame": "left_thumb_proximal_phalanx"
+    },
+    "left_hand_thumb_tip": {
+      "position": [
+        18.0,
+        920.0,
+        525.0
+      ],
+      "reference_frame": "left_thumb_distal_phalanx"
+    },
+    "left_hand_index_finger_proximal_interphalangeal_joint": {
+      "position": [
+        5.0,
+        920.0,
+        525.0
+      ],
+      "reference_frame": "left_index_finger_proximal_phalanx"
+    },
+    "left_hand_index_finger_distal_interphalangeal_joint": {
+      "position": [
+        5.0,
+        945.0,
+        525.0
+      ],
+      "reference_frame": "left_index_finger_middle_phalanx"
+    },
+    "left_hand_index_finger_tip": {
+      "position": [
+        5.0,
+        965.0,
+        525.0
+      ],
+      "reference_frame": "left_index_finger_distal_phalanx"
+    },
+    "left_hand_middle_finger_proximal_interphalangeal_joint": {
+      "position": [
+        0.0,
+        925.0,
+        525.0
+      ],
+      "reference_frame": "left_middle_finger_proximal_phalanx"
+    },
+    "left_hand_middle_finger_distal_interphalangeal_joint": {
+      "position": [
+        0.0,
+        953.0,
+        525.0
+      ],
+      "reference_frame": "left_middle_finger_middle_phalanx"
+    },
+    "left_hand_middle_finger_tip": {
+      "position": [
+        0.0,
+        975.0,
+        525.0
+      ],
+      "reference_frame": "left_middle_finger_distal_phalanx"
+    },
+    "left_hand_ring_finger_proximal_interphalangeal_joint": {
+      "position": [
+        -10.0,
+        917.0,
+        525.0
+      ],
+      "reference_frame": "left_ring_finger_proximal_phalanx"
+    },
+    "left_hand_ring_finger_distal_interphalangeal_joint": {
+      "position": [
+        -10.0,
+        940.0,
+        525.0
+      ],
+      "reference_frame": "left_ring_finger_middle_phalanx"
+    },
+    "left_hand_ring_finger_tip": {
+      "position": [
+        -10.0,
+        958.0,
+        525.0
+      ],
+      "reference_frame": "left_ring_finger_distal_phalanx"
+    },
+    "left_hand_pinky_finger_proximal_interphalangeal_joint": {
+      "position": [
+        -13.0,
+        914.0,
+        525.0
+      ],
+      "reference_frame": "left_pinky_finger_proximal_phalanx"
+    },
+    "left_hand_pinky_finger_distal_interphalangeal_joint": {
+      "position": [
+        -13.0,
+        934.0,
+        525.0
+      ],
+      "reference_frame": "left_pinky_finger_middle_phalanx"
+    },
+    "left_hand_pinky_finger_tip": {
+      "position": [
+        -13.0,
+        949.0,
+        525.0
+      ],
+      "reference_frame": "left_pinky_finger_distal_phalanx"
+    },
+    "right_hand_scaphoid": {
+      "position": [
+        15.0,
+        -787.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_lunate": {
+      "position": [
+        5.0,
+        -785.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_triquetrum": {
+      "position": [
+        -10.0,
+        -785.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_pisiform": {
+      "position": [
+        -12.0,
+        -783.0,
+        531.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_trapezium": {
+      "position": [
+        18.0,
+        -799.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_trapezoid": {
+      "position": [
+        5.0,
+        -801.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_capitate": {
+      "position": [
+        0.0,
+        -803.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_hamate": {
+      "position": [
+        -10.0,
+        -801.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_fifth_metacarpal_base": {
+      "position": [
+        -13.0,
+        -805.0,
+        525.0
+      ],
+      "reference_frame": "right_hand"
+    },
+    "right_hand_thumb_metacarpophalangeal_joint": {
+      "position": [
+        18.0,
+        -865.0,
+        525.0
+      ],
+      "reference_frame": "right_thumb_metacarpal"
+    },
+    "right_hand_index_finger_metacarpophalangeal_joint": {
+      "position": [
+        5.0,
+        -875.0,
+        525.0
+      ],
+      "reference_frame": "right_index_finger_metacarpal"
+    },
+    "right_hand_middle_finger_metacarpophalangeal_joint": {
+      "position": [
+        0.0,
+        -875.0,
+        525.0
+      ],
+      "reference_frame": "right_middle_finger_metacarpal"
+    },
+    "right_hand_ring_finger_metacarpophalangeal_joint": {
+      "position": [
+        -10.0,
+        -875.0,
+        525.0
+      ],
+      "reference_frame": "right_ring_finger_metacarpal"
+    },
+    "right_hand_pinky_finger_metacarpophalangeal_joint": {
+      "position": [
+        -13.0,
+        -879.0,
+        525.0
+      ],
+      "reference_frame": "right_pinky_finger_metacarpal"
+    },
+    "right_hand_thumb_interphalangeal_joint": {
+      "position": [
+        18.0,
+        -895.0,
+        525.0
+      ],
+      "reference_frame": "right_thumb_proximal_phalanx"
+    },
+    "right_hand_thumb_tip": {
+      "position": [
+        18.0,
+        -920.0,
+        525.0
+      ],
+      "reference_frame": "right_thumb_distal_phalanx"
+    },
+    "right_hand_index_finger_proximal_interphalangeal_joint": {
+      "position": [
+        5.0,
+        -920.0,
+        525.0
+      ],
+      "reference_frame": "right_index_finger_proximal_phalanx"
+    },
+    "right_hand_index_finger_distal_interphalangeal_joint": {
+      "position": [
+        5.0,
+        -945.0,
+        525.0
+      ],
+      "reference_frame": "right_index_finger_middle_phalanx"
+    },
+    "right_hand_index_finger_tip": {
+      "position": [
+        5.0,
+        -965.0,
+        525.0
+      ],
+      "reference_frame": "right_index_finger_distal_phalanx"
+    },
+    "right_hand_middle_finger_proximal_interphalangeal_joint": {
+      "position": [
+        0.0,
+        -925.0,
+        525.0
+      ],
+      "reference_frame": "right_middle_finger_proximal_phalanx"
+    },
+    "right_hand_middle_finger_distal_interphalangeal_joint": {
+      "position": [
+        0.0,
+        -953.0,
+        525.0
+      ],
+      "reference_frame": "right_middle_finger_middle_phalanx"
+    },
+    "right_hand_middle_finger_tip": {
+      "position": [
+        0.0,
+        -975.0,
+        525.0
+      ],
+      "reference_frame": "right_middle_finger_distal_phalanx"
+    },
+    "right_hand_ring_finger_proximal_interphalangeal_joint": {
+      "position": [
+        -10.0,
+        -917.0,
+        525.0
+      ],
+      "reference_frame": "right_ring_finger_proximal_phalanx"
+    },
+    "right_hand_ring_finger_distal_interphalangeal_joint": {
+      "position": [
+        -10.0,
+        -940.0,
+        525.0
+      ],
+      "reference_frame": "right_ring_finger_middle_phalanx"
+    },
+    "right_hand_ring_finger_tip": {
+      "position": [
+        -10.0,
+        -958.0,
+        525.0
+      ],
+      "reference_frame": "right_ring_finger_distal_phalanx"
+    },
+    "right_hand_pinky_finger_proximal_interphalangeal_joint": {
+      "position": [
+        -13.0,
+        -914.0,
+        525.0
+      ],
+      "reference_frame": "right_pinky_finger_proximal_phalanx"
+    },
+    "right_hand_pinky_finger_distal_interphalangeal_joint": {
+      "position": [
+        -13.0,
+        -934.0,
+        525.0
+      ],
+      "reference_frame": "right_pinky_finger_middle_phalanx"
+    },
+    "right_hand_pinky_finger_tip": {
+      "position": [
+        -13.0,
+        -949.0,
+        525.0
+      ],
+      "reference_frame": "right_pinky_finger_distal_phalanx"
+    },
+    "left_knee": {
+      "position": [
+        0.0,
+        88.0,
+        -429.0
+      ],
+      "reference_frame": "left_upper_leg"
+    },
+    "left_greater_trochanter": {
+      "position": [
+        0.0,
+        108.0,
+        20.0
+      ],
+      "reference_frame": "left_upper_leg"
+    },
+    "left_lateral_femoral_condyle": {
+      "position": [
+        0.0,
+        108.0,
+        -429.0
+      ],
+      "reference_frame": "left_upper_leg"
+    },
+    "left_medial_femoral_condyle": {
+      "position": [
+        0.0,
+        68.0,
+        -429.0
+      ],
+      "reference_frame": "left_upper_leg"
+    },
+    "left_ankle": {
+      "position": [
+        0.0,
+        88.0,
+        -859.0
+      ],
+      "reference_frame": "left_lower_leg"
+    },
+    "left_tibial_tuberosity": {
+      "position": [
+        10.0,
+        88.0,
+        -489.0
+      ],
+      "reference_frame": "left_lower_leg"
+    },
+    "left_lateral_malleolus": {
+      "position": [
+        0.0,
+        103.0,
+        -859.0
+      ],
+      "reference_frame": "left_lower_leg"
+    },
+    "left_medial_malleolus": {
+      "position": [
+        0.0,
+        73.0,
+        -859.0
+      ],
+      "reference_frame": "left_lower_leg"
+    },
+    "right_knee": {
+      "position": [
+        0.0,
+        -88.0,
+        -429.0
+      ],
+      "reference_frame": "right_upper_leg"
+    },
+    "right_greater_trochanter": {
+      "position": [
+        0.0,
+        -108.0,
+        20.0
+      ],
+      "reference_frame": "right_upper_leg"
+    },
+    "right_lateral_femoral_condyle": {
+      "position": [
+        0.0,
+        -108.0,
+        -429.0
+      ],
+      "reference_frame": "right_upper_leg"
+    },
+    "right_medial_femoral_condyle": {
+      "position": [
+        0.0,
+        -68.0,
+        -429.0
+      ],
+      "reference_frame": "right_upper_leg"
+    },
+    "right_ankle": {
+      "position": [
+        0.0,
+        -88.0,
+        -859.0
+      ],
+      "reference_frame": "right_lower_leg"
+    },
+    "right_tibial_tuberosity": {
+      "position": [
+        10.0,
+        -88.0,
+        -489.0
+      ],
+      "reference_frame": "right_lower_leg"
+    },
+    "right_lateral_malleolus": {
+      "position": [
+        0.0,
+        -103.0,
+        -859.0
+      ],
+      "reference_frame": "right_lower_leg"
+    },
+    "right_medial_malleolus": {
+      "position": [
+        0.0,
+        -73.0,
+        -859.0
+      ],
+      "reference_frame": "right_lower_leg"
+    },
+    "left_foot_talus": {
+      "position": [
+        0.0,
+        88.0,
+        -859.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_calcaneus": {
+      "position": [
+        -45.0,
+        88.0,
+        -881.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_navicular": {
+      "position": [
+        25.0,
+        79.0,
+        -881.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_cuboid": {
+      "position": [
+        22.0,
+        103.0,
+        -885.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_medial_cuneiform": {
+      "position": [
+        50.0,
+        73.0,
+        -879.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_intermediate_cuneiform": {
+      "position": [
+        53.0,
+        85.0,
+        -877.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_lateral_cuneiform": {
+      "position": [
+        49.0,
+        98.0,
+        -880.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_fifth_metatarsal_base": {
+      "position": [
+        26.0,
+        106.0,
+        -884.0
+      ],
+      "reference_frame": "left_foot"
+    },
+    "left_foot_big_toe_metatarsophalangeal_joint": {
+      "position": [
+        105.45448584199478,
+        45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "left_first_metatarsal"
+    },
+    "left_foot_second_toe_metatarsophalangeal_joint": {
+      "position": [
+        124.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "left_second_metatarsal"
+    },
+    "left_foot_third_toe_metatarsophalangeal_joint": {
+      "position": [
+        113.6774173636493,
+        104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "left_third_metatarsal"
+    },
+    "left_foot_fourth_toe_metatarsophalangeal_joint": {
+      "position": [
+        78.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "left_fourth_metatarsal"
+    },
+    "left_foot_pinky_toe_metatarsophalangeal_joint": {
+      "position": [
+        71.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "left_fifth_metatarsal"
+    },
+    "left_foot_big_toe_interphalangeal_joint": {
+      "position": [
+        135.45448584199477,
+        45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "left_big_toe_proximal_phalanx"
+    },
+    "left_foot_big_toe_tip": {
+      "position": [
+        155.45448584199477,
+        45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "left_big_toe_distal_phalanx"
+    },
+    "left_foot_second_toe_proximal_interphalangeal_joint": {
+      "position": [
+        149.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "left_second_toe_proximal_phalanx"
+    },
+    "left_foot_second_toe_distal_interphalangeal_joint": {
+      "position": [
+        159.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "left_second_toe_middle_phalanx"
+    },
+    "left_foot_second_toe_tip": {
+      "position": [
+        169.20341740651742,
+        74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "left_second_toe_distal_phalanx"
+    },
+    "left_foot_third_toe_proximal_interphalangeal_joint": {
+      "position": [
+        135.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "left_third_toe_proximal_phalanx"
+    },
+    "left_foot_third_toe_distal_interphalangeal_joint": {
+      "position": [
+        145.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "left_third_toe_middle_phalanx"
+    },
+    "left_foot_third_toe_tip": {
+      "position": [
+        155.67741736364928,
+        104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "left_third_toe_distal_phalanx"
+    },
+    "left_foot_fourth_toe_proximal_interphalangeal_joint": {
+      "position": [
+        96.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "left_fourth_toe_proximal_phalanx"
+    },
+    "left_foot_fourth_toe_distal_interphalangeal_joint": {
+      "position": [
+        106.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "left_fourth_toe_middle_phalanx"
+    },
+    "left_foot_fourth_toe_tip": {
+      "position": [
+        116.63150138196104,
+        122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "left_fourth_toe_distal_phalanx"
+    },
+    "left_foot_pinky_toe_proximal_interphalangeal_joint": {
+      "position": [
+        86.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "left_pinky_toe_proximal_phalanx"
+    },
+    "left_foot_pinky_toe_distal_interphalangeal_joint": {
+      "position": [
+        96.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "left_pinky_toe_middle_phalanx"
+    },
+    "left_foot_pinky_toe_tip": {
+      "position": [
+        106.44712506276485,
+        133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "left_pinky_toe_distal_phalanx"
+    },
+    "right_foot_talus": {
+      "position": [
+        0.0,
+        -88.0,
+        -859.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_calcaneus": {
+      "position": [
+        -45.0,
+        -88.0,
+        -881.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_navicular": {
+      "position": [
+        25.0,
+        -79.0,
+        -881.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_cuboid": {
+      "position": [
+        22.0,
+        -103.0,
+        -885.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_medial_cuneiform": {
+      "position": [
+        50.0,
+        -73.0,
+        -879.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_intermediate_cuneiform": {
+      "position": [
+        53.0,
+        -85.0,
+        -877.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_lateral_cuneiform": {
+      "position": [
+        49.0,
+        -98.0,
+        -880.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_fifth_metatarsal_base": {
+      "position": [
+        26.0,
+        -106.0,
+        -884.0
+      ],
+      "reference_frame": "right_foot"
+    },
+    "right_foot_big_toe_metatarsophalangeal_joint": {
+      "position": [
+        105.45448584199478,
+        -45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "right_first_metatarsal"
+    },
+    "right_foot_second_toe_metatarsophalangeal_joint": {
+      "position": [
+        124.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "right_second_metatarsal"
+    },
+    "right_foot_third_toe_metatarsophalangeal_joint": {
+      "position": [
+        113.6774173636493,
+        -104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "right_third_metatarsal"
+    },
+    "right_foot_fourth_toe_metatarsophalangeal_joint": {
+      "position": [
+        78.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "right_fourth_metatarsal"
+    },
+    "right_foot_pinky_toe_metatarsophalangeal_joint": {
+      "position": [
+        71.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "right_fifth_metatarsal"
+    },
+    "right_foot_big_toe_interphalangeal_joint": {
+      "position": [
+        135.45448584199477,
+        -45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "right_big_toe_proximal_phalanx"
+    },
+    "right_foot_big_toe_tip": {
+      "position": [
+        155.45448584199477,
+        -45.27275707900261,
+        -879.0
+      ],
+      "reference_frame": "right_big_toe_distal_phalanx"
+    },
+    "right_foot_second_toe_proximal_interphalangeal_joint": {
+      "position": [
+        149.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "right_second_toe_proximal_phalanx"
+    },
+    "right_foot_second_toe_distal_interphalangeal_joint": {
+      "position": [
+        159.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "right_second_toe_middle_phalanx"
+    },
+    "right_foot_second_toe_tip": {
+      "position": [
+        169.20341740651742,
+        -74.31948738902238,
+        -877.0
+      ],
+      "reference_frame": "right_second_toe_distal_phalanx"
+    },
+    "right_foot_third_toe_proximal_interphalangeal_joint": {
+      "position": [
+        135.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "right_third_toe_proximal_phalanx"
+    },
+    "right_foot_third_toe_distal_interphalangeal_joint": {
+      "position": [
+        145.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "right_third_toe_middle_phalanx"
+    },
+    "right_foot_third_toe_tip": {
+      "position": [
+        155.67741736364928,
+        -104.46774173636493,
+        -880.0
+      ],
+      "reference_frame": "right_third_toe_distal_phalanx"
+    },
+    "right_foot_fourth_toe_proximal_interphalangeal_joint": {
+      "position": [
+        96.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "right_fourth_toe_proximal_phalanx"
+    },
+    "right_foot_fourth_toe_distal_interphalangeal_joint": {
+      "position": [
+        106.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "right_fourth_toe_middle_phalanx"
+    },
+    "right_foot_fourth_toe_tip": {
+      "position": [
+        116.63150138196104,
+        -122.82102548368636,
+        -885.0
+      ],
+      "reference_frame": "right_fourth_toe_distal_phalanx"
+    },
+    "right_foot_pinky_toe_proximal_interphalangeal_joint": {
+      "position": [
+        86.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "right_pinky_toe_proximal_phalanx"
+    },
+    "right_foot_pinky_toe_distal_interphalangeal_joint": {
+      "position": [
+        96.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "right_pinky_toe_middle_phalanx"
+    },
+    "right_foot_pinky_toe_tip": {
+      "position": [
+        106.44712506276485,
+        -133.2682750376589,
+        -884.0
+      ],
+      "reference_frame": "right_pinky_toe_distal_phalanx"
+    }
+  }
+}
