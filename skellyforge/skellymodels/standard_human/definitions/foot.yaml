@@ -125,7 +125,7 @@ segments:
   foot:
     parent: lower_leg
     origin_landmark: ankle
-    landmarks: [ankle, foot_talus, foot_calcaneus, foot_navicular, foot_cuboid, foot_medial_cuneiform, foot_intermediate_cuneiform, foot_lateral_cuneiform,
+    landmarks: [ankle, foot_talus, foot_calcaneus, foot_navicular, foot_cuboid, foot_medial_cuneiform, foot_intermediate_cuneiform, foot_lateral_cuneiform, foot_fifth_metatarsal_base,
                 foot_big_toe_metatarsophalangeal_joint, foot_second_toe_metatarsophalangeal_joint, foot_third_toe_metatarsophalangeal_joint,
                 foot_fourth_toe_metatarsophalangeal_joint, foot_pinky_toe_metatarsophalangeal_joint]
     axes:

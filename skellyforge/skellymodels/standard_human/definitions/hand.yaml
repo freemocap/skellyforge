@@ -129,7 +129,7 @@ segments:
   hand:
     parent: lower_arm
     origin_landmark: wrist
-    landmarks: [wrist, hand_scaphoid, hand_lunate, hand_triquetrum, hand_pisiform, hand_trapezium, hand_trapezoid, hand_capitate, hand_hamate,
+    landmarks: [wrist, hand_scaphoid, hand_lunate, hand_triquetrum, hand_pisiform, hand_trapezium, hand_trapezoid, hand_capitate, hand_hamate, hand_fifth_metacarpal_base,
                 hand_thumb_metacarpophalangeal_joint, hand_index_finger_metacarpophalangeal_joint, hand_middle_finger_metacarpophalangeal_joint,
                 hand_ring_finger_metacarpophalangeal_joint, hand_pinky_finger_metacarpophalangeal_joint]
     axes:
