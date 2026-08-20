@@ -63,6 +63,12 @@ def _build_rest_basis(segment: RigidBodySegment) -> NDArray[np.float64]:
     primary = segment.axes[0]
     primary_idx, primary_sign = axis_index_and_sign(primary.axis)
     primary_dir = primary_sign * _axis_rest_direction(primary)
+    primary_norm = float(np.linalg.norm(primary_dir))
+    if primary_norm < 1e-12:
+        raise ValueError(
+            f"segment {segment.name!r}: primary rest direction is zero-length"
+        )
+    primary_dir = primary_dir / primary_norm  # authored directions need not be unit
 
     if len(segment.axes) == 1:
         second_dir = _default_perpendicular(primary_dir)

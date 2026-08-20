@@ -210,10 +210,16 @@ def solve_frame_orientations(
         world = world_quats.get(segment.name)
         if world is None:
             continue
-        if segment.parent is None or segment.parent.name not in world_quats:
-            local = world
-        else:
+        if segment.parent is None:
+            local = world  # the root's local IS its world (convention)
+        elif segment.parent.name in world_quats:
             local = world_quats[segment.parent.name].conjugate() * world
+        else:
+            # The parent did not solve this frame: there is no parent frame to
+            # express this segment's local rotation against. Emit no local
+            # (occlusion is data) rather than a world rotation mislabelled as a
+            # local one, which the renderer would compose incorrectly.
+            continue
         local_quats[segment.name] = _wxyz(local)
 
     world_wxyz = {name: _wxyz(q) for name, q in world_quats.items()}

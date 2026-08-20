@@ -34,6 +34,10 @@ landmarks:
     definition: "Center of the hamate carpal bone of the wrist"
     reference_frame: hand
     rest_position: [10, 26, 0]
+  hand_fifth_metacarpal_base:
+    definition: "Base of the fifth metacarpal, articulating with the hamate (distinct from the ring metacarpal base)"
+    reference_frame: hand
+    rest_position: [13, 30, 0]
 
   # ---- Thumb joints ----
   hand_thumb_metacarpophalangeal_joint:
@@ -158,8 +162,8 @@ segments:
       - {axis: y, target_landmark: hand_ring_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
   pinky_finger_metacarpal:
     parent: hand
-    origin_landmark: hand_hamate
-    landmarks: [hand_hamate, hand_pinky_finger_metacarpophalangeal_joint]
+    origin_landmark: hand_fifth_metacarpal_base
+    landmarks: [hand_fifth_metacarpal_base, hand_pinky_finger_metacarpophalangeal_joint]
     axes:
       - {axis: y, target_landmark: hand_pinky_finger_metacarpophalangeal_joint, rest_direction: [0, 1, 0]}
 

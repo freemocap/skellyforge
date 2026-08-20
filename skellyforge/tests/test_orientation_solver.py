@@ -157,6 +157,21 @@ def test_missing_primary_target_skips_the_segment_without_raising(skeleton_and_t
     assert "left_clavicle" in result.world_quaternions  # the parent still solves
 
 
+def test_orphaned_child_emits_world_but_no_local(skeleton_and_tpose):
+    """A child whose parent failed to solve gets a WORLD orientation but NO local:
+    emitting the world rotation as a local one (against a parent frame that does
+    not exist this frame) would be composed incorrectly by the renderer."""
+    skeleton, tpose = skeleton_and_tpose
+    landmarks = dict(tpose.landmarks)
+    # drop the shoulder: left_upper_arm (shoulder -> elbow) loses its origin and
+    # is skipped, while left_lower_arm (elbow -> wrist) still solves.
+    del landmarks["left_shoulder"]
+    result, _ = _solve(skeleton, tpose, landmarks)
+    assert "left_upper_arm" not in result.world_quaternions   # parent skipped
+    assert "left_lower_arm" in result.world_quaternions       # child solved (world)
+    assert "left_lower_arm" not in result.local_quaternions   # no orphan local
+
+
 def _bent_pose(skeleton, tpose):
     """A differential standing pose: bend the left forearm and yaw the head, so no
     uniform rotation and no coaxial pair can hide an operand-order bug."""

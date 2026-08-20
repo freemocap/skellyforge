@@ -382,6 +382,8 @@ def rotation_between_vectors(
 def align_point_sets_kabsch(
     reference_points: NDArray[float64],
     live_points: NDArray[float64],
+    *,
+    degeneracy_tolerance: float = 1e-4,
 ) -> NDArray[float64]:
     """Find the optimal rotation aligning two corresponding point sets.
 
@@ -395,6 +397,10 @@ def align_point_sets_kabsch(
         Point positions in the reference (T-pose) configuration.
     live_points : (M, 3)
         Corresponding point positions in the live configuration.
+    degeneracy_tolerance : float
+        A point set is rejected as collinear when its second-largest singular
+        value falls below this fraction of the largest. Planar sets (3+
+        non-collinear points) keep two strong singular values and pass.
 
     Returns
     -------
@@ -442,6 +448,20 @@ def align_point_sets_kabsch(
 
     # SVD: H = U @ S @ V^T
     U, S, Vt = np.linalg.svd(H)
+
+    # Degeneracy guard: a collinear reference or live set leaves the rotation
+    # about that line unconstrained, so the SVD would silently return whatever
+    # least-squares yields. A collinear set collapses the second singular value
+    # toward zero; a planar set (3+ non-collinear points) keeps two strong
+    # singular values, so this admits valid rigid bodies and rejects only the
+    # genuinely under-determined ones.
+    if S[0] < 1e-12 or S[1] < degeneracy_tolerance * S[0]:
+        raise ValueError(
+            f"Kabsch point set is collinear/degenerate: singular values "
+            f"({S[0]:.3e}, {S[1]:.3e}, {S[2]:.3e}). The rotation about the "
+            f"collapsed axis is unconstrained."
+        )
+
     V = Vt.T
 
     # Optimal rotation (before reflection check)
