@@ -30,9 +30,9 @@ from skellyforge.skellymodels.standard_human.anatomical_landmark import (
     AnatomicalLandmark,
 )
 from skellyforge.skellymodels.standard_human.rigid_body_segment import (
-    AxisDefinition,
     RigidBodySegment,
 )
+from skellyforge.skellymodels.standard_human.axis_definition import AxisDefinition
 from skellyforge.skellymodels.standard_human.joint_linkage import JointLinkage
 from skellyforge.skellymodels.standard_human.kinematic_chain import KinematicChain
 from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
@@ -54,13 +54,12 @@ from skellyforge.skellymodels.standard_human.human_blendshapes import (
     get_blendshape_count,
     get_blendshape_names,
 )
-from skellyforge.skellymodels.standard_human.reference_geometry import (
+from skellyforge.skellymodels.standard_human.dead_reference_geometry import (
     ReferenceGeometry,
     SegmentReferenceGeometry,
 )
 from skellyforge.skellymodels.standard_human.standard_human_model import (
     StandardHuman,
-    compose_standard_human,
 )
 from skellyforge.skellymodels.standard_human.segment_definition import (
     ParentAttachment,
@@ -88,13 +87,9 @@ __all__ = [
     "RotationLimits",
     "compose_parts",
     "StandardHuman",
-    "compose_standard_human",
     "ReferenceGeometry",
     "SegmentReferenceGeometry",
     "BlendShapeChannel",
-    "BONE_ALIASES",
-    "resolve_alias",
-    "resolve_all_aliases",
     "get_blendshape_count",
     "get_blendshape_names",
     "VRM_EXPRESSION_ARKIT_MAPPING",

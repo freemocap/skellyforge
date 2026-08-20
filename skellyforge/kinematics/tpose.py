@@ -24,9 +24,9 @@ from skellyforge.kinematics.coordinate_frame_ops import (
 )
 from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
 from skellyforge.skellymodels.standard_human.rigid_body_segment import (
-    AxisDefinition,
     RigidBodySegment,
 )
+from skellyforge.skellymodels.standard_human import AxisDefinition
 from skellyforge.skellymodels.standard_human.standard_human_tpose import (
     SegmentTposeGeometry,
     StandardHumanTPose,

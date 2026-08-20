@@ -1,6 +1,0 @@
-name: lower_body
-
-parts:
-  hips:   {$include: pelvis.yaml}
-  leg:    {$include: leg.yaml}
-  foot:   {$include: foot.yaml}

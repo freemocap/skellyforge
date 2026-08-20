@@ -13,10 +13,11 @@ from skellyforge.skellymodels.standard_human.rigid_body_segment import (
     RigidBodySegment,
 )
 
+JointNameString = str
 
 @dataclass(frozen=True, slots=True)
 class JointLinkage:
-    name: str  # the shared landmark's name
+    name: JointNameString
     parent_segment: RigidBodySegment
     child_segment: RigidBodySegment
     shared_landmark: AnatomicalLandmark

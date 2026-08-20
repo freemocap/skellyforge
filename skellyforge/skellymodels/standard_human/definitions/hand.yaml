@@ -6,40 +6,55 @@
 # Thumb orientation is EXACT from default-vrm.gltf.json5: rest_direction
 # [0.707, 0.707, 0] (45 deg between forward +X and left +Y). Finger lengths are the
 # VRM bone lengths. Landmark NAMES are unchanged (tracker contract).
+#
+# REFERENCES
+# https://www.theskeletalsystem.net/hand-bones
+# https://i.pinimg.com/originals/89/14/6c/89146cd14eebed9ee9bddd99f3a11954.jpg
+# https://i.pinimg.com/736x/08/4a/e0/084ae026c369eec03918fc31bf989a69--hand-bone-anatomy-anatomy-bones.jpg
+# https://www.researchgate.net/profile/Visakha-Nanayakkara/publication/318184055/figure/fig2/AS:512851171176448@1499284655889/Human-hand-skeletal-structure-depicting-finger-bones-joints-metacarpals-and-carpal.png
+
 sided: true
 
 landmarks:
+  #Carpals
   hand_scaphoid:    {definition: "Center of the scaphoid carpal bone of the wrist",    reference_frame: hand, rest_position: [-15, 12, 0]}
   hand_lunate:      {definition: "Center of the lunate carpal bone of the wrist",      reference_frame: hand, rest_position: [-5, 10, 0]}
   hand_triquetrum:  {definition: "Center of the triquetrum carpal bone of the wrist",  reference_frame: hand, rest_position: [10, 10, 0]}
   hand_pisiform:    {definition: "Center of the pisiform carpal bone of the wrist",    reference_frame: hand, rest_position: [12, 8, -6]}
-  hand_trapezium:   {definition: "Center of the trapezium carpal bone of the wrist",   reference_frame: hand, rest_position: [-18, 24, 0]}
-  hand_trapezoid:   {definition: "Center of the trapezoid carpal bone of the wrist",   reference_frame: hand, rest_position: [-5, 26, 0]}
-  hand_capitate:    {definition: "Center of the capitate carpal bone of the wrist",    reference_frame: hand, rest_position: [0, 28, 0]}
   hand_hamate:      {definition: "Center of the hamate carpal bone of the wrist",      reference_frame: hand, rest_position: [10, 26, 0]}
-  hand_fifth_metacarpal_base: {definition: "Base of the fifth metacarpal (distinct from the ring metacarpal base)", reference_frame: hand, rest_position: [13, 30, 0]}
+  hand_capitate:    {definition: "Center of the capitate carpal bone of the wrist",    reference_frame: hand, rest_position: [0, 28, 0]}
+  hand_trapezoid:   {definition: "Center of the trapezoid carpal bone of the wrist",   reference_frame: hand, rest_position: [-5, 26, 0]}
+  hand_trapezium:   {definition: "Center of the trapezium carpal bone of the wrist",   reference_frame: hand, rest_position: [-18, 24, 0]}
+
+
+  #Thumb
 
   hand_thumb_metacarpophalangeal_joint:   {definition: "Center of the thumb MCP joint",      reference_frame: thumb_proximal, rest_position: [0, 34.5, 0]}
-  hand_index_finger_metacarpophalangeal_joint: {definition: "Center of the index finger MCP joint", reference_frame: hand, rest_position: [-5, 100, 0]}
-  hand_middle_finger_metacarpophalangeal_joint: {definition: "Center of the middle finger MCP joint", reference_frame: hand, rest_position: [0, 100, 0]}
-  hand_ring_finger_metacarpophalangeal_joint:  {definition: "Center of the ring finger MCP joint", reference_frame: hand, rest_position: [10, 100, 0]}
-  hand_pinky_finger_metacarpophalangeal_joint: {definition: "Center of the pinky finger MCP joint", reference_frame: hand, rest_position: [13, 104, 0]}
-
   hand_thumb_interphalangeal_joint: {definition: "Center of the thumb interphalangeal joint", reference_frame: thumb_intermediate, rest_position: [0, 25.8, 0]}
   hand_thumb_tip:                   {definition: "Distal tip of the thumb", reference_frame: thumb_distal, rest_position: [0, 25.8, 0]}
 
+
+  #Fingers
+  ## Index
+  hand_index_finger_metacarpophalangeal_joint: {definition: "Center of the index finger MCP joint", reference_frame: hand, rest_position: [-5, 100, 0]}
   hand_index_finger_proximal_interphalangeal_joint: {definition: "Center of the index finger PIP joint", reference_frame: index_proximal, rest_position: [0, 29.5, 0]}
   hand_index_finger_distal_interphalangeal_joint:   {definition: "Center of the index finger DIP joint", reference_frame: index_intermediate, rest_position: [0, 22.1, 0]}
   hand_index_finger_tip:                            {definition: "Distal tip of the index finger", reference_frame: index_distal, rest_position: [0, 22.1, 0]}
 
+  ## Middle
+  hand_middle_finger_metacarpophalangeal_joint: {definition: "Center of the middle finger MCP joint", reference_frame: hand, rest_position: [0, 100, 0]}
   hand_middle_finger_proximal_interphalangeal_joint: {definition: "Center of the middle finger PIP joint", reference_frame: middle_proximal, rest_position: [0, 34.5, 0]}
   hand_middle_finger_distal_interphalangeal_joint:   {definition: "Center of the middle finger DIP joint", reference_frame: middle_intermediate, rest_position: [0, 25.8, 0]}
   hand_middle_finger_tip:                            {definition: "Distal tip of the middle finger", reference_frame: middle_distal, rest_position: [0, 25.8, 0]}
 
+  # Ring
+  hand_ring_finger_metacarpophalangeal_joint:  {definition: "Center of the ring finger MCP joint", reference_frame: hand, rest_position: [10, 100, 0]}
   hand_ring_finger_proximal_interphalangeal_joint: {definition: "Center of the ring finger PIP joint", reference_frame: ring_proximal, rest_position: [0, 29.5, 0]}
   hand_ring_finger_distal_interphalangeal_joint:   {definition: "Center of the ring finger DIP joint", reference_frame: ring_intermediate, rest_position: [0, 22.1, 0]}
   hand_ring_finger_tip:                            {definition: "Distal tip of the ring finger", reference_frame: ring_distal, rest_position: [0, 22.1, 0]}
 
+  ## Pinky
+  hand_pinky_finger_metacarpophalangeal_joint: {definition: "Center of the pinky finger MCP joint", reference_frame: hand, rest_position: [13, 104, 0]}
   hand_pinky_finger_proximal_interphalangeal_joint: {definition: "Center of the pinky finger PIP joint", reference_frame: little_proximal, rest_position: [0, 22.3, 0]}
   hand_pinky_finger_distal_interphalangeal_joint:   {definition: "Center of the pinky finger DIP joint", reference_frame: little_intermediate, rest_position: [0, 16.7, 0]}
   hand_pinky_finger_tip:                            {definition: "Distal tip of the pinky finger", reference_frame: little_distal, rest_position: [0, 16.7, 0]}
@@ -61,6 +76,8 @@ segments:
     landmarks: [hand_trapezium, hand_thumb_metacarpophalangeal_joint]
     axes:
       - {axis: y, target_landmark: hand_thumb_metacarpophalangeal_joint, rest_direction: [0.707, 0.707, 0]}
+
+
   thumb_intermediate:
     parent: thumb_proximal
     origin_landmark: hand_thumb_metacarpophalangeal_joint

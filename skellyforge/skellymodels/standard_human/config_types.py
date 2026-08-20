@@ -11,82 +11,30 @@ instantiated left + right (mirroring Y) by the loader.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from pathlib import Path
 
+import yaml
 
-@dataclass(frozen=True, slots=True)
-class LandmarkConfig:
-    definition: str
-    reference_frame: str
-    rest_position: tuple[float, float, float]
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "LandmarkConfig":
-        return cls(**data)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "rest_position", tuple(float(v) for v in self.rest_position)
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class AxisConfig:
-    axis: Literal["x", "y", "z", "-x", "-y", "-z"]
-    target_landmark: str
-    rest_direction: tuple[float, float, float] | None = None
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "AxisConfig":
-        return cls(**data)
-
-    def __post_init__(self) -> None:
-        if self.rest_direction is not None:
-            object.__setattr__(
-                self, "rest_direction", tuple(float(v) for v in self.rest_direction)
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class SegmentConfig:
-    parent: str | None = None
-    origin_landmark: str = ""
-    landmarks: tuple[str, ...] = ()
-    axes: tuple[AxisConfig, ...] = ()
-    rigid_with_parent: bool = False
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "SegmentConfig":
-        return cls(**data)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "landmarks", tuple(self.landmarks))
-        object.__setattr__(
-            self,
-            "axes",
-            tuple(
-                a if isinstance(a, AxisConfig) else AxisConfig.from_dict(a)
-                for a in self.axes
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class ChainConfig:
-    start: str
-    end: str
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "ChainConfig":
-        return cls(**data)
+from skellyforge.skellymodels.standard_human.anatomical_landmark import LandmarkConfig
+from skellyforge.skellymodels.standard_human.chain_config import ChainConfig
+from skellyforge.skellymodels.standard_human.segment_definition import SegmentConfig
 
 
 @dataclass(frozen=True, slots=True)
 class PartConfig:
     sided: bool = False
+    prefixes:list[str] = field(default_factory=list) # if list is not empty, creates multiple parts after `sided` split (e.g. for right_thumb_cmc, etc)
     landmarks: dict[str, LandmarkConfig] = field(default_factory=dict)
     segments: dict[str, SegmentConfig] = field(default_factory=dict)
     chains: dict[str, ChainConfig] = field(default_factory=dict)
+
+    @classmethod
+    def from_yaml_path(cls, path: str|Path) -> "PartConfig":
+        if not Path(path).exists():
+            raise FileNotFoundError(f'{path} does not exist')
+        with open(path, "r") as stream:
+            data = yaml.safe_load(stream)
+        return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "PartConfig":

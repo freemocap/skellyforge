@@ -57,6 +57,32 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
+from skellyforge.skellymodels.standard_human.rigid_body_segment import AxisConfig
+
+
+@dataclass(frozen=True, slots=True)
+class SegmentConfig:
+    parent: str | None = None
+    origin_landmark: str = ""
+    landmarks: tuple[str, ...] = ()
+    axes: tuple[AxisConfig, ...] = ()
+    rigid_with_parent: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> "SegmentConfig":
+        return cls(**data)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "landmarks", tuple(self.landmarks))
+        object.__setattr__(
+            self,
+            "axes",
+            tuple(
+                a if isinstance(a, AxisConfig) else AxisConfig.from_dict(a)
+                for a in self.axes
+            ),
+        )
+
 
 class ParentAttachment(str, Enum):
     """Which end of the parent this segment's origin sits at."""

@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 
 from skellyforge.skellymodels.standard_human.face_part import FACE_PART
-from skellyforge.skellymodels.standard_human.reference_geometry import (
+from skellyforge.skellymodels.standard_human.dead_reference_geometry import (
     _mirror,
 )
 

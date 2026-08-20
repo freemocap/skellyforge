@@ -15,6 +15,20 @@ from dataclasses import dataclass
 
 from skellyforge.skellymodels.standard_human.config_types import LandmarkConfig
 
+@dataclass(frozen=True, slots=True)
+class LandmarkConfig:
+    definition: str
+    reference_frame: str
+    rest_position: tuple[float, float, float]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> "LandmarkConfig":
+        return cls(**data)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "rest_position", tuple(float(v) for v in self.rest_position)
+        )
 
 @dataclass(frozen=True, slots=True)
 class AnatomicalLandmark:

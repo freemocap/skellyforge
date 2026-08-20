@@ -10,10 +10,11 @@ from skellyforge.skellymodels.standard_human.rigid_body_segment import (
     RigidBodySegment,
 )
 
+ChainNameString = str
 
 @dataclass(frozen=True, slots=True)
 class KinematicChain:
-    name: str
+    name: ChainNameString
     start_segment: RigidBodySegment
     end_segment: RigidBodySegment
 

@@ -151,24 +151,3 @@ class StandardHuman:
         for s in self._segments:
             required |= s.required_landmarks()
         return required
-
-
-def compose_standard_human(name: str = "standard_human") -> StandardHuman:
-    """The standard 60-segment human: body + both hands + the face (3 VRM bones + 5 face detail).
-
-    The head carries the 7-point skull rigid set (``head_center``,
-    ``head_vertex``, ``nose``, ``left_eye``, ``right_eye``, ``left_ear``,
-    ``right_ear``) — the full rigid body; the jaw and mouth corners are NOT in
-    it (they articulate).
-    """
-    return StandardHuman(
-        name=name,
-        parts=(
-            (BODY_MIDLINE_PART, ""),
-            (BODY_LIMB_PART, "left_"),
-            (BODY_LIMB_PART, "right_"),
-            (HAND_PART, "left_"),
-            (HAND_PART, "right_"),
-            (FACE_PART, ""),
-        ),
-    )

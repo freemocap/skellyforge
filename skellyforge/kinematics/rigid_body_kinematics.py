@@ -41,7 +41,7 @@ from skellyforge.kinematics.quaternion_math import (
 
 if TYPE_CHECKING:
     from numpy import float64
-    from skellyforge.skellymodels.standard_human.reference_geometry import (
+    from skellyforge.skellymodels.standard_human.dead_reference_geometry import (
         SegmentReferenceGeometry,
     )
 

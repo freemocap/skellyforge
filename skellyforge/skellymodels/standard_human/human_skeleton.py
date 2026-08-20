@@ -18,19 +18,18 @@ from skellyforge.skellymodels.standard_human.anatomical_landmark import (
 )
 from skellyforge.skellymodels.standard_human.config_types import (
     AxisConfig,
-    ChainConfig,
     LandmarkConfig,
     PartConfig,
     SegmentConfig,
     SkeletonConfig,
 )
+from skellyforge.skellymodels.standard_human.chain_config import ChainConfig
 from skellyforge.skellymodels.standard_human.joint_linkage import JointLinkage
 from skellyforge.skellymodels.standard_human.kinematic_chain import KinematicChain
 from skellyforge.skellymodels.standard_human.rigid_body_segment import (
-    AxisDefinition,
     RigidBodySegment,
 )
-
+from skellyforge.skellymodels.standard_human import AxisDefinition
 
 _Node = TypeVar("_Node")
 

@@ -38,7 +38,7 @@ skellyforge/
 ```
 
 **Old-architecture (being retired — do NOT build on them):** `segment_definition.py` (`SegmentDefinition`),
-`reference_geometry.py` (`ReferenceGeometry`/`SegmentReferenceGeometry`), `rest_pose.py`
+`dead_reference_geometry.py` (`ReferenceGeometry`/`SegmentReferenceGeometry`), `rest_pose.py`
 (`RestSegment`/`RestLandmark`), the Python-authored `body_part.py` / `hand_part.py` / `face_part.py` /
 `standard_human_model.py`, plus `skellymodels/models/` + `managers/`,
 `tracker_info/*.yaml`, `skellyforge/biomechanics/` (dead), `pipelines/dlc_pipeline.py` (dead).
