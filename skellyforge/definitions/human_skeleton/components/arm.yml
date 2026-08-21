@@ -1,0 +1,10 @@
+sided: true
+segments:
+  UPPER_ARM:
+  LOWER_ARM:
+
+landmarks:
+#    RIGHT_STERNOCLAVICLAR = "Center of the right sternoclavicular joint"
+#    RIGHT_SHOULDER = "Center of the right glenohumeral joint"
+#    RIGHT_ELBOW = "Center of the right elbow joint, near trochlea of the humerus"
+#    RIGHT_WRIST = "Center of the right radiocarpal joint, near the lunate fossa of the radius"

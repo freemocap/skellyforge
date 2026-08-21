@@ -1,0 +1,9 @@
+sided: true
+segments:
+  UPPER_LEG:
+  LOWER_LEG:
+
+landmarks:
+  KNEE = "Center of the right knee joint, intersection of the medial condyle of the femur and the tibia"
+  ANKLE = "Center of the right ankle joint, geometric center of the medial and lateral malleoli"
+  #include condyles, maleoli, greater trochanter, etc

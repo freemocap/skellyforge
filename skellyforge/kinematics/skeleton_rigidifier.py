@@ -28,10 +28,8 @@ from skellyforge.kinematics.rigid_point_set import (
     RigidPointTemplate,
     fit_template_to_observed,
 )
-
-if TYPE_CHECKING:
-    from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
-    from skellyforge.skellymodels.standard_human.standard_human_tpose import StandardHumanTPose
+from skellyforge.standard_human.human_skeleton import HumanSkeleton
+from skellyforge.standard_human.standard_human_tpose import StandardHumanTPose
 
 
 @dataclass
@@ -143,8 +141,8 @@ class TreeRigidifier:
 
 
 def rigidify_landmarks(
-    skeleton: "HumanSkeleton",
-    tpose: "StandardHumanTPose",
+    skeleton: HumanSkeleton,
+    tpose: StandardHumanTPose,
     landmarks: dict[str, np.ndarray],
 ) -> dict[str, np.ndarray]:
     """Rigidify one frame of hydrated landmarks against the skeleton's rest shape.

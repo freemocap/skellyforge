@@ -136,7 +136,7 @@ def build_standard_human_tpose(
         if segment.parent is None:
             origin = np.zeros(3, dtype=np.float64)
         else:
-            offset = np.asarray(segment.origin_landmark.rest_position, dtype=np.float64)
+            offset = np.asarray(segment.origin_landmark.local_position, dtype=np.float64)
             offset = offset * scales[segment.parent.name]
             origin = parent_origin + parent_basis.T @ offset
         basis = _build_rest_basis(segment)
@@ -155,9 +155,9 @@ def build_standard_human_tpose(
         for lm in segment.landmarks:
             if lm.name in landmarks:
                 continue
-            geometry = geometries[lm.reference_frame]
-            offset = np.asarray(lm.rest_position, dtype=np.float64)
-            offset = offset * scales[lm.reference_frame]
+            geometry = geometries[lm.segment]
+            offset = np.asarray(lm.local_position, dtype=np.float64)
+            offset = offset * scales[lm.segment]
             landmarks[lm.name] = geometry.origin + geometry.basis.T @ offset
 
     return StandardHumanTPose(segments=geometries, landmarks=landmarks)

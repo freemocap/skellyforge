@@ -1,0 +1,82 @@
+segments:
+  LUMBAR_SPINE:
+    reference_geometry:
+      origin: sacrum_top
+      z_axis:
+        landmark: spine_t12
+        type: exact
+      y_axis:
+        negate: true
+        landmark: xiphoid_process
+        type: approximate
+
+  CHEST:
+    aliases:
+      - thoraxic_spine
+      - thorax
+      - ribs
+      - ribcage
+    reference_geometry:
+      origin: spine_t12
+      z_axis:
+        landmark: spine_c7
+        type: exact
+      y_axis:
+        negate: true
+        landmark: xiphoid_process
+        type: approximate
+
+  CERVICAL_SPINE:
+    reference_geometry:
+      origin: spine_c7
+      z_axis:
+        landmark: spine_c1
+        type: exact
+      y_axis:
+        negate: true
+        landmark: xiphoid_process
+        type: approximate
+
+
+landmarks:
+# todo - make landmarks for each vertebra (defined as gemetric mean of the base of that vertebra) and also a `..._TOP` landmark for each one defined as the mean of the upper surface
+#  SPINE_C1 (atlas)
+#  SPINE_C2 (axis)
+#  SPINE_C3
+#  SPINE_C4
+#  SPINE_C5
+#  SPINE_C6
+#  SPINE_C7 (neck center)
+#  SPINE_T1
+#  SPINE_T2
+#  SPINE_T3
+#  SPINE_T4
+#  SPINE_T5
+#  SPINE_...
+#  SPINE_T12 (chest_center)
+#  SPINE_L1
+#  SPINE_L2
+#  SPINE_L3
+#  SPINE_L4
+#  SPINE_L5
+
+
+
+  STERNOCLAVICULAR_NOTCH:
+    definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum"
+    reference_frame: chest
+    local_position: [-15, 271, 0]
+
+  STERNOCLAVICULAR:
+    sided: true
+    definition: "[Side ] sternoclavicular joint"
+    reference_frame: chest
+    local_position: [-15, 271, 0]
+
+  XIPHOID_PROCESS:
+    alias:
+      - xipoid
+    sided: true
+    definition: "Center of the sternoclavicular joint"
+    reference_frame: chest
+    local_position: [-15, 271, 0]

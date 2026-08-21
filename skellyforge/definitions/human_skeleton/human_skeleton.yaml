@@ -1,0 +1,11 @@
+name: human
+
+components:
+  pelvis: { $include: components/pelvis.yaml }
+  spine: { $include: components/spine.yaml }
+  skull: { $include: components/skull.yaml }
+  arm: { $include: components/arm.yaml }
+  hand: { $include: components/hand.yaml }
+  leg: { $include: components/leg.yaml }
+  foot: { $include: components/foot.yaml }
+  face: { $include: components/face.yaml }

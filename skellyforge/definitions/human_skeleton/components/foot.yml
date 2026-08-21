@@ -1,0 +1,8 @@
+sided: true
+segments:
+  HEEL: #ankle to heel bone
+  FOOT: #ankle to toes/TMP
+  TOES: #all the toes
+
+landmarks:
+  #INCLUDE TARSALS, METATARSALS, and PHALANGES - landmarked to heel, foot, or toes, as approrpaite
