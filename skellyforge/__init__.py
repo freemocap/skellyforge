@@ -11,6 +11,18 @@ __repo_url__ = (
 )
 __repo_issues_url__ = f"{__repo_url__}issues"
 
-from skellyforge.system.logging_configuration.log_levels import LogLevels
+from beartype.claw import beartype_this_package
 
-LOG_LEVEL = LogLevels.TRACE
+beartype_this_package()
+
+
+# Dump a Python traceback on native crashes (segfault / Windows access violation, e.g. 0xC0000005)
+# instead of dying silently. Spawned workers re-import this package, so they inherit this too.
+# Near-zero steady-state overhead — handlers stay dormant until a fatal signal actually fires.
+import faulthandler
+
+faulthandler.enable()
+
+from skellylogs import configure_logging, LogLevels
+
+configure_logging(LogLevels.TRACE)

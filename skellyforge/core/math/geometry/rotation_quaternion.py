@@ -1,6 +1,6 @@
 """RotationQuaternion algebra for 3D rotations — scalar and vectorized operations.
 
-This is the single home for all quaternion math in the kinematics engine.
+This is the single home for all quaternion math.
 Every operation lives here exactly once: scalar ``RotationQuaternion`` dataclass for
 single-frame use, and pure numpy module-level functions for batch operations
 on ``(N, 4)`` arrays. No other module in the project should contain a
@@ -12,10 +12,11 @@ Convention
   numpy arrays, and in ``RotationQuaternion`` field order. This matches the
   frame message's ``ROTATIONS_WORLD`` and ``ROTATIONS_LOCAL`` channel
   layout (``w, x, y, z`` float32 columns per doc 09).
-- All quaternions are **unit** quaternions representing rotations. The
-  scalar ``RotationQuaternion`` auto-normalizes in ``__post_init__``; vectorized
-  functions assume pre-normalized input (call ``normalize_quaternion_array``
-  if needed).
+- All quaternions are **unit** quaternions representing rotations. The scalar
+  ``RotationQuaternion`` is frozen and validates unit-ness on construction;
+  ``RotationQuaternion.from_components`` normalizes first for callers holding raw
+  numbers. Vectorized functions assume pre-normalized input (call
+  ``normalize_quaternion_array`` if needed).
 - Identity rotation is ``(1, 0, 0, 0)`` — this is the T-pose contract for
   every bone in the standard human model.
 
@@ -31,14 +32,16 @@ References
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Final
 
 import numpy as np
+from numpy import float64
 from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    from numpy import float64
+MINIMUM_QUATERNION_NORM: Final[float] = 1e-10
+UNIT_QUATERNION_TOLERANCE: Final[float] = 1e-9
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -50,16 +53,20 @@ if TYPE_CHECKING:
 class RotationQuaternion:
     """Unit quaternion for a single 3D rotation.
 
-    Auto-normalizes on construction so that arithmetic drift is contained
-    within each operation rather than accumulating across frames. Raises
-    ``ValueError`` on a near-zero input to prevent silently producing NaN
-    axes from degenerate quaternions.
+    Immutable once constructed: ``__post_init__`` validates that the components
+    are finite and unit-length, and raises otherwise. Normalization happens
+    *before* construction, in :meth:`from_components`, so that arithmetic drift is
+    contained within each operation without any post-construction mutation of a
+    frozen dataclass. Every operation here that can drift off the unit sphere
+    routes its result through :meth:`from_components`.
 
     Parameters
     ----------
     w, x, y, z : float
-        Scalar and vector components. The input does *not* need to be
-        pre-normalized; ``__post_init__`` handles it.
+        Scalar and vector components of a **unit** quaternion. Construction
+        validates unit-ness and raises otherwise; it never rewrites what it was
+        given. Build from unnormalized components with :meth:`from_components`,
+        which normalizes first and then constructs.
     """
 
     w: float
@@ -68,16 +75,36 @@ class RotationQuaternion:
     z: float
 
     def __post_init__(self) -> None:
-        norm = np.sqrt(self.w**2 + self.x**2 + self.y**2 + self.z**2)
-        if norm < 1e-10:
+        if not all(math.isfinite(component) for component in (self.w, self.x, self.y, self.z)):
+            raise ValueError(
+                f"Quaternion components must be finite - got "
+                f"(w={self.w}, x={self.x}, y={self.y}, z={self.z})"
+            )
+        norm = math.sqrt(self.w**2 + self.x**2 + self.y**2 + self.z**2)
+        if abs(norm - 1.0) > UNIT_QUATERNION_TOLERANCE:
+            raise ValueError(
+                f"RotationQuaternion must be unit length - got norm {norm:.12f} from "
+                f"(w={self.w}, x={self.x}, y={self.y}, z={self.z}). Use "
+                f"RotationQuaternion.from_components(...) to normalize before constructing."
+            )
+
+    @classmethod
+    def from_components(
+        cls, *, w: float, x: float, y: float, z: float
+    ) -> "RotationQuaternion":
+        """Normalize the given components, then construct.
+
+        This is the only path that accepts unnormalized input. Normalizing here,
+        ahead of ``__init__``, is what lets the dataclass stay frozen: the instance
+        is unit-length from the moment it exists and is never rewritten afterwards.
+        """
+        norm = math.sqrt(w**2 + x**2 + y**2 + z**2)
+        if norm < MINIMUM_QUATERNION_NORM:
             raise ValueError(
                 f"Cannot normalize near-zero quaternion "
-                f"(norm={norm:.2e}, w={self.w}, x={self.x}, y={self.y}, z={self.z})"
+                f"(norm={norm:.2e}, w={w}, x={x}, y={y}, z={z})"
             )
-        self.w /= norm
-        self.x /= norm
-        self.y /= norm
-        self.z /= norm
+        return cls(w=w / norm, x=x / norm, y=y / norm, z=z / norm)
 
     @classmethod
     def identity(cls) -> "RotationQuaternion":
@@ -103,7 +130,7 @@ class RotationQuaternion:
         The rotation represented by ``self * other`` is equivalent to
         applying ``other`` first, then ``self``: ``R(q₁·q₂) = R(q₁) ∘ R(q₂)``.
         """
-        return RotationQuaternion(
+        return RotationQuaternion.from_components(
             w=self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
             x=self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
             y=self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
@@ -167,7 +194,7 @@ class RotationQuaternion:
 
         if trace > 0.0:
             s = 0.5 / np.sqrt(trace + 1.0)
-            return cls(
+            return cls.from_components(
                 w=0.25 / s,
                 x=(R[2, 1] - R[1, 2]) * s,
                 y=(R[0, 2] - R[2, 0]) * s,
@@ -175,7 +202,7 @@ class RotationQuaternion:
             )
         elif R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
             s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
-            return cls(
+            return cls.from_components(
                 w=(R[2, 1] - R[1, 2]) / s,
                 x=0.25 * s,
                 y=(R[0, 1] + R[1, 0]) / s,
@@ -183,7 +210,7 @@ class RotationQuaternion:
             )
         elif R[1, 1] > R[2, 2]:
             s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
-            return cls(
+            return cls.from_components(
                 w=(R[0, 2] - R[2, 0]) / s,
                 x=(R[0, 1] + R[1, 0]) / s,
                 y=0.25 * s,
@@ -191,7 +218,7 @@ class RotationQuaternion:
             )
         else:
             s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
-            return cls(
+            return cls.from_components(
                 w=(R[1, 0] - R[0, 1]) / s,
                 x=(R[0, 2] + R[2, 0]) / s,
                 y=(R[1, 2] + R[2, 1]) / s,
@@ -237,11 +264,13 @@ class RotationQuaternion:
         angle = float(np.linalg.norm(rotation_vector))
         if angle < 1e-12:
             half = 0.5 * rotation_vector
-            return cls(w=1.0, x=float(half[0]), y=float(half[1]), z=float(half[2]))
+            return cls.from_components(
+                w=1.0, x=float(half[0]), y=float(half[1]), z=float(half[2])
+            )
 
         axis = rotation_vector / angle
         sin_half = float(np.sin(angle / 2.0))
-        return cls(
+        return cls.from_components(
             w=float(np.cos(angle / 2.0)),
             x=float(axis[0] * sin_half),
             y=float(axis[1] * sin_half),
@@ -345,7 +374,7 @@ class RotationQuaternion:
 
         # Near-parallel → NLERP (avoid sin(θ) ≈ 0)
         if dot > 0.9995:
-            return cls(
+            return cls.from_components(
                 w=q0.w + t * (q1_w - q0.w),
                 x=q0.x + t * (q1_x - q0.x),
                 y=q0.y + t * (q1_y - q0.y),
@@ -359,7 +388,7 @@ class RotationQuaternion:
         s0 = np.cos(theta) - dot * np.sin(theta) / sin_theta_0
         s1 = np.sin(theta) / sin_theta_0
 
-        return cls(
+        return cls.from_components(
             w=float(s0 * q0.w + s1 * q1_w),
             x=float(s0 * q0.x + s1 * q1_x),
             y=float(s0 * q0.y + s1 * q1_y),

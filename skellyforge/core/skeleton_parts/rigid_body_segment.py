@@ -9,12 +9,12 @@ from __future__ import annotations
 
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from skellyforge.skellymodels.standard_human import AxisDefinition
-from skellyforge.skellymodels.standard_human.anatomical_landmark import (
-    AnatomicalLandmark,
-)
+from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
+from skellyforge.type_overloads import RigidBodySegmentName
+
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,12 +22,10 @@ class RigidBodySegment:
     """One rigid body. Parent + landmarks + origin are OBJECT references (resolved
     at load by HumanSkeleton.from_yaml - never raw strings after load)."""
 
-    name: str
-    parent: "RigidBodySegment | None"
-    landmarks: tuple[AnatomicalLandmark, ...]
+    name: RigidBodySegmentName
     origin_landmark: AnatomicalLandmark
-    axes: tuple[AxisDefinition, ...]
-    rigid_with_parent: bool = False
+    landmarks: list[AnatomicalLandmark]
+    children: list[RigidBodySegment] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         base_name = self.name[:-2] if self.name.endswith((".L", ".R")) else self.name
