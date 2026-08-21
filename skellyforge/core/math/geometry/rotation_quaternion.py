@@ -37,8 +37,8 @@ from dataclasses import dataclass
 from typing import Final
 
 import numpy as np
-from numpy import float64
-from numpy.typing import NDArray
+
+from skellyforge.type_overloads import FloatArray
 
 MINIMUM_QUATERNION_NORM: Final[float] = 1e-10
 UNIT_QUATERNION_TOLERANCE: Final[float] = 1e-9
@@ -152,7 +152,7 @@ class RotationQuaternion:
 
     # ── Conversion: quaternion → other representations ────────────
 
-    def to_rotation_matrix(self) -> NDArray[float64]:
+    def to_rotation_matrix(self) -> FloatArray:
         """Convert to a 3×3 rotation matrix.
 
         Returns a right-handed rotation matrix R such that for any vector
@@ -177,7 +177,7 @@ class RotationQuaternion:
         )
 
     @classmethod
-    def from_rotation_matrix(cls, R: NDArray[float64]) -> "RotationQuaternion":
+    def from_rotation_matrix(cls, R: FloatArray) -> "RotationQuaternion":
         """Construct a quaternion from a 3×3 rotation matrix.
 
         Uses Shepperd's trace-based method (Shepperd 1978) which selects
@@ -225,7 +225,7 @@ class RotationQuaternion:
                 z=0.25 * s,
             )
 
-    def to_axis_angle(self) -> tuple[NDArray[float64], float]:
+    def to_axis_angle(self) -> tuple[FloatArray, float]:
         """Convert to axis-angle representation.
 
         Returns ``(axis, angle)`` where ``axis`` is a unit (3,) vector
@@ -245,7 +245,7 @@ class RotationQuaternion:
 
     @classmethod
     def from_rotation_vector(
-        cls, rotation_vector: NDArray[float64]
+        cls, rotation_vector: FloatArray
     ) -> "RotationQuaternion":
         """Exponential map: a rotation vector (axis x angle) to a quaternion.
 
@@ -277,7 +277,7 @@ class RotationQuaternion:
             z=float(axis[2] * sin_half),
         )
 
-    def to_rotation_vector(self) -> NDArray[float64]:
+    def to_rotation_vector(self) -> FloatArray:
         """Logarithmic map: this rotation as a vector (axis x angle).
 
         The inverse of :meth:`from_rotation_vector`. Magnitude is the angle in
@@ -313,7 +313,7 @@ class RotationQuaternion:
 
         return roll, pitch, yaw
 
-    def rotate_vector(self, v: NDArray[float64]) -> NDArray[float64]:
+    def rotate_vector(self, v: FloatArray) -> FloatArray:
         """Rotate a (3,) vector by this quaternion.
 
         Uses the efficient Rodrigues-form formula:
@@ -407,8 +407,8 @@ class RotationQuaternion:
 
 
 def normalize_quaternion_array(
-    q: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+) -> FloatArray:
     """Normalize each row of an (N, 4) quaternion array to unit length.
 
     Returns a **new** array; the input is not modified.
@@ -428,9 +428,9 @@ def normalize_quaternion_array(
 
 
 def hamilton_product(
-    q_a: NDArray[float64],
-    q_b: NDArray[float64],
-) -> NDArray[float64]:
+    q_a: FloatArray,
+    q_b: FloatArray,
+) -> FloatArray:
     """Batch Hamilton product ``q_a * q_b`` for (N, 4) arrays.
 
     The result represents composing the rotation of ``q_b`` followed by
@@ -456,8 +456,8 @@ def hamilton_product(
 
 
 def conjugate_quaternion_array(
-    q: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+) -> FloatArray:
     """Return the conjugate of each quaternion in an (N, 4) array."""
     q = np.asarray(q, dtype=np.float64)
     _check_quat_shape(q)
@@ -467,8 +467,8 @@ def conjugate_quaternion_array(
 
 
 def quaternion_to_rotation_matrix(
-    q: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+) -> FloatArray:
     """Convert (N, 4) quaternion array to (N, 3, 3) rotation matrices.
 
     Same formula as ``RotationQuaternion.to_rotation_matrix``, vectorized.
@@ -500,8 +500,8 @@ def quaternion_to_rotation_matrix(
 
 
 def quaternion_to_axis_angle(
-    q: NDArray[float64],
-) -> tuple[NDArray[float64], NDArray[float64]]:
+    q: FloatArray,
+) -> tuple[FloatArray, FloatArray]:
     """Convert (N, 4) quaternions to axis-angle.
 
     Returns ``(axes, angles)`` where ``axes`` is (N, 3) unit vectors and
@@ -530,8 +530,8 @@ def quaternion_to_axis_angle(
 
 
 def quaternion_to_euler(
-    q: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+) -> FloatArray:
     """Convert (N, 4) quaternions to (N, 3) Euler angles.
 
     Returns columns ``[roll, pitch, yaw]`` in radians, ZYX intrinsic
@@ -560,9 +560,9 @@ def quaternion_to_euler(
 
 
 def rotate_vector_batch(
-    q: NDArray[float64],
-    v: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+    v: FloatArray,
+) -> FloatArray:
     """Rotate a single (3,) vector by N quaternions.
 
     Returns an (N, 3) array where row i is **v** rotated by **q[i]**.
@@ -584,9 +584,9 @@ def rotate_vector_batch(
 
 
 def rotate_vectors_batch(
-    q: NDArray[float64],
-    vectors: NDArray[float64],
-) -> NDArray[float64]:
+    q: FloatArray,
+    vectors: FloatArray,
+) -> FloatArray:
     """Rotate M vectors by N quaternions.
 
     Returns an (N, M, 3) array where ``result[n, m]`` is ``vectors[m]``
@@ -619,10 +619,10 @@ def rotate_vectors_batch(
 
 
 def slerp_batch(
-    q0: NDArray[float64],
-    q1: NDArray[float64],
-    t: NDArray[float64],
-) -> NDArray[float64]:
+    q0: FloatArray,
+    q1: FloatArray,
+    t: FloatArray,
+) -> FloatArray:
     """Vectorized SLERP between two arrays of quaternions.
 
     Parameters
@@ -687,10 +687,10 @@ def slerp_batch(
 
 
 def slerp_resample(
-    quaternions: NDArray[float64],
-    original_timestamps: NDArray[float64],
-    target_timestamps: NDArray[float64],
-) -> NDArray[float64]:
+    quaternions: FloatArray,
+    original_timestamps: FloatArray,
+    target_timestamps: FloatArray,
+) -> FloatArray:
     """Resample a quaternion trajectory to new timestamps via SLERP.
 
     Parameters
@@ -751,9 +751,9 @@ def slerp_resample(
 
 
 def compute_angular_velocity(
-    quaternions: NDArray[float64],
-    timestamps: NDArray[float64],
-) -> tuple[NDArray[float64], NDArray[float64]]:
+    quaternions: FloatArray,
+    timestamps: FloatArray,
+) -> tuple[FloatArray, FloatArray]:
     """Compute angular velocity from a quaternion trajectory.
 
     Uses finite differences: forward at frame 0, central for interior
@@ -826,11 +826,11 @@ def compute_angular_velocity(
 
 
 def compose_with_constant(
-    quaternions: NDArray[float64],
-    constant: NDArray[float64],
+    quaternions: FloatArray,
+    constant: FloatArray,
     *,
     pre_multiply: bool = True,
-) -> NDArray[float64]:
+) -> FloatArray:
     """Compose every quaternion in an (N, 4) trajectory with a constant.
 
     Parameters
@@ -864,7 +864,7 @@ def compose_with_constant(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _check_quat_shape(q: NDArray[float64]) -> None:
+def _check_quat_shape(q: FloatArray) -> None:
     """Raise ValueError if *q* is not (N, 4)."""
     if q.ndim != 2 or q.shape[1] != 4:
         raise ValueError(
