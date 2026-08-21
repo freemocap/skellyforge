@@ -70,6 +70,48 @@ class OrthonormalBasis:
                 f"{float(determinants.max()):.6f}], expected {expected_determinant:+.1f}"
             )
 
+    @classmethod
+    def from_prevalidated_axes(
+        cls,
+        *,
+        origin: Point,
+        x_axis: UnitVector,
+        y_axis: UnitVector,
+        z_axis: UnitVector,
+        handedness: Handedness,
+    ) -> OrthonormalBasis:
+        """Assemble a basis whose orthogonality and handedness are ALREADY established.
+
+        Bypasses `__post_init__`, so the caller is asserting the invariant. Reserved for
+        slicing a validated batched basis, where every element was checked together.
+        """
+        instance = object.__new__(cls)
+        for field_name, value in (
+            ("origin", origin),
+            ("x_axis", x_axis),
+            ("y_axis", y_axis),
+            ("z_axis", z_axis),
+            ("handedness", handedness),
+        ):
+            object.__setattr__(instance, field_name, value)
+        return instance
+
+    def at_batch_index(self, *, index: int) -> OrthonormalBasis:
+        """One element of a batched basis, selected along the leading axis.
+
+        Slicing a validated batch cannot produce an invalid element, so this skips
+        re-checking orthogonality per slice - which is what makes solving many segments in
+        one batched call and splitting the result afterwards actually cheaper than solving
+        them one at a time.
+        """
+        return OrthonormalBasis.from_prevalidated_axes(
+            origin=Point.from_prevalidated_array(array=self.origin.array[index]),
+            x_axis=UnitVector.from_prevalidated_array(array=self.x_axis.array[index]),
+            y_axis=UnitVector.from_prevalidated_array(array=self.y_axis.array[index]),
+            z_axis=UnitVector.from_prevalidated_array(array=self.z_axis.array[index]),
+            handedness=self.handedness,
+        )
+
     def axis_along(self, *, axis: SpatialAxis) -> UnitVector:
         """The unit axis named by `axis`, flipped when the axis is a negative direction."""
         axis_by_index = (self.x_axis, self.y_axis, self.z_axis)
@@ -107,7 +149,7 @@ class OrthonormalBasis:
         local_coordinates = np.einsum(
             "...ij,...pj->...pi", self.local_from_world_matrix, displacements_from_origin.array
         )
-        return Point(array=local_coordinates)
+        return Point.from_prevalidated_array(array=local_coordinates)
 
     def transform_points_to_world(self, *, points: Point) -> Point:
         """Express local-frame points in world coordinates.
@@ -123,16 +165,20 @@ class OrthonormalBasis:
         rotated = np.einsum(
             "...ij,...pj->...pi", self.world_from_local_matrix, points.array
         )
-        return self.origin.expanded_at(axis=-2) + Displacement(array=rotated)
+        return self.origin.expanded_at(axis=-2) + Displacement.from_prevalidated_array(
+            array=rotated
+        )
 
     def transform_named_points_to_local(
         self, *, points: Mapping[str, Point]
     ) -> dict[str, Point]:
         """Express a mapping of named world-coordinate points in this frame."""
         names = list(points.keys())
-        stacked = Point(array=np.stack(arrays=[points[name].array for name in names], axis=-2))
+        stacked = Point.from_prevalidated_array(
+            array=np.stack(arrays=[points[name].array for name in names], axis=-2)
+        )
         local_points = self.transform_points_to_local(points=stacked)
         return {
-            name: Point(array=local_points.array[..., index, :])
+            name: Point.from_prevalidated_array(array=local_points.array[..., index, :])
             for index, name in enumerate(names)
         }

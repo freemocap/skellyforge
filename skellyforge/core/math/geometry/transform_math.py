@@ -57,7 +57,7 @@ class Transform:
         rotated = np.einsum(
             "ij,...j->...i", self.rotation.to_rotation_matrix(), points.array
         )
-        return Point(array=rotated + self.translation.array)
+        return Point.from_prevalidated_array(array=rotated + self.translation.array)
 
     def inverse(self) -> Transform:
         """The transform that undoes this one."""
@@ -66,5 +66,6 @@ class Transform:
             "ij,j->i", inverse_rotation.to_rotation_matrix(), -self.translation.array
         )
         return Transform(
-            rotation=inverse_rotation, translation=Displacement(array=undone_translation)
+            rotation=inverse_rotation,
+            translation=Displacement.from_prevalidated_array(array=undone_translation),
         )

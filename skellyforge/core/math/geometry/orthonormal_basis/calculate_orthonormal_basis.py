@@ -75,7 +75,7 @@ def calculate_orthonormal_basis(
             f"{definition.secondary_point_name}: {secondary_point.array.shape}"
         )
 
-    primary_direction = _direction_along(
+    primary_direction = direction_along(
         axis=definition.primary_axis,
         displacement=primary_point - origin,
         description=(
@@ -83,7 +83,7 @@ def calculate_orthonormal_basis(
             f"`{definition.primary_point_name}`)"
         ),
     )
-    approximate_secondary_direction = _direction_along(
+    approximate_secondary_direction = direction_along(
         axis=definition.secondary_axis,
         displacement=secondary_point - origin,
         description=(
@@ -136,12 +136,12 @@ def calculate_orthonormal_basis(
     )
 
 
-def _direction_along(
+def direction_along(
     *, axis: SpatialAxis, displacement: Displacement, description: str
 ) -> UnitVector:
     """The unit vector that puts `displacement` on the signed half-axis named by `axis`.
 
-    For a negative axis the basis vector points opposite the named point, which is exactly
+    For a negative axis the direction points opposite the named point, which is exactly
     what makes that point land on the negative half of its declared axis.
     """
     return _signed(direction=displacement.normalized(description=description), sign=axis.sign)

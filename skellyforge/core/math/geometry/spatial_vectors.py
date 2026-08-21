@@ -21,12 +21,27 @@ Batching is the normal case here, not a special one.
 Every class validates in `__post_init__` and never mutates afterwards. Anything that
 needs to coerce, convert, or normalize its input does so in a `from_*` classmethod,
 *before* the frozen instance exists.
+
+Validation boundary
+-------------------
+Data ENTERING the type system is validated; data DERIVED within it is trusted. Building a
+vector from raw values (`from_array`, `from_xyz`, or the constructor) checks shape, dtype
+and finiteness, and `UnitVector` additionally checks length. Results of arithmetic between
+already-valid vectors go through `from_prevalidated_array`, which skips those scans -
+subtracting two finite points cannot produce a non-finite one, and dividing a displacement
+by its own norm cannot produce a non-unit vector.
+
+That matters because the scans are O(n) in the batch size: re-validating on every operation
+would make a streaming rolling window cost O(window) per frame instead of O(1). Genuine
+preconditions are still checked - `UnitVector.cross` verifies its result, because that is
+the only thing standing between a non-perpendicular pair of inputs and a silently
+short "unit" vector.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, Self
+from typing import Final, Self, overload
 
 import numpy as np
 
@@ -72,6 +87,20 @@ class Vector3Array:
             )
 
     @classmethod
+    def from_prevalidated_array(cls, *, array: FloatArray) -> Self:
+        """Wrap an array that ALREADY satisfies this type's invariants, skipping validation.
+
+        Bypasses `__init__` entirely, so it also bypasses beartype. Calling it is an
+        assertion by the caller that `array` is a finite, C-ordered float64 `(..., 3)`
+        array - and, for `UnitVector`, that its rows are unit length. Reserved for results
+        derived from already-valid vectors and for views into a validated buffer; anything
+        holding raw or external data must go through `from_array` instead.
+        """
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "array", array)
+        return instance
+
+    @classmethod
     def from_array(cls, *, values: object, name: str = "array") -> Self:
         """Coerce anything array-like into this type, converting before construction."""
         try:
@@ -110,7 +139,9 @@ class Vector3Array:
 
     def expanded_at(self, *, axis: int) -> Self:
         """Insert a length-1 axis, for broadcasting one frame against many points."""
-        return type(self)(array=np.expand_dims(self.array, axis=axis))
+        return type(self).from_prevalidated_array(
+            array=np.expand_dims(self.array, axis=axis)
+        )
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(batch_shape={self.batch_shape}, array={self.array})"
@@ -124,12 +155,22 @@ class Point(Vector3Array):
     and adding a `Displacement` to one moves it somewhere else.
     """
 
+    @overload
+    def __sub__(self, other: Point) -> Displacement: ...
+
+    @overload
+    def __sub__(self, other: Displacement) -> Point: ...
+
     def __sub__(self, other: Point | Displacement) -> Displacement | Point:
-        """`Point - Point` is the displacement between them; `Point - Displacement` moves it."""
+        """`Point - Point` is the displacement between them; `Point - Displacement` moves it.
+
+        The overloads above let a type checker resolve which of the two it is at each call
+        site, so callers are not handed a `Displacement | Point` union to narrow by hand.
+        """
         if isinstance(other, Point):
-            return Displacement(array=self.array - other.array)
+            return Displacement.from_prevalidated_array(array=self.array - other.array)
         if isinstance(other, Displacement):
-            return Point(array=self.array - other.array)
+            return Point.from_prevalidated_array(array=self.array - other.array)
         return NotImplemented
 
     def __add__(self, other: Displacement) -> Point:
@@ -141,7 +182,7 @@ class Point(Vector3Array):
         """
         if not isinstance(other, Displacement):
             return NotImplemented
-        return Point(array=self.array + other.array)
+        return Point.from_prevalidated_array(array=self.array + other.array)
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -155,19 +196,21 @@ class Displacement(Vector3Array):
     def __add__(self, other: Displacement) -> Displacement:
         if not isinstance(other, Displacement):
             return NotImplemented
-        return Displacement(array=self.array + other.array)
+        return Displacement.from_prevalidated_array(array=self.array + other.array)
 
     def __sub__(self, other: Displacement) -> Displacement:
         if not isinstance(other, Displacement):
             return NotImplemented
-        return Displacement(array=self.array - other.array)
+        return Displacement.from_prevalidated_array(array=self.array - other.array)
 
     def __neg__(self) -> Displacement:
-        return Displacement(array=-self.array)
+        return Displacement.from_prevalidated_array(array=-self.array)
 
     def scaled_by(self, *, factors: float | FloatArray) -> Displacement:
         """Scale by a single number, or by one `(...,)` factor per batch element."""
-        return Displacement(array=self.array * _as_broadcastable_factors(factors=factors))
+        return Displacement.from_prevalidated_array(
+            array=self.array * _as_broadcastable_factors(factors=factors)
+        )
 
     def dot(self, *, other: Displacement | UnitVector) -> FloatArray:
         """Row-wise dot product, returning shape `(...,)`."""
@@ -191,7 +234,9 @@ class Displacement(Vector3Array):
                 f"{float(norms.min()):.3e} < {MINIMUM_VECTOR_NORM:.1e} "
                 "(the defining points are coincident)"
             )
-        return UnitVector(array=self.array / norms)
+        # Dividing by the norm we just measured yields unit length by construction, so
+        # UnitVector's length check would only re-measure what this line guarantees.
+        return UnitVector.from_prevalidated_array(array=self.array / norms)
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -217,7 +262,7 @@ class UnitVector(Vector3Array):
 
     def __neg__(self) -> UnitVector:
         """The opposite direction, which is still unit length."""
-        return UnitVector(array=-self.array)
+        return UnitVector.from_prevalidated_array(array=-self.array)
 
     def dot(self, *, other: Displacement | UnitVector) -> FloatArray:
         """Row-wise dot product, returning shape `(...,)`."""
@@ -235,11 +280,13 @@ class UnitVector(Vector3Array):
 
     def scaled_by(self, *, factors: float | FloatArray) -> Displacement:
         """Give this direction a magnitude, producing a `Displacement`."""
-        return Displacement(array=self.array * _as_broadcastable_factors(factors=factors))
+        return Displacement.from_prevalidated_array(
+            array=self.array * _as_broadcastable_factors(factors=factors)
+        )
 
     def as_displacement(self) -> Displacement:
         """This direction as a plain unit-length `Displacement`."""
-        return Displacement(array=self.array)
+        return Displacement.from_prevalidated_array(array=self.array)
 
 
 def _as_float_array(*, values: object) -> FloatArray:

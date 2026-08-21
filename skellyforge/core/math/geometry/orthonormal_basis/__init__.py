@@ -3,6 +3,7 @@
 from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basis import (
     MINIMUM_SINE_BETWEEN_DEFINING_VECTORS,
     calculate_orthonormal_basis,
+    direction_along,
 )
 from skellyforge.core.math.geometry.orthonormal_basis.handedness import (
     Handedness,
@@ -30,4 +31,5 @@ __all__ = [
     "ReferenceFrameDefinition",
     "SpatialAxis",
     "calculate_orthonormal_basis",
+    "direction_along",
 ]

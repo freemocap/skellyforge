@@ -175,6 +175,53 @@ def test_component_accessors_work_at_every_batch_rank() -> None:
     assert batched.x.shape == (7, 5)
 
 
+def test_prevalidated_construction_skips_the_scans() -> None:
+    # The trusted path is what keeps derived results and buffer views O(1) instead of
+    # O(batch). It asserts rather than checks, so it will happily wrap nonsense - which is
+    # exactly why only internally-derived data may use it.
+    nonsense = UnitVector.from_prevalidated_array(array=np.array([5.0, 5.0, 5.0]))
+    assert float(nonsense.x) == 5.0
+    with pytest.raises(ValueError, match="unit length"):
+        UnitVector.from_array(values=[5.0, 5.0, 5.0])
+
+
+def test_derived_results_stay_correct_through_the_trusted_path() -> None:
+    rng = np.random.default_rng(seed=21)
+    first = Point.from_array(values=rng.normal(size=(100, 3)))
+    second = Point.from_array(values=rng.normal(size=(100, 3)))
+    direction = (second - first).normalized(description="test displacement")
+    # `norm()` lives on Displacement - a UnitVector's length is 1 by construction.
+    np.testing.assert_allclose(
+        direction.as_displacement().norm(), np.ones(100), atol=1e-12
+    )
+
+
+def test_basis_batch_indexing_matches_a_directly_solved_frame() -> None:
+    rng = np.random.default_rng(seed=22)
+    number_of_frames = 30
+    points = {
+        name: Point.from_array(values=rng.normal(size=(number_of_frames, 3)))
+        for name in ("origin", "primary", "secondary")
+    }
+    definition = ReferenceFrameDefinition(
+        origin_point_name="origin",
+        primary_axis=SpatialAxis.X,
+        primary_point_name="primary",
+        secondary_axis=SpatialAxis.Y,
+        secondary_point_name="secondary",
+    )
+    batched = calculate_orthonormal_basis(points=points, definition=definition)
+    single = calculate_orthonormal_basis(
+        points={name: Point(array=point.array[7]) for name, point in points.items()},
+        definition=definition,
+    )
+    np.testing.assert_allclose(
+        batched.at_batch_index(index=7).local_from_world_matrix,
+        single.local_from_world_matrix,
+        atol=1e-12,
+    )
+
+
 def test_the_three_vector_types_are_not_interchangeable() -> None:
     assert issubclass(Point, Vector3Array)
     assert not issubclass(Point, Displacement)
