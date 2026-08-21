@@ -20,9 +20,6 @@ from skellyforge.core.skeleton_parts.rigid_body_segment import (
     calculate_bases_for_segments,
 )
 from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver
-from skellyforge.core.skeleton_parts.underspecified_rigid_body_segment import (
-    UnderspecifiedRigidBodySegment,
-)
 
 
 def _landmark(
@@ -105,26 +102,7 @@ def test_segment_str_names_its_axes() -> None:
     assert "+y -> elbow" in str(_segment())
 
 
-def test_segment_rejects_fewer_than_three_landmarks() -> None:
-    landmarks = {
-        "shoulder": _landmark(name="shoulder", position=(0.0, 0.0, 0.0)),
-        "elbow": _landmark(name="elbow", position=(0.0, 3.0, 0.0)),
-    }
-    with pytest.raises(ValueError, match="at least 3 landmarks"):
-        RigidBodySegment(
-            name="upper_arm.L",
-            landmarks=landmarks,
-            frame_definition=ReferenceFrameDefinition(
-                origin_point_name="shoulder",
-                primary_axis=SpatialAxis.Y,
-                primary_point_name="elbow",
-                secondary_axis=SpatialAxis.X,
-                secondary_point_name="missing",
-            ),
-        )
-
-
-def test_segment_rejects_a_frame_definition_naming_absent_landmarks() -> None:
+def test_segment_rejects_a_frame_definition_missing_its_origin_or_primary() -> None:
     segment = _segment()
     with pytest.raises(ValueError, match="does not have"):
         RigidBodySegment(
@@ -133,9 +111,9 @@ def test_segment_rejects_a_frame_definition_naming_absent_landmarks() -> None:
             frame_definition=ReferenceFrameDefinition(
                 origin_point_name="shoulder",
                 primary_axis=SpatialAxis.Y,
-                primary_point_name="elbow",
+                primary_point_name="nonexistent_landmark",
                 secondary_axis=SpatialAxis.X,
-                secondary_point_name="nonexistent_landmark",
+                secondary_point_name="lateral_epicondyle",
             ),
         )
 
@@ -159,39 +137,97 @@ def test_segment_rejects_non_snake_case_names(name: str) -> None:
         )
 
 
-# ── UnderspecifiedRigidBodySegment ────────────────────────────────────
+# ── Underspecification ────────────────────────────────────────────────
+#
+# Underspecification is a fact about the data, not a separate type. It arises two ways,
+# and `RigidBodySegment` treats them identically:
+#   1. the frame definition declares no secondary axis at all, or
+#   2. it declares one, but that landmark is not among the segment's landmarks.
 
 
-def _underspecified_segment() -> UnderspecifiedRigidBodySegment:
-    return UnderspecifiedRigidBodySegment(
+def _segment_with_no_secondary_axis() -> RigidBodySegment:
+    """Way 1: the definition itself stops at a direction."""
+    return RigidBodySegment(
         name="forearm.L",
-        origin_landmark=_landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L"),
-        distal_landmark=_landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="forearm.L"),
-        primary_axis=SpatialAxis.NEGATIVE_Y,
+        landmarks={
+            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L"),
+            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="forearm.L"),
+        },
+        frame_definition=ReferenceFrameDefinition(
+            origin_point_name="elbow",
+            primary_axis=SpatialAxis.NEGATIVE_Y,
+            primary_point_name="wrist",
+        ),
     )
 
 
-def test_underspecified_segment_has_no_basis_method() -> None:
-    # The whole reason this type exists: two landmarks cannot determine roll, so there is
-    # no calculate_basis to accidentally call.
-    assert not hasattr(_underspecified_segment(), "calculate_basis")
+def _segment_awaiting_its_secondary_landmark() -> RigidBodySegment:
+    """Way 2: the definition names a roll reference this segment has not been given."""
+    return RigidBodySegment(
+        name="forearm.L",
+        landmarks={
+            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L"),
+            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="forearm.L"),
+        },
+        frame_definition=ReferenceFrameDefinition(
+            origin_point_name="elbow",
+            primary_axis=SpatialAxis.NEGATIVE_Y,
+            primary_point_name="wrist",
+            secondary_axis=SpatialAxis.X,
+            secondary_point_name="ulnar_styloid",
+        ),
+    )
 
 
-def test_underspecified_segment_length_and_direction() -> None:
-    segment = _underspecified_segment()
+@pytest.mark.parametrize(
+    "make_segment",
+    [_segment_with_no_secondary_axis, _segment_awaiting_its_secondary_landmark],
+    ids=["no-secondary-axis", "secondary-landmark-absent"],
+)
+def test_two_landmarks_leave_a_segment_underspecified(make_segment) -> None:
+    segment = make_segment()
+    assert not segment.is_fully_specified
+    assert segment.landmark_names == ("elbow", "wrist")
+    assert "underspecified" in str(segment)
+
+
+@pytest.mark.parametrize(
+    "make_segment",
+    [_segment_with_no_secondary_axis, _segment_awaiting_its_secondary_landmark],
+    ids=["no-secondary-axis", "secondary-landmark-absent"],
+)
+def test_underspecified_segment_refuses_to_invent_a_basis(make_segment) -> None:
+    segment = make_segment()
+    points = {
+        "elbow": Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        "wrist": Point.from_xyz(x=0.0, y=-5.0, z=0.0),
+    }
+    with pytest.raises(ValueError, match="underspecified"):
+        segment.calculate_basis(points=points)
+
+
+def test_three_landmarks_make_a_segment_fully_specified() -> None:
+    segment = _segment()
+    assert segment.is_fully_specified
+    assert segment.landmark_names == ("shoulder", "elbow", "lateral_epicondyle")
+    assert "fully specified" in str(segment)
+
+
+def test_underspecified_segment_still_gives_length_and_direction() -> None:
+    segment = _segment_with_no_secondary_axis()
     assert segment.length == pytest.approx(2.0)
     points = {
         "elbow": Point.from_xyz(x=0.0, y=0.0, z=0.0),
         "wrist": Point.from_xyz(x=0.0, y=-5.0, z=0.0),
     }
-    # The distal point lies on -y, and the axis is NEGATIVE_Y, so the direction is +y.
+    # The wrist lies on -y, and the axis is NEGATIVE_Y, so the direction is +y.
     np.testing.assert_allclose(
         segment.calculate_direction(points=points).array, [0.0, 1.0, 0.0], atol=1e-12
     )
 
 
-def test_underspecified_segment_direction_is_vectorized_over_time() -> None:
-    segment = _underspecified_segment()
+def test_direction_is_vectorized_over_time() -> None:
+    segment = _segment_with_no_secondary_axis()
     number_of_frames = 40
     points = {
         "elbow": Point.from_array(values=np.zeros(shape=(number_of_frames, 3))),
@@ -202,15 +238,87 @@ def test_underspecified_segment_direction_is_vectorized_over_time() -> None:
     assert segment.calculate_direction(points=points).batch_shape == (number_of_frames,)
 
 
-def test_underspecified_segment_rejects_a_repeated_landmark() -> None:
-    landmark = _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L")
+def test_a_fully_specified_segment_also_gives_a_direction() -> None:
+    # One class, so the cheap answer is available whether or not the full one is.
+    segment = _segment()
+    points = {
+        "shoulder": Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        "elbow": Point.from_xyz(x=0.0, y=3.0, z=0.0),
+        "lateral_epicondyle": Point.from_xyz(x=1.0, y=3.0, z=0.0),
+    }
+    np.testing.assert_allclose(
+        segment.calculate_direction(points=points).array, [0.0, 1.0, 0.0], atol=1e-12
+    )
+
+
+def test_adding_the_secondary_landmark_promotes_the_same_segment() -> None:
+    # The lifecycle the merged class exists for: no new type, just more data.
+    underspecified = _segment_awaiting_its_secondary_landmark()
+    promoted = RigidBodySegment(
+        name=underspecified.name,
+        landmarks={
+            **underspecified.landmarks,
+            "ulnar_styloid": _landmark(
+                name="ulnar_styloid", position=(1.0, -2.0, 0.0), segment="forearm.L"
+            ),
+        },
+        frame_definition=underspecified.frame_definition,
+    )
+    assert promoted.is_fully_specified
+    points = {
+        "elbow": Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        "wrist": Point.from_xyz(x=0.0, y=-5.0, z=0.0),
+        "ulnar_styloid": Point.from_xyz(x=2.0, y=-5.0, z=0.0),
+    }
+    basis = promoted.calculate_basis(points=points)
+    np.testing.assert_allclose(basis.y_axis.array, [0.0, 1.0, 0.0], atol=1e-12)
+
+
+def test_segment_rejects_a_definition_whose_origin_repeats_its_primary() -> None:
     with pytest.raises(ValueError, match="must differ"):
-        UnderspecifiedRigidBodySegment(
-            name="forearm.L",
-            origin_landmark=landmark,
-            distal_landmark=landmark,
+        ReferenceFrameDefinition(
+            origin_point_name="elbow",
             primary_axis=SpatialAxis.Y,
+            primary_point_name="elbow",
         )
+
+
+# ── Underspecified ReferenceFrameDefinition ───────────────────────────
+
+
+def test_definition_rejects_half_a_secondary() -> None:
+    with pytest.raises(ValueError, match="given together or not at all"):
+        ReferenceFrameDefinition(
+            origin_point_name="elbow",
+            primary_axis=SpatialAxis.Y,
+            primary_point_name="wrist",
+            secondary_axis=SpatialAxis.X,
+        )
+    with pytest.raises(ValueError, match="given together or not at all"):
+        ReferenceFrameDefinition(
+            origin_point_name="elbow",
+            primary_axis=SpatialAxis.Y,
+            primary_point_name="wrist",
+            secondary_point_name="ulnar_styloid",
+        )
+
+
+def test_underspecified_definition_has_no_tertiary_axis() -> None:
+    definition = _segment_with_no_secondary_axis().frame_definition
+    assert not definition.is_fully_specified
+    assert definition.point_names == ("elbow", "wrist")
+    with pytest.raises(ValueError, match="no tertiary axis"):
+        definition.tertiary_axis
+
+
+def test_solver_refuses_an_underspecified_definition() -> None:
+    definition = _segment_with_no_secondary_axis().frame_definition
+    points = {
+        "elbow": Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        "wrist": Point.from_xyz(x=0.0, y=-5.0, z=0.0),
+    }
+    with pytest.raises(ValueError, match="underspecified"):
+        calculate_orthonormal_basis(points=points, definition=definition)
 
 
 # ── Batched multi-segment solve ───────────────────────────────────────
@@ -265,7 +373,7 @@ def test_batched_solve_works_over_a_rolling_window() -> None:
     segments, _ = _many_segments(count=4)
     rng = np.random.default_rng(seed=6)
     landmark_names = [
-        name for segment in segments for name in segment.frame_definition_landmark_names
+        name for segment in segments for name in segment.landmark_names
     ]
     buffer = PointRingBuffer.for_point_names(point_names=landmark_names, capacity=25)
     for _ in range(40):
@@ -281,7 +389,7 @@ def test_batched_solve_matches_the_single_frame_solve_over_a_window() -> None:
     segments, _ = _many_segments(count=3)
     rng = np.random.default_rng(seed=8)
     landmark_names = [
-        name for segment in segments for name in segment.frame_definition_landmark_names
+        name for segment in segments for name in segment.landmark_names
     ]
     buffer = PointRingBuffer.for_point_names(point_names=landmark_names, capacity=10)
     for _ in range(10):
@@ -301,7 +409,7 @@ def test_batched_solve_rejects_duplicate_segment_names() -> None:
     segment = _segment()
     points = {
         name: Point.from_xyz(x=float(index), y=1.0, z=2.0)
-        for index, name in enumerate(segment.frame_definition_landmark_names)
+        for index, name in enumerate(segment.landmark_names)
     }
     with pytest.raises(ValueError, match="unique"):
         calculate_bases_for_segments(segments=[segment, segment], points=points)
@@ -356,12 +464,11 @@ def test_segment_carries_aliases_too() -> None:
 
 
 def test_underspecified_segment_carries_aliases_too() -> None:
-    segment = _underspecified_segment()
-    aliased = UnderspecifiedRigidBodySegment(
+    segment = _segment_with_no_secondary_axis()
+    aliased = RigidBodySegment(
         name=segment.name,
-        origin_landmark=segment.origin_landmark,
-        distal_landmark=segment.distal_landmark,
-        primary_axis=segment.primary_axis,
+        landmarks=segment.landmarks,
+        frame_definition=segment.frame_definition,
         aliases=("radius_ulna.L",),
     )
     assert aliased.all_names == ("forearm.L", "radius_ulna.L")

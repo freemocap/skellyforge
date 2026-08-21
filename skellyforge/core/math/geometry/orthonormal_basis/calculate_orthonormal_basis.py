@@ -51,13 +51,24 @@ def calculate_orthonormal_basis(
 
     Raises:
         KeyError: a point named by the definition is missing from `points`.
-        ValueError: the defining points have mismatched shapes, two of them are
-            coincident, or the defining displacements are collinear.
+        ValueError: the definition is underspecified, the defining points have mismatched
+            shapes, two of them are coincident, or the defining displacements are
+            collinear.
     """
+    secondary_axis = definition.secondary_axis
+    secondary_point_name = definition.secondary_point_name
+    if secondary_axis is None or secondary_point_name is None:
+        raise ValueError(
+            "Cannot build an orthonormal basis from an underspecified reference frame "
+            f"definition ({definition}) - `{definition.primary_point_name}` fixes only "
+            f"the {definition.primary_axis.name} direction, leaving roll about it free. "
+            "Use `direction_along` for the direction, and resolve roll separately."
+        )
+
     required_names = (
         definition.origin_point_name,
         definition.primary_point_name,
-        definition.secondary_point_name,
+        secondary_point_name,
     )
     missing_names = [name for name in required_names if name not in points]
     if missing_names:
@@ -72,7 +83,7 @@ def calculate_orthonormal_basis(
             "Defining points must all have the same shape - got "
             f"{definition.origin_point_name}: {origin.array.shape}, "
             f"{definition.primary_point_name}: {primary_point.array.shape}, "
-            f"{definition.secondary_point_name}: {secondary_point.array.shape}"
+            f"{secondary_point_name}: {secondary_point.array.shape}"
         )
 
     primary_direction = direction_along(
@@ -84,11 +95,11 @@ def calculate_orthonormal_basis(
         ),
     )
     approximate_secondary_direction = direction_along(
-        axis=definition.secondary_axis,
+        axis=secondary_axis,
         displacement=secondary_point - origin,
         description=(
             f"the approximate secondary axis displacement "
-            f"(`{definition.origin_point_name}` -> `{definition.secondary_point_name}`)"
+            f"(`{definition.origin_point_name}` -> `{secondary_point_name}`)"
         ),
     )
 
@@ -104,7 +115,7 @@ def calculate_orthonormal_basis(
             f"The primary displacement (`{definition.origin_point_name}` -> "
             f"`{definition.primary_point_name}`) and the approximate secondary "
             f"displacement (`{definition.origin_point_name}` -> "
-            f"`{definition.secondary_point_name}`) are collinear - smallest sine of the "
+            f"`{secondary_point_name}`) are collinear - smallest sine of the "
             f"angle between them is {float(residual_lengths.min()):.3e} < "
             f"{MINIMUM_SINE_BETWEEN_DEFINING_VECTORS:.1e}"
         )
@@ -116,7 +127,7 @@ def calculate_orthonormal_basis(
     # the tertiary axis. The cyclic sign says which end of that axis it landed on, and the
     # handedness flips it once more for a left-handed triad.
     tertiary_sign = definition.handedness.value * definition.primary_axis.cyclic_sign_toward(
-        definition.secondary_axis
+        secondary_axis
     )
     tertiary_direction = _signed(
         direction=primary_direction.cross(other=secondary_direction), sign=tertiary_sign
@@ -124,7 +135,7 @@ def calculate_orthonormal_basis(
 
     directions_by_index: dict[int, UnitVector] = {
         definition.primary_axis.index: primary_direction,
-        definition.secondary_axis.index: secondary_direction,
+        secondary_axis.index: secondary_direction,
         definition.tertiary_axis.index: tertiary_direction,
     }
     return OrthonormalBasis(

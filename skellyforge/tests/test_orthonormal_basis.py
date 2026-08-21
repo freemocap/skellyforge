@@ -598,22 +598,25 @@ def test_same_cartesian_axis_for_both_definitions_is_rejected() -> None:
         )
 
 
-def test_repeated_point_names_are_rejected() -> None:
-    with pytest.raises(ValueError, match="points must differ"):
+@pytest.mark.parametrize(
+    "origin,primary,secondary,message",
+    [
+        ("origin", "front", "front", "Primary and secondary points must differ"),
+        ("front", "front", "left", "Origin and primary points must differ"),
+        ("front", "left", "front", "must differ from"),
+    ],
+    ids=["primary-is-secondary", "origin-is-primary", "origin-is-secondary"],
+)
+def test_repeated_point_names_are_rejected(
+    origin: str, primary: str, secondary: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
         ReferenceFrameDefinition(
-            origin_point_name="origin",
+            origin_point_name=origin,
             primary_axis=SpatialAxis.X,
-            primary_point_name="front",
+            primary_point_name=primary,
             secondary_axis=SpatialAxis.Y,
-            secondary_point_name="front",
-        )
-    with pytest.raises(ValueError, match="must differ from"):
-        ReferenceFrameDefinition(
-            origin_point_name="front",
-            primary_axis=SpatialAxis.X,
-            primary_point_name="front",
-            secondary_axis=SpatialAxis.Y,
-            secondary_point_name="left",
+            secondary_point_name=secondary,
         )
 
 

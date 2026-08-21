@@ -2,9 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
-
-from skellyforge.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.skeleton_parts.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
 
 SkeletonNameString = str
 
