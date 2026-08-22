@@ -6,9 +6,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 
 from skellyforge.core.skeleton_parts.rest_pose import RestPose
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
+from skellyforge.type_overloads import FloatArray
 
 SKELETON_YAML_PATH: Path = (
     Path(__file__).resolve().parents[1]
@@ -23,57 +25,131 @@ REST_POSE_YAML_PATH: Path = (
     / "rest_pose.yaml"
 )
 
+EXPECTED_SEGMENT_COUNT: int = 61
+EXPECTED_LANDMARK_COUNT: int = 124
+GROUND_PLANE_TOLERANCE_MILLIMETRES: float = 0.5
+
+
+def _skeleton() -> SkeletonDefinition:
+    return SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+
 
 def _pose() -> RestPose:
-    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
-    return RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+    return RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=_skeleton())
 
 
-def _y_direction(pose: RestPose, name: str) -> np.ndarray:
+def _y_direction(*, pose: RestPose, name: str) -> FloatArray:
     """The world direction a segment's local +y (distal) points in the T-pose."""
-    return pose.segment_orientations[name].rotate_vector(np.array([0.0, 1.0, 0.0]))
+    return pose.segment_orientations[name].rotate_vector(
+        vector=np.array([0.0, 1.0, 0.0])
+    )
+
+
+def _written_variant(*, directory: Path, mutate) -> Path:
+    """A copy of the shipped rest pose with one thing changed, written somewhere disposable."""
+    document = yaml.safe_load(REST_POSE_YAML_PATH.read_text(encoding="utf-8"))
+    mutate(document)
+    path = directory / "variant_rest_pose.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+    return path
+
+
+# ── what the shipped rest pose is ─────────────────────────────────────
 
 
 def test_the_rest_pose_resolves_every_segment_and_landmark() -> None:
     pose = _pose()
-    assert len(pose.segment_orientations) == 61
-    assert len(pose.landmark_positions) == 124
+    assert len(pose.segment_orientations) == EXPECTED_SEGMENT_COUNT
+    assert len(pose.landmark_positions) == EXPECTED_LANDMARK_COUNT
+    assert pose.root_segment_name == "pelvis"
 
 
 def test_the_trunk_runs_straight_up() -> None:
     pose = _pose()
     for name in ("pelvis", "lumbar_spine", "chest", "cervical_spine", "skull"):
-        np.testing.assert_allclose(_y_direction(pose, name), [0.0, 1.0, 0.0], atol=1e-6)
+        np.testing.assert_allclose(
+            _y_direction(pose=pose, name=name), [0.0, 1.0, 0.0], atol=1e-6
+        )
 
 
 def test_the_arms_point_out_to_the_sides() -> None:
     pose = _pose()
-    np.testing.assert_allclose(_y_direction(pose, "left_upper_arm"), [1.0, 0.0, 0.0], atol=1e-6)
-    np.testing.assert_allclose(_y_direction(pose, "right_upper_arm"), [-1.0, 0.0, 0.0], atol=1e-6)
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_upper_arm"), [1.0, 0.0, 0.0], atol=1e-6
+    )
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="right_upper_arm"), [-1.0, 0.0, 0.0], atol=1e-6
+    )
     # The lower arm and hand inherit the arm's orientation.
-    np.testing.assert_allclose(_y_direction(pose, "left_lower_arm"), [1.0, 0.0, 0.0], atol=1e-6)
-    np.testing.assert_allclose(_y_direction(pose, "left_carpals"), [1.0, 0.0, 0.0], atol=1e-6)
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_lower_arm"), [1.0, 0.0, 0.0], atol=1e-6
+    )
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_carpals"), [1.0, 0.0, 0.0], atol=1e-6
+    )
 
 
 def test_the_legs_point_down_and_the_feet_forward() -> None:
     pose = _pose()
-    np.testing.assert_allclose(_y_direction(pose, "left_upper_leg"), [0.0, -1.0, 0.0], atol=1e-6)
-    np.testing.assert_allclose(_y_direction(pose, "left_lower_leg"), [0.0, -1.0, 0.0], atol=1e-6)
-    # The foot slopes forward and down: the ankle sits above the ground, the toes reach it.
-    foot = _y_direction(pose, "left_foot")
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_upper_leg"), [0.0, -1.0, 0.0], atol=1e-6
+    )
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_lower_leg"), [0.0, -1.0, 0.0], atol=1e-6
+    )
+    # The foot slopes forward and down: the ankle sits above the ground, the ball reaches it.
+    foot = _y_direction(pose=pose, name="left_foot")
     assert foot[2] > 0.8 and foot[1] < -0.3
-    np.testing.assert_allclose(_y_direction(pose, "left_toes"), [0.0, 0.0, 1.0], atol=1e-3)
+    np.testing.assert_allclose(
+        _y_direction(pose=pose, name="left_toes"), [0.0, 0.0, 1.0], atol=1e-3
+    )
 
 
-def test_the_heel_points_back() -> None:
+def test_the_heel_points_back_and_down() -> None:
+    """The calcaneus is behind AND below the ankle - it is what the foot stands on.
+
+    This asserts the sign that the authored quaternion used to get backwards, putting the
+    heel bone above the ankle joint.
+    """
     pose = _pose()
-    heel = _y_direction(pose, "left_heel")
-    assert heel[2] < -0.8 and heel[1] > 0.3
+    for side in ("left", "right"):
+        heel = _y_direction(pose=pose, name=f"{side}_heel")
+        assert heel[2] < -0.4, f"{side} heel must point backwards, got z={heel[2]:.3f}"
+        assert heel[1] < -0.6, f"{side} heel must point downwards, got y={heel[1]:.3f}"
+
+
+def test_both_feet_stand_on_one_flat_ground_plane() -> None:
+    """Heel, ball and toe tip all reach the same height, on both sides.
+
+    A standing foot rests on the calcaneus and the ball together. Checking it here is what
+    ties the heel orientation, the heel length and the foot orientation into one claim -
+    any of the three drifting alone breaks it.
+    """
+    positions = _pose().landmark_positions
+    ground_landmarks = [
+        f"{side}_{name}"
+        for side in ("left", "right")
+        for name in ("calcaneus", "ball", "toe_tip")
+    ]
+    heights = np.array([positions[name].array[1] for name in ground_landmarks])
+    spread = float(heights.max() - heights.min())
+    assert spread < GROUND_PLANE_TOLERANCE_MILLIMETRES, (
+        f"the foot's ground contacts span {spread:.2f} mm: "
+        f"{dict(zip(ground_landmarks, np.round(heights, 2)))}"
+    )
+    lowest_landmark_height = min(
+        point.array[1] for point in positions.values()
+    )
+    assert heights.min() == pytest.approx(lowest_landmark_height, abs=1e-6), (
+        "nothing should hang below the plane the feet stand on"
+    )
 
 
 def test_the_pelvis_sits_at_the_origin_and_the_lumbar_on_the_sacrum() -> None:
     pose = _pose()
-    np.testing.assert_allclose(pose.segment_origins["pelvis"].array, [0.0, 0.0, 0.0], atol=1e-9)
+    np.testing.assert_allclose(
+        pose.segment_origins["pelvis"].array, [0.0, 0.0, 0.0], atol=1e-9
+    )
     # lumbar_spine's origin is the pelvis's sacrum_top local position.
     np.testing.assert_allclose(
         pose.segment_origins["lumbar_spine"].array, [0.0, 95.0, -35.0], atol=1e-9
@@ -84,17 +160,85 @@ def test_the_pelvis_sits_at_the_origin_and_the_lumbar_on_the_sacrum() -> None:
     )
 
 
-def test_a_connect_at_must_belong_to_the_parent_segment() -> None:
-    import yaml
+def test_the_rest_pose_exposes_the_tree_it_was_built_from() -> None:
+    """The parent tree, connect points and relative rotations are readable off the pose.
 
-    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
-    # A bogus connect_at (a skull landmark) for the lumbar spine must be rejected.
-    document = yaml.safe_load(REST_POSE_YAML_PATH.read_text(encoding="utf-8"))
-    document["segments"]["lumbar_spine"]["connect_at"] = "head_vertex"
-    bad_path = REST_POSE_YAML_PATH.parent / "_bad_rest_pose.yaml"
-    try:
-        bad_path.write_text(yaml.safe_dump(document), encoding="utf-8")
-        with pytest.raises(ValueError, match="must be owned by its parent"):
-            RestPose.from_yaml(path=bad_path, skeleton=skeleton)
-    finally:
-        bad_path.unlink(missing_ok=True)
+    Without these, every caller that needs the tree - the viewer, the round-trip test -
+    has to parse `rest_pose.yaml` again, and a second parser is a second set of rules.
+    """
+    pose = _pose()
+    assert pose.parents["pelvis"] is None
+    assert pose.parents["left_lower_arm"] == "left_upper_arm"
+    # An absent `connect_at` resolves to the segment's own origin landmark.
+    assert pose.connect_ats["left_lower_arm"] == "left_elbow"
+    assert pose.connect_ats["left_carpals"] == "left_wrist"
+    assert set(pose.relative_orientations) == set(pose.segment_orientations)
+
+
+# ── what the rest pose refuses ────────────────────────────────────────
+
+
+def test_a_connect_at_must_belong_to_the_parent_segment(tmp_path: Path) -> None:
+    def name_a_skull_landmark(document: dict) -> None:
+        document["segments"]["lumbar_spine"]["connect_at"] = "head_vertex"
+
+    path = _written_variant(directory=tmp_path, mutate=name_a_skull_landmark)
+    with pytest.raises(ValueError, match="must be owned by its parent"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_an_entry_naming_an_unknown_segment_is_rejected(tmp_path: Path) -> None:
+    """A typo used to be silent, and silently moved that limb to the world origin."""
+
+    def misspell_the_upper_arm(document: dict) -> None:
+        document["segments"]["left_uppr_arm"] = document["segments"].pop("left_upper_arm")
+
+    path = _written_variant(directory=tmp_path, mutate=misspell_the_upper_arm)
+    with pytest.raises(ValueError, match="not in skeleton"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_a_segment_with_no_entry_is_rejected(tmp_path: Path) -> None:
+    def drop_the_skull(document: dict) -> None:
+        document["segments"].pop("skull")
+
+    path = _written_variant(directory=tmp_path, mutate=drop_the_skull)
+    with pytest.raises(ValueError, match="needs a rest pose entry"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_more_than_one_root_is_rejected(tmp_path: Path) -> None:
+    def orphan_the_skull(document: dict) -> None:
+        document["segments"]["skull"].pop("parent")
+
+    path = _written_variant(directory=tmp_path, mutate=orphan_the_skull)
+    with pytest.raises(ValueError, match="exactly one root segment"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_no_root_at_all_is_rejected(tmp_path: Path) -> None:
+    def hang_the_pelvis_off_the_chest(document: dict) -> None:
+        document["segments"]["pelvis"]["parent"] = "chest"
+        document["segments"]["chest"]["parent"] = "lumbar_spine"
+
+    path = _written_variant(directory=tmp_path, mutate=hang_the_pelvis_off_the_chest)
+    with pytest.raises(ValueError, match="exactly one root segment"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_a_segment_cannot_be_its_own_parent(tmp_path: Path) -> None:
+    def make_the_chest_its_own_parent(document: dict) -> None:
+        document["segments"]["chest"]["parent"] = "chest"
+
+    path = _written_variant(directory=tmp_path, mutate=make_the_chest_its_own_parent)
+    with pytest.raises(ValueError, match="its own parent"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_an_unknown_entry_key_is_rejected(tmp_path: Path) -> None:
+    def add_a_typo_key(document: dict) -> None:
+        document["segments"]["chest"]["orientaton"] = [1, 0, 0, 0]
+
+    path = _written_variant(directory=tmp_path, mutate=add_a_typo_key)
+    with pytest.raises(ValueError, match="unknown keys"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())

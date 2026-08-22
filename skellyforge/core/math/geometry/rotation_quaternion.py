@@ -1,71 +1,88 @@
-"""RotationQuaternion algebra for 3D rotations — scalar and vectorized operations.
+"""RotationQuaternion algebra for 3D rotations - scalar and vectorized operations.
 
-This is the single home for all quaternion math.
-Every operation lives here exactly once: scalar ``RotationQuaternion`` dataclass for
-single-frame use, and pure numpy module-level functions for batch operations
-on ``(N, 4)`` arrays. No other module in the project should contain a
-Hamilton product, SLERP, or quaternion-to-matrix conversion.
+This is the single home for all quaternion math. Every operation lives here exactly once:
+the scalar ``RotationQuaternion`` dataclass for single-frame use, and pure numpy
+module-level functions for batch operations on ``(N, 4)`` arrays. No other module in the
+project should contain a Hamilton product, SLERP, or quaternion-to-matrix conversion.
+
+The two halves are deliberate mirrors of each other: every batched function computes
+exactly what the scalar method computes, element for element, using the same thresholds
+from ``numeric_tolerances``. That equivalence is the contract, and it is what
+``test_rotation_quaternion.py`` checks - so the batched half can be trusted in the hot
+loop without being reasoned about separately.
 
 Convention
 ----------
-- Scalar-first ordering: **[w, x, y, z]** everywhere — on the wire, in
-  numpy arrays, and in ``RotationQuaternion`` field order. This matches the
-  frame message's ``ROTATIONS_WORLD`` and ``ROTATIONS_LOCAL`` channel
-  layout (``w, x, y, z`` float32 columns per doc 09).
+- Scalar-first ordering: **[w, x, y, z]** everywhere - on the wire, in numpy arrays, and
+  in ``RotationQuaternion`` field order.
 - All quaternions are **unit** quaternions representing rotations. The scalar
   ``RotationQuaternion`` is frozen and validates unit-ness on construction;
-  ``RotationQuaternion.from_components`` normalizes first for callers holding raw
-  numbers. Vectorized functions assume pre-normalized input (call
-  ``normalize_quaternion_array`` if needed).
-- Identity rotation is ``(1, 0, 0, 0)`` — this is the T-pose contract for
-  every bone in the standard human model.
+  ``RotationQuaternion.from_components`` normalizes first for callers holding raw numbers.
+  Vectorized functions assume pre-normalized input (call ``normalize_quaternion_array``
+  if needed).
+- Identity rotation is ``(1, 0, 0, 0)`` - this is the T-pose contract for every bone in
+  the standard human model.
+- ``q`` and ``-q`` are the same rotation. Nothing here compares quaternions by value;
+  use :meth:`RotationQuaternion.is_same_rotation`, which knows that.
 
 References
 ----------
-- Hamilton (1844) "On Quaternions" — Hamilton product definition.
-- Shoemake (1985) "Animating Rotation with RotationQuaternion Curves" — SLERP.
-- Shepperd (1978) "RotationQuaternion from Rotation Matrix" — trace-based
-  matrix-to-quaternion in ``from_rotation_matrix``.
-- Diebel (2006) "Representing Attitude: Euler Angles, Unit Quaternions,
-  and Rotation Vectors" — Euler ZYX intrinsic convention.
+- Hamilton (1844) "On Quaternions" - Hamilton product definition.
+- Shoemake (1985) "Animating Rotation with Quaternion Curves" - SLERP.
+- Shepperd (1978) "Quaternion from Rotation Matrix" - trace-based matrix-to-quaternion
+  in ``from_rotation_matrix``.
+- Diebel (2006) "Representing Attitude: Euler Angles, Unit Quaternions, and Rotation
+  Vectors" - the ZYX intrinsic roll/pitch/yaw decomposition.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
 import numpy as np
 
 from skellyforge.core.math.geometry.numeric_tolerances import (
     MINIMUM_QUATERNION_NORM,
+    MINIMUM_QUATERNION_SINE,
+    MINIMUM_SLERP_SEPARATION_COSINE,
+    MINIMUM_TIME_DELTA_SECONDS,
+    MINIMUM_VECTOR_NORM,
     UNIT_QUATERNION_TOLERANCE,
 )
 from skellyforge.type_overloads import FloatArray
 
+NUMBER_OF_QUATERNION_COMPONENTS: int = 4
+NUMBER_OF_SPATIAL_DIMENSIONS: int = 3
+
 
 # ═══════════════════════════════════════════════════════════════════════
-# Scalar RotationQuaternion (slot-based dataclass — hot-path safe)
+# Scalar RotationQuaternion (slot-based dataclass - hot-path safe)
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, eq=False)
 class RotationQuaternion:
     """Unit quaternion for a single 3D rotation.
 
-    Immutable once constructed: ``__post_init__`` validates that the components
-    are finite and unit-length, and raises otherwise. Normalization happens
-    *before* construction, in :meth:`from_components`, so that arithmetic drift is
-    contained within each operation without any post-construction mutation of a
-    frozen dataclass. Every operation here that can drift off the unit sphere
-    routes its result through :meth:`from_components`.
+    Immutable once constructed: ``__post_init__`` validates that the components are
+    finite and unit-length, and raises otherwise. Normalization happens *before*
+    construction, in :meth:`from_components`, so that arithmetic drift is contained
+    within each operation without any post-construction mutation of a frozen dataclass.
+    Every operation here that can drift off the unit sphere routes its result through
+    :meth:`from_components`.
+
+    Value equality is deliberately disabled - matching every other value type in the
+    geometry package, and for a stronger reason here: ``q`` and ``-q`` are the same
+    rotation, so component-wise equality answers the wrong question. Ask
+    :meth:`is_same_rotation` instead.
 
     Parameters
     ----------
     w, x, y, z : float
-        Scalar and vector components of a **unit** quaternion. Construction
-        validates unit-ness and raises otherwise; it never rewrites what it was
-        given. Build from unnormalized components with :meth:`from_components`,
-        which normalizes first and then constructs.
+        Scalar and vector components of a **unit** quaternion. Construction validates
+        unit-ness and raises otherwise; it never rewrites what it was given. Build from
+        unnormalized components with :meth:`from_components`, which normalizes first.
     """
 
     w: float
@@ -74,7 +91,9 @@ class RotationQuaternion:
     z: float
 
     def __post_init__(self) -> None:
-        if not all(math.isfinite(component) for component in (self.w, self.x, self.y, self.z)):
+        if not all(
+            math.isfinite(component) for component in (self.w, self.x, self.y, self.z)
+        ):
             raise ValueError(
                 f"Quaternion components must be finite - got "
                 f"(w={self.w}, x={self.x}, y={self.y}, z={self.z})"
@@ -90,12 +109,12 @@ class RotationQuaternion:
     @classmethod
     def from_components(
         cls, *, w: float, x: float, y: float, z: float
-    ) -> "RotationQuaternion":
+    ) -> RotationQuaternion:
         """Normalize the given components, then construct.
 
-        This is the only path that accepts unnormalized input. Normalizing here,
-        ahead of ``__init__``, is what lets the dataclass stay frozen: the instance
-        is unit-length from the moment it exists and is never rewritten afterwards.
+        This is the only path that accepts unnormalized input. Normalizing here, ahead of
+        ``__init__``, is what lets the dataclass stay frozen: the instance is unit-length
+        from the moment it exists and is never rewritten afterwards.
         """
         norm = math.sqrt(w**2 + x**2 + y**2 + z**2)
         if norm < MINIMUM_QUATERNION_NORM:
@@ -106,29 +125,48 @@ class RotationQuaternion:
         return cls(w=w / norm, x=x / norm, y=y / norm, z=z / norm)
 
     @classmethod
-    def identity(cls) -> "RotationQuaternion":
-        """Return the identity rotation ``(1, 0, 0, 0)``."""
+    def from_array(cls, *, array: FloatArray) -> RotationQuaternion:
+        """Build from a ``(4,)`` ``[w, x, y, z]`` array, normalizing first."""
+        array = np.asarray(array, dtype=np.float64)
+        if array.shape != (NUMBER_OF_QUATERNION_COMPONENTS,):
+            raise ValueError(
+                f"A quaternion array must have shape "
+                f"({NUMBER_OF_QUATERNION_COMPONENTS},), got {array.shape}"
+            )
+        return cls.from_components(
+            w=float(array[0]), x=float(array[1]), y=float(array[2]), z=float(array[3])
+        )
+
+    @classmethod
+    def identity(cls) -> RotationQuaternion:
+        """The identity rotation ``(1, 0, 0, 0)``."""
         return cls(w=1.0, x=0.0, y=0.0, z=0.0)
 
     # ── Basic operations ──────────────────────────────────────────
 
-    def conjugate(self) -> "RotationQuaternion":
-        """Return the conjugate ``(w, -x, -y, -z)``.
+    def as_array(self) -> FloatArray:
+        """This rotation as a ``(4,)`` ``[w, x, y, z]`` array."""
+        return np.array([self.w, self.x, self.y, self.z], dtype=np.float64)
+
+    def conjugate(self) -> RotationQuaternion:
+        """The conjugate ``(w, -x, -y, -z)``.
 
         For a unit quaternion the conjugate equals the inverse.
         """
         return RotationQuaternion(w=self.w, x=-self.x, y=-self.y, z=-self.z)
 
-    def inverse(self) -> "RotationQuaternion":
-        """Return the inverse rotation. Same as ``conjugate`` for unit quaternions."""
+    def inverse(self) -> RotationQuaternion:
+        """The inverse rotation. Same as :meth:`conjugate` for unit quaternions."""
         return self.conjugate()
 
-    def __mul__(self, other: "RotationQuaternion") -> "RotationQuaternion":
-        """Hamilton product ``self * other`` — composes the two rotations.
+    def __mul__(self, other: RotationQuaternion) -> RotationQuaternion:
+        """Hamilton product ``self * other`` - composes the two rotations.
 
-        The rotation represented by ``self * other`` is equivalent to
-        applying ``other`` first, then ``self``: ``R(q₁·q₂) = R(q₁) ∘ R(q₂)``.
+        The rotation represented by ``self * other`` is equivalent to applying ``other``
+        first, then ``self``: ``R(q1 . q2) = R(q1) o R(q2)``.
         """
+        if not isinstance(other, RotationQuaternion):
+            return NotImplemented
         return RotationQuaternion.from_components(
             w=self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
             x=self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
@@ -136,11 +174,12 @@ class RotationQuaternion:
             z=self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w,
         )
 
-    def dot(self, other: "RotationQuaternion") -> float:
-        """Dot product ``w₁w₂ + x₁x₂ + y₁y₂ + z₁z₂``.
+    def dot(self, *, other: RotationQuaternion) -> float:
+        """Dot product ``w1w2 + x1x2 + y1y2 + z1z2``.
 
-        For unit quaternions this is cos(θ/2) where θ is the rotation angle
-        between them.
+        For unit quaternions this is ``cos(theta/2)`` where ``theta`` is the rotation
+        angle between them. Its SIGN carries only which side of the double cover the two
+        happen to be written on, so take ``abs`` before comparing rotations.
         """
         return (
             self.w * other.w
@@ -149,17 +188,33 @@ class RotationQuaternion:
             + self.z * other.z
         )
 
+    def angle_to(self, *, other: RotationQuaternion) -> float:
+        """The shortest-arc angle in radians between the two rotations, in ``[0, pi]``.
+
+        Measured on the relative rotation rather than as ``2 * arccos(|dot|)``. Both are
+        the same in exact arithmetic, but ``arccos`` has a vertical tangent at 1 and two
+        nearly-equal rotations land there: a dot one ulp below 1 comes back as an angle of
+        1e-8 rather than 0, which is a hundred times the tolerance anything would want to
+        compare against.
+        """
+        return (self.inverse() * other).to_axis_angle()[1]
+
+    def is_same_rotation(
+        self, *, other: RotationQuaternion, tolerance_radians: float = 1e-9
+    ) -> bool:
+        """Whether two quaternions denote the same rotation, double cover included."""
+        return self.angle_to(other=other) <= tolerance_radians
+
     # ── Conversion: quaternion → other representations ────────────
 
     def to_rotation_matrix(self) -> FloatArray:
-        """Convert to a 3×3 rotation matrix.
+        """Convert to a 3x3 rotation matrix.
 
-        Returns a right-handed rotation matrix R such that for any vector
-        v, ``R @ v`` rotates v by this quaternion.
+        Returns a right-handed rotation matrix ``R`` such that for any vector ``v``,
+        ``R @ v`` rotates ``v`` by this quaternion.
 
-        The formula is the standard one (see Diebel 2006 eq. 125):
-            R = I + 2w·[u]× + 2[u]×²
-        where u = (x, y, z) and [u]× is the cross-product matrix.
+        The formula is the standard one (Diebel 2006 eq. 125):
+        ``R = I + 2w[u]x + 2[u]x^2`` where ``u = (x, y, z)``.
         """
         w, x, y, z = self.w, self.x, self.y, self.z
         xx, yy, zz = x * x, y * y, z * z
@@ -176,686 +231,595 @@ class RotationQuaternion:
         )
 
     @classmethod
-    def from_rotation_matrix(cls, R: FloatArray) -> "RotationQuaternion":
-        """Construct a quaternion from a 3×3 rotation matrix.
+    def from_rotation_matrix(cls, *, matrix: FloatArray) -> RotationQuaternion:
+        """Construct a quaternion from a 3x3 rotation matrix.
 
-        Uses Shepperd's trace-based method (Shepperd 1978) which selects
-        the numerically most stable branch based on the largest diagonal
-        element of R.
+        Uses Shepperd's trace-based method (Shepperd 1978), which selects the numerically
+        most stable branch based on the largest diagonal element.
         """
-        R = np.asarray(R, dtype=np.float64)
-        if R.shape != (3, 3):
-            raise ValueError(
-                f"Rotation matrix must be 3×3, got shape {R.shape}"
-            )
+        matrix = np.asarray(matrix, dtype=np.float64)
+        if matrix.shape != (NUMBER_OF_SPATIAL_DIMENSIONS, NUMBER_OF_SPATIAL_DIMENSIONS):
+            raise ValueError(f"Rotation matrix must be 3x3, got shape {matrix.shape}")
 
-        trace = R[0, 0] + R[1, 1] + R[2, 2]
+        trace = matrix[0, 0] + matrix[1, 1] + matrix[2, 2]
 
         if trace > 0.0:
-            s = 0.5 / np.sqrt(trace + 1.0)
+            scale = 0.5 / np.sqrt(trace + 1.0)
             return cls.from_components(
-                w=0.25 / s,
-                x=(R[2, 1] - R[1, 2]) * s,
-                y=(R[0, 2] - R[2, 0]) * s,
-                z=(R[1, 0] - R[0, 1]) * s,
+                w=0.25 / scale,
+                x=(matrix[2, 1] - matrix[1, 2]) * scale,
+                y=(matrix[0, 2] - matrix[2, 0]) * scale,
+                z=(matrix[1, 0] - matrix[0, 1]) * scale,
             )
-        elif R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
+        if matrix[0, 0] > matrix[1, 1] and matrix[0, 0] > matrix[2, 2]:
+            scale = 2.0 * np.sqrt(1.0 + matrix[0, 0] - matrix[1, 1] - matrix[2, 2])
             return cls.from_components(
-                w=(R[2, 1] - R[1, 2]) / s,
-                x=0.25 * s,
-                y=(R[0, 1] + R[1, 0]) / s,
-                z=(R[0, 2] + R[2, 0]) / s,
+                w=(matrix[2, 1] - matrix[1, 2]) / scale,
+                x=0.25 * scale,
+                y=(matrix[0, 1] + matrix[1, 0]) / scale,
+                z=(matrix[0, 2] + matrix[2, 0]) / scale,
             )
-        elif R[1, 1] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
+        if matrix[1, 1] > matrix[2, 2]:
+            scale = 2.0 * np.sqrt(1.0 + matrix[1, 1] - matrix[0, 0] - matrix[2, 2])
             return cls.from_components(
-                w=(R[0, 2] - R[2, 0]) / s,
-                x=(R[0, 1] + R[1, 0]) / s,
-                y=0.25 * s,
-                z=(R[1, 2] + R[2, 1]) / s,
+                w=(matrix[0, 2] - matrix[2, 0]) / scale,
+                x=(matrix[0, 1] + matrix[1, 0]) / scale,
+                y=0.25 * scale,
+                z=(matrix[1, 2] + matrix[2, 1]) / scale,
             )
-        else:
-            s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
-            return cls.from_components(
-                w=(R[1, 0] - R[0, 1]) / s,
-                x=(R[0, 2] + R[2, 0]) / s,
-                y=(R[1, 2] + R[2, 1]) / s,
-                z=0.25 * s,
-            )
+        scale = 2.0 * np.sqrt(1.0 + matrix[2, 2] - matrix[0, 0] - matrix[1, 1])
+        return cls.from_components(
+            w=(matrix[1, 0] - matrix[0, 1]) / scale,
+            x=(matrix[0, 2] + matrix[2, 0]) / scale,
+            y=(matrix[1, 2] + matrix[2, 1]) / scale,
+            z=0.25 * scale,
+        )
 
     def to_axis_angle(self) -> tuple[FloatArray, float]:
-        """Convert to axis-angle representation.
+        """Convert to axis-angle.
 
-        Returns ``(axis, angle)`` where ``axis`` is a unit (3,) vector
-        and ``angle`` is in radians in [0, π].
+        Returns ``(axis, angle)`` where ``axis`` is a unit ``(3,)`` vector and ``angle``
+        is in radians in ``[0, pi]`` - the shortest arc, since ``q`` and ``-q`` are the
+        same rotation.
         """
-        w_clamped = float(np.clip(self.w, -1.0, 1.0))
-        angle = 2.0 * np.arccos(abs(w_clamped))
-        sin_half = np.sqrt(1.0 - w_clamped**2)
+        # The vector part's norm IS sin(theta/2) for a unit quaternion, so taking it
+        # directly beats recovering it as sqrt(1 - w^2), which cancels catastrophically
+        # once w approaches 1 - exactly where small rotations live. Pairing it with
+        # `atan2` keeps the angle accurate across the whole range.
+        vector_part = np.array([self.x, self.y, self.z], dtype=np.float64)
+        half_angle_sine = float(np.linalg.norm(vector_part))
+        angle = float(2.0 * np.arctan2(half_angle_sine, abs(self.w)))
 
-        if sin_half < 1e-10:
+        if half_angle_sine < MINIMUM_QUATERNION_SINE:
             return np.array([1.0, 0.0, 0.0], dtype=np.float64), 0.0
 
-        axis = np.array([self.x, self.y, self.z], dtype=np.float64) / sin_half
+        axis = vector_part / half_angle_sine
         if self.w < 0.0:
             axis = -axis
         return axis, angle
 
     @classmethod
-    def from_rotation_vector(
-        cls, rotation_vector: FloatArray
-    ) -> "RotationQuaternion":
+    def from_rotation_vector(cls, *, rotation_vector: FloatArray) -> RotationQuaternion:
         """Exponential map: a rotation vector (axis x angle) to a quaternion.
 
-        The inverse of :meth:`to_rotation_vector`. The vector's magnitude is the
-        rotation angle in radians; its direction is the rotation axis.
-
-        Uses the small-angle limit near zero, where ``sin(theta/2)/theta``
-        approaches ``1/2`` but is numerically unstable evaluated directly.
+        The inverse of :meth:`to_rotation_vector`. The vector's magnitude is the rotation
+        angle in radians; its direction is the rotation axis. Uses the small-angle limit
+        near zero, where ``sin(theta/2)/theta`` approaches ``1/2`` but is numerically
+        unstable evaluated directly.
         """
         rotation_vector = np.asarray(rotation_vector, dtype=np.float64)
-        if rotation_vector.shape != (3,):
+        if rotation_vector.shape != (NUMBER_OF_SPATIAL_DIMENSIONS,):
             raise ValueError(
-                f"Rotation vector must have shape (3,), got {rotation_vector.shape}"
+                f"Rotation vector must have shape ({NUMBER_OF_SPATIAL_DIMENSIONS},), "
+                f"got {rotation_vector.shape}"
             )
 
         angle = float(np.linalg.norm(rotation_vector))
-        if angle < 1e-12:
+        if angle < MINIMUM_VECTOR_NORM:
             half = 0.5 * rotation_vector
             return cls.from_components(
                 w=1.0, x=float(half[0]), y=float(half[1]), z=float(half[2])
             )
 
         axis = rotation_vector / angle
-        sin_half = float(np.sin(angle / 2.0))
+        half_angle_sine = float(np.sin(angle / 2.0))
         return cls.from_components(
             w=float(np.cos(angle / 2.0)),
-            x=float(axis[0] * sin_half),
-            y=float(axis[1] * sin_half),
-            z=float(axis[2] * sin_half),
+            x=float(axis[0] * half_angle_sine),
+            y=float(axis[1] * half_angle_sine),
+            z=float(axis[2] * half_angle_sine),
         )
 
     def to_rotation_vector(self) -> FloatArray:
         """Logarithmic map: this rotation as a vector (axis x angle).
 
-        The inverse of :meth:`from_rotation_vector`. Magnitude is the angle in
-        radians, in ``[0, pi]`` — the **shortest arc**, since ``q`` and ``-q``
-        are the same rotation and :meth:`to_axis_angle` resolves the double cover.
-
-        This is the tangent-space representation orientation filters work in:
+        The inverse of :meth:`from_rotation_vector`. Magnitude is the angle in radians in
+        ``[0, pi]``. This is the tangent-space representation orientation filters work in:
         rotations are not a vector space, but rotation vectors are.
         """
         axis, angle = self.to_axis_angle()
         return axis * angle
 
-    def to_euler_xyz(self) -> tuple[float, float, float]:
-        """Return ``(roll, pitch, yaw)`` in radians.
+    def to_roll_pitch_yaw(self) -> tuple[float, float, float]:
+        """Return ``(roll, pitch, yaw)`` in radians, ZYX intrinsic (aerospace).
 
-        Convention: **ZYX intrinsic** (aerospace convention).
-        Equivalent to XYZ extrinsic. Rotation order: yaw around Z, then
-        pitch around Y', then roll around X'' in the body frame.
+        Yaw about z, then pitch about y', then roll about x'' in the body frame. Named for
+        what it returns rather than for an axis-letter ordering, because the two orderings
+        that describe this convention (ZYX intrinsic, XYZ extrinsic) are the same thing
+        and naming it after either one invites the reader to assume the other.
 
-        Formulas from Diebel (2006) eq. 356–358.
+        Formulas from Diebel (2006) eq. 356-358.
         """
-        sinr_cosp = 2.0 * (self.w * self.x + self.y * self.z)
-        cosr_cosp = 1.0 - 2.0 * (self.x * self.x + self.y * self.y)
-        roll = float(np.arctan2(sinr_cosp, cosr_cosp))
+        roll_sine_cosine = 2.0 * (self.w * self.x + self.y * self.z)
+        roll_cosine_cosine = 1.0 - 2.0 * (self.x * self.x + self.y * self.y)
+        roll = float(np.arctan2(roll_sine_cosine, roll_cosine_cosine))
 
-        sinp = 2.0 * (self.w * self.y - self.z * self.x)
-        sinp = float(np.clip(sinp, -1.0, 1.0))
-        pitch = float(np.arcsin(sinp))
+        pitch_sine = float(np.clip(2.0 * (self.w * self.y - self.z * self.x), -1.0, 1.0))
+        pitch = float(np.arcsin(pitch_sine))
 
-        siny_cosp = 2.0 * (self.w * self.z + self.x * self.y)
-        cosy_cosp = 1.0 - 2.0 * (self.y * self.y + self.z * self.z)
-        yaw = float(np.arctan2(siny_cosp, cosy_cosp))
+        yaw_sine_cosine = 2.0 * (self.w * self.z + self.x * self.y)
+        yaw_cosine_cosine = 1.0 - 2.0 * (self.y * self.y + self.z * self.z)
+        yaw = float(np.arctan2(yaw_sine_cosine, yaw_cosine_cosine))
 
         return roll, pitch, yaw
 
-    def rotate_vector(self, v: FloatArray) -> FloatArray:
-        """Rotate a (3,) vector by this quaternion.
+    def rotate_vector(self, *, vector: FloatArray) -> FloatArray:
+        """Rotate a ``(3,)`` vector by this quaternion.
 
-        Uses the efficient Rodrigues-form formula:
-            v' = v + 2w·(u × v) + 2·(u × (u × v))
-        where u = (x, y, z). Avoids constructing the full 3×3 matrix.
+        Uses the Rodrigues form ``v' = v + 2w(u x v) + 2(u x (u x v))`` where
+        ``u = (x, y, z)``, avoiding the full 3x3 matrix.
         """
-        v = np.asarray(v, dtype=np.float64)
-        if v.shape != (3,):
-            raise ValueError(f"Vector must have shape (3,), got {v.shape}")
-        u = np.array([self.x, self.y, self.z], dtype=np.float64)
-        uv = np.cross(u, v)
-        uuv = np.cross(u, uv)
-        return v + 2.0 * (self.w * uv + uuv)
+        vector = np.asarray(vector, dtype=np.float64)
+        if vector.shape != (NUMBER_OF_SPATIAL_DIMENSIONS,):
+            raise ValueError(
+                f"Vector must have shape ({NUMBER_OF_SPATIAL_DIMENSIONS},), "
+                f"got {vector.shape}"
+            )
+        axis_part = np.array([self.x, self.y, self.z], dtype=np.float64)
+        cross_once = np.cross(axis_part, vector)
+        cross_twice = np.cross(axis_part, cross_once)
+        return vector + 2.0 * (self.w * cross_once + cross_twice)
 
     # ── Interpolation ─────────────────────────────────────────────
 
     @classmethod
     def slerp(
-        cls, q0: "RotationQuaternion", q1: "RotationQuaternion", t: float
-    ) -> "RotationQuaternion":
-        """Spherical linear interpolation between two quaternions.
+        cls,
+        *,
+        start: RotationQuaternion,
+        end: RotationQuaternion,
+        fraction: float,
+    ) -> RotationQuaternion:
+        """Spherical linear interpolation between two rotations.
 
-        Follows Shoemake (1985). Handles the double-cover ambiguity
-        (q and −q represent the same rotation) by selecting the shorter
-        arc. Falls back to normalized linear interpolation when the
-        quaternions are nearly parallel (dot > 0.9995) to avoid division
-        by a vanishing sin(θ).
+        Follows Shoemake (1985). Handles the double-cover ambiguity by taking the shorter
+        arc, and falls back to normalized linear interpolation once the two are closer
+        together than ``MINIMUM_SLERP_SEPARATION_COSINE``, where ``sin(theta)`` vanishes.
+        That threshold is shared with :func:`slerp_batch`, so the scalar and batched
+        results agree by construction rather than by coincidence.
 
-        Parameters
-        ----------
-        q0 : RotationQuaternion
-            Start rotation (t = 0).
-        q1 : RotationQuaternion
-            End rotation (t = 1).
-        t : float
-            Interpolation parameter in [0, 1].
-
-        Returns
-        -------
-        RotationQuaternion
-            Interpolated unit quaternion.
+        Args:
+            start: the rotation at ``fraction = 0``.
+            end: the rotation at ``fraction = 1``.
+            fraction: interpolation parameter in ``[0, 1]``.
         """
-        if not 0.0 <= t <= 1.0:
-            raise ValueError(
-                f"SLERP parameter t must be in [0, 1], got {t}"
-            )
+        if not 0.0 <= fraction <= 1.0:
+            raise ValueError(f"SLERP fraction must be in [0, 1], got {fraction}")
 
-        dot = q0.dot(q1)
-
-        # Take shorter arc on the hypersphere
-        if dot < 0.0:
-            q1_w, q1_x, q1_y, q1_z = -q1.w, -q1.x, -q1.y, -q1.z
-            dot = -dot
+        cosine = start.dot(other=end)
+        # Take the shorter arc on the hypersphere.
+        if cosine < 0.0:
+            end_w, end_x, end_y, end_z = -end.w, -end.x, -end.y, -end.z
+            cosine = -cosine
         else:
-            q1_w, q1_x, q1_y, q1_z = q1.w, q1.x, q1.y, q1.z
+            end_w, end_x, end_y, end_z = end.w, end.x, end.y, end.z
+        cosine = min(cosine, 1.0)
 
-        dot = min(dot, 1.0)
-
-        # Near-parallel → NLERP (avoid sin(θ) ≈ 0)
-        if dot > 0.9995:
+        if cosine > MINIMUM_SLERP_SEPARATION_COSINE:
             return cls.from_components(
-                w=q0.w + t * (q1_w - q0.w),
-                x=q0.x + t * (q1_x - q0.x),
-                y=q0.y + t * (q1_y - q0.y),
-                z=q0.z + t * (q1_z - q0.z),
+                w=start.w + fraction * (end_w - start.w),
+                x=start.x + fraction * (end_x - start.x),
+                y=start.y + fraction * (end_y - start.y),
+                z=start.z + fraction * (end_z - start.z),
             )
 
-        theta_0 = np.arccos(dot)
-        sin_theta_0 = np.sin(theta_0)
-        theta = theta_0 * t
-
-        s0 = np.cos(theta) - dot * np.sin(theta) / sin_theta_0
-        s1 = np.sin(theta) / sin_theta_0
+        total_angle = np.arccos(cosine)
+        total_angle_sine = np.sin(total_angle)
+        start_weight = np.sin((1.0 - fraction) * total_angle) / total_angle_sine
+        end_weight = np.sin(fraction * total_angle) / total_angle_sine
 
         return cls.from_components(
-            w=float(s0 * q0.w + s1 * q1_w),
-            x=float(s0 * q0.x + s1 * q1_x),
-            y=float(s0 * q0.y + s1 * q1_y),
-            z=float(s0 * q0.z + s1 * q1_z),
+            w=float(start_weight * start.w + end_weight * end_w),
+            x=float(start_weight * start.x + end_weight * end_x),
+            y=float(start_weight * start.y + end_weight * end_y),
+            z=float(start_weight * start.z + end_weight * end_z),
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"RotationQuaternion(w={self.w:.6f}, x={self.x:.6f}, "
+            f"y={self.y:.6f}, z={self.z:.6f})"
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Vectorized operations — pure numpy functions on (N, 4) arrays
+# Vectorized operations - pure numpy functions on (N, 4) arrays
 # ═══════════════════════════════════════════════════════════════════════
 #
-# All functions operate on (N, 4) float64 arrays with columns [w, x, y, z].
-# They are the vectorized equivalents of the RotationQuaternion methods above and
-# are the ones used in the per-frame hot loop (orientation solver, rigid
-# body kinematics). No per-element RotationQuaternion objects are created.
+# All functions operate on (N, 4) float64 arrays with columns [w, x, y, z]. They are the
+# vectorized equivalents of the RotationQuaternion methods above, element for element and
+# threshold for threshold, and are the ones used in the per-frame hot loop. No per-element
+# RotationQuaternion objects are created.
 
 
-def normalize_quaternion_array(
-    q: FloatArray,
-) -> FloatArray:
-    """Normalize each row of an (N, 4) quaternion array to unit length.
+def normalize_quaternion_array(*, quaternions: FloatArray) -> FloatArray:
+    """Normalize each row of an ``(N, 4)`` quaternion array to unit length.
 
     Returns a **new** array; the input is not modified.
     """
-    q = np.asarray(q, dtype=np.float64)
-    if q.ndim != 2 or q.shape[1] != 4:
-        raise ValueError(
-            f"Expected (N, 4) array, got shape {q.shape}"
-        )
-    norms = np.linalg.norm(q, axis=1, keepdims=True)
-    if np.any(norms < 1e-10):
-        bad = np.where(norms.ravel() < 1e-10)[0]
-        raise ValueError(
-            f"Near-zero quaternion(s) at indices {bad.tolist()}"
-        )
-    return q / norms
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    norms = np.linalg.norm(quaternions, axis=1, keepdims=True)
+    if np.any(norms < MINIMUM_QUATERNION_NORM):
+        degenerate = np.where(norms.ravel() < MINIMUM_QUATERNION_NORM)[0]
+        raise ValueError(f"Near-zero quaternion(s) at indices {degenerate.tolist()}")
+    return quaternions / norms
 
 
-def hamilton_product(
-    q_a: FloatArray,
-    q_b: FloatArray,
-) -> FloatArray:
-    """Batch Hamilton product ``q_a * q_b`` for (N, 4) arrays.
+def hamilton_product(*, left: FloatArray, right: FloatArray) -> FloatArray:
+    """Batch Hamilton product ``left * right`` for ``(N, 4)`` arrays.
 
-    The result represents composing the rotation of ``q_b`` followed by
-    the rotation of ``q_a``, matching the scalar ``RotationQuaternion.__mul__``
-    semantics: ``R(q_a·q_b) = R(q_a) ∘ R(q_b)``.
+    Composes the rotation of ``right`` followed by the rotation of ``left``, matching the
+    scalar ``RotationQuaternion.__mul__``.
     """
-    q_a = np.asarray(q_a, dtype=np.float64)
-    q_b = np.asarray(q_b, dtype=np.float64)
-    _check_quat_shape(q_a)
-    _check_quat_shape(q_b)
+    left = np.asarray(left, dtype=np.float64)
+    right = np.asarray(right, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=left)
+    _raise_unless_quaternion_array(quaternions=right)
 
-    w1, x1, y1, z1 = q_a[:, 0], q_a[:, 1], q_a[:, 2], q_a[:, 3]
-    w2, x2, y2, z2 = q_b[:, 0], q_b[:, 1], q_b[:, 2], q_b[:, 3]
+    left_w, left_x, left_y, left_z = left[:, 0], left[:, 1], left[:, 2], left[:, 3]
+    right_w, right_x, right_y, right_z = (
+        right[:, 0],
+        right[:, 1],
+        right[:, 2],
+        right[:, 3],
+    )
 
     return np.column_stack(
         [
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            left_w * right_w - left_x * right_x - left_y * right_y - left_z * right_z,
+            left_w * right_x + left_x * right_w + left_y * right_z - left_z * right_y,
+            left_w * right_y - left_x * right_z + left_y * right_w + left_z * right_x,
+            left_w * right_z + left_x * right_y - left_y * right_x + left_z * right_w,
         ]
     )
 
 
-def conjugate_quaternion_array(
-    q: FloatArray,
-) -> FloatArray:
-    """Return the conjugate of each quaternion in an (N, 4) array."""
-    q = np.asarray(q, dtype=np.float64)
-    _check_quat_shape(q)
-    conj = q.copy()
-    conj[:, 1:] *= -1.0
-    return conj
+def conjugate_quaternion_array(*, quaternions: FloatArray) -> FloatArray:
+    """The conjugate of each quaternion in an ``(N, 4)`` array."""
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    conjugated = quaternions.copy()
+    conjugated[:, 1:] *= -1.0
+    return conjugated
 
 
-def quaternion_to_rotation_matrix(
-    q: FloatArray,
-) -> FloatArray:
-    """Convert (N, 4) quaternion array to (N, 3, 3) rotation matrices.
+def quaternions_to_rotation_matrices(*, quaternions: FloatArray) -> FloatArray:
+    """Convert an ``(N, 4)`` quaternion array to ``(N, 3, 3)`` rotation matrices."""
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
 
-    Same formula as ``RotationQuaternion.to_rotation_matrix``, vectorized.
-    """
-    q = np.asarray(q, dtype=np.float64)
-    _check_quat_shape(q)
-
-    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    w, x, y, z = (
+        quaternions[:, 0],
+        quaternions[:, 1],
+        quaternions[:, 2],
+        quaternions[:, 3],
+    )
     xx, yy, zz = x * x, y * y, z * z
     xy, xz, yz = x * y, x * z, y * z
     wx, wy, wz = w * x, w * y, w * z
 
-    n = len(q)
-    R = np.empty((n, 3, 3), dtype=np.float64)
-
-    R[:, 0, 0] = 1.0 - 2.0 * (yy + zz)
-    R[:, 0, 1] = 2.0 * (xy - wz)
-    R[:, 0, 2] = 2.0 * (xz + wy)
-
-    R[:, 1, 0] = 2.0 * (xy + wz)
-    R[:, 1, 1] = 1.0 - 2.0 * (xx + zz)
-    R[:, 1, 2] = 2.0 * (yz - wx)
-
-    R[:, 2, 0] = 2.0 * (xz - wy)
-    R[:, 2, 1] = 2.0 * (yz + wx)
-    R[:, 2, 2] = 1.0 - 2.0 * (xx + yy)
-
-    return R
+    matrices = np.empty(
+        (len(quaternions), NUMBER_OF_SPATIAL_DIMENSIONS, NUMBER_OF_SPATIAL_DIMENSIONS),
+        dtype=np.float64,
+    )
+    matrices[:, 0, 0] = 1.0 - 2.0 * (yy + zz)
+    matrices[:, 0, 1] = 2.0 * (xy - wz)
+    matrices[:, 0, 2] = 2.0 * (xz + wy)
+    matrices[:, 1, 0] = 2.0 * (xy + wz)
+    matrices[:, 1, 1] = 1.0 - 2.0 * (xx + zz)
+    matrices[:, 1, 2] = 2.0 * (yz - wx)
+    matrices[:, 2, 0] = 2.0 * (xz - wy)
+    matrices[:, 2, 1] = 2.0 * (yz + wx)
+    matrices[:, 2, 2] = 1.0 - 2.0 * (xx + yy)
+    return matrices
 
 
-def quaternion_to_axis_angle(
-    q: FloatArray,
+def quaternions_to_axis_angles(
+    *, quaternions: FloatArray
 ) -> tuple[FloatArray, FloatArray]:
-    """Convert (N, 4) quaternions to axis-angle.
+    """Convert ``(N, 4)`` quaternions to axis-angle.
 
-    Returns ``(axes, angles)`` where ``axes`` is (N, 3) unit vectors and
-    ``angles`` is (N,) in radians.
+    Returns ``(axes, angles)`` where ``axes`` is ``(N, 3)`` unit vectors and ``angles`` is
+    ``(N,)`` in radians, in ``[0, pi]``.
     """
-    q = np.asarray(q, dtype=np.float64)
-    _check_quat_shape(q)
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
 
-    w = q[:, 0]
-    xyz = q[:, 1:4]
+    scalar_parts = quaternions[:, 0]
+    vector_parts = quaternions[:, 1:4]
 
-    w_clamped = np.clip(w, -1.0, 1.0)
-    angles = 2.0 * np.arccos(np.abs(w_clamped))
-    sin_half = np.sqrt(1.0 - w_clamped**2)
+    # Same reasoning as the scalar `to_axis_angle`: the vector part's norm is sin(theta/2)
+    # exactly, and `atan2` against |w| stays accurate where `arccos` does not.
+    half_angle_sines = np.linalg.norm(vector_parts, axis=1)
+    angles = 2.0 * np.arctan2(half_angle_sines, np.abs(scalar_parts))
 
-    axes = np.zeros_like(xyz)
-    valid = sin_half > 1e-10
-    axes[valid] = xyz[valid] / sin_half[valid, np.newaxis]
-    axes[~valid] = [1.0, 0.0, 0.0]
+    axes = np.zeros_like(vector_parts)
+    resolvable = half_angle_sines > MINIMUM_QUATERNION_SINE
+    axes[resolvable] = (
+        vector_parts[resolvable] / half_angle_sines[resolvable, np.newaxis]
+    )
+    axes[~resolvable] = [1.0, 0.0, 0.0]
 
-    # Flip axis when w < 0 (the quaternion on the opposite hemisphere
-    # represents the same rotation)
-    axes[w < 0] *= -1.0
+    # A quaternion on the opposite hemisphere denotes the same rotation about the
+    # opposite axis, so flip it to keep every angle in [0, pi].
+    axes[scalar_parts < 0.0] *= -1.0
 
     return axes, angles
 
 
-def quaternion_to_euler(
-    q: FloatArray,
-) -> FloatArray:
-    """Convert (N, 4) quaternions to (N, 3) Euler angles.
+def quaternions_to_roll_pitch_yaw(*, quaternions: FloatArray) -> FloatArray:
+    """Convert ``(N, 4)`` quaternions to ``(N, 3)`` ``[roll, pitch, yaw]`` in radians.
 
-    Returns columns ``[roll, pitch, yaw]`` in radians, ZYX intrinsic
-    (aerospace) convention. Same formulas as ``RotationQuaternion.to_euler_xyz``.
+    ZYX intrinsic (aerospace), matching ``RotationQuaternion.to_roll_pitch_yaw``.
     """
-    q = np.asarray(q, dtype=np.float64)
-    _check_quat_shape(q)
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
 
-    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    w, x, y, z = (
+        quaternions[:, 0],
+        quaternions[:, 1],
+        quaternions[:, 2],
+        quaternions[:, 3],
+    )
 
-    # Roll (around X)
-    sinr_cosp = 2.0 * (w * x + y * z)
-    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-    roll = np.arctan2(sinr_cosp, cosr_cosp)
-
-    # Pitch (around Y)
-    sinp = 2.0 * (w * y - z * x)
-    pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
-
-    # Yaw (around Z)
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    yaw = np.arctan2(siny_cosp, cosy_cosp)
+    roll = np.arctan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+    pitch = np.arcsin(np.clip(2.0 * (w * y - z * x), -1.0, 1.0))
+    yaw = np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
 
     return np.column_stack([roll, pitch, yaw])
 
 
-def rotate_vector_batch(
-    q: FloatArray,
-    v: FloatArray,
-) -> FloatArray:
-    """Rotate a single (3,) vector by N quaternions.
-
-    Returns an (N, 3) array where row i is **v** rotated by **q[i]**.
-    Uses the Rodrigues form for efficiency.
-    """
-    q = np.asarray(q, dtype=np.float64)
-    v = np.asarray(v, dtype=np.float64)
-    _check_quat_shape(q)
-    if v.shape != (3,):
-        raise ValueError(f"Vector must have shape (3,), got {v.shape}")
-
-    w = q[:, 0]          # (N,)
-    u = q[:, 1:4]        # (N, 3)
-
-    uv = np.cross(u, v)         # (N, 3)
-    uuv = np.cross(u, uv)       # (N, 3)
-
-    return v + 2.0 * w[:, np.newaxis] * uv + 2.0 * uuv
-
-
-def rotate_vectors_batch(
-    q: FloatArray,
-    vectors: FloatArray,
-) -> FloatArray:
+def rotate_vectors_batch(*, quaternions: FloatArray, vectors: FloatArray) -> FloatArray:
     """Rotate M vectors by N quaternions.
 
-    Returns an (N, M, 3) array where ``result[n, m]`` is ``vectors[m]``
-    rotated by ``q[n]``.
+    Returns an ``(N, M, 3)`` array where ``result[n, m]`` is ``vectors[m]`` rotated by
+    ``quaternions[n]``. Rotating a single vector is the ``M = 1`` case; there is no
+    separate single-vector entry point, because there is no separate arithmetic.
     """
-    q = np.asarray(q, dtype=np.float64)
+    quaternions = np.asarray(quaternions, dtype=np.float64)
     vectors = np.asarray(vectors, dtype=np.float64)
-    _check_quat_shape(q)
-    if vectors.ndim != 2 or vectors.shape[1] != 3:
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    if vectors.ndim != 2 or vectors.shape[1] != NUMBER_OF_SPATIAL_DIMENSIONS:
         raise ValueError(
-            f"vectors must have shape (M, 3), got {vectors.shape}"
+            f"vectors must have shape (M, {NUMBER_OF_SPATIAL_DIMENSIONS}), "
+            f"got {vectors.shape}"
         )
 
-    n_frames = len(q)
-    n_vectors = len(vectors)
+    scalar_parts = quaternions[:, 0]
+    vector_parts = quaternions[:, 1:4]
 
-    w = q[:, 0]                                    # (N,)
-    u = q[:, 1:4]                                  # (N, 3)
+    broadcast_vectors = np.broadcast_to(
+        vectors, (len(quaternions), len(vectors), NUMBER_OF_SPATIAL_DIMENSIONS)
+    )
+    broadcast_axes = vector_parts[:, np.newaxis, :]
 
-    v_bc = np.broadcast_to(vectors, (n_frames, n_vectors, 3))
-    u_bc = u[:, np.newaxis, :]                     # (N, 1, 3) → broadcasts
+    cross_once = np.cross(broadcast_axes, broadcast_vectors)
+    cross_twice = np.cross(broadcast_axes, cross_once)
 
-    uv = np.cross(u_bc, v_bc)                      # (N, M, 3)
-    uuv = np.cross(u_bc, uv)
-
-    return v_bc + 2.0 * w[:, np.newaxis, np.newaxis] * uv + 2.0 * uuv
+    return (
+        broadcast_vectors
+        + 2.0 * scalar_parts[:, np.newaxis, np.newaxis] * cross_once
+        + 2.0 * cross_twice
+    )
 
 
 # ── SLERP (vectorized) ──────────────────────────────────────────────
 
 
 def slerp_batch(
-    q0: FloatArray,
-    q1: FloatArray,
-    t: FloatArray,
+    *, start: FloatArray, end: FloatArray, fractions: FloatArray
 ) -> FloatArray:
-    """Vectorized SLERP between two arrays of quaternions.
+    """Vectorized SLERP between two ``(M, 4)`` arrays of quaternions.
 
-    Parameters
-    ----------
-    q0 : (M, 4)
-        Start quaternions.
-    q1 : (M, 4)
-        End quaternions.
-    t : (M,)
-        Interpolation parameters in [0, 1].
+    Args:
+        start: ``(M, 4)`` rotations at ``fraction = 0``.
+        end: ``(M, 4)`` rotations at ``fraction = 1``.
+        fractions: ``(M,)`` interpolation parameters in ``[0, 1]``.
 
-    Returns
-    -------
-    (M, 4)
-        Interpolated quaternions, normalized.
+    Returns:
+        ``(M, 4)`` interpolated unit quaternions. Uses the same shorter-arc rule and the
+        same ``MINIMUM_SLERP_SEPARATION_COSINE`` fallback as the scalar
+        :meth:`RotationQuaternion.slerp`.
     """
-    q0 = np.asarray(q0, dtype=np.float64)
-    q1 = np.asarray(q1, dtype=np.float64)
-    t = np.asarray(t, dtype=np.float64)
-    _check_quat_shape(q0)
-    _check_quat_shape(q1)
+    start = np.asarray(start, dtype=np.float64)
+    end = np.asarray(end, dtype=np.float64)
+    fractions = np.asarray(fractions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=start)
+    _raise_unless_quaternion_array(quaternions=end)
 
-    if t.ndim != 1 or len(t) != len(q0):
+    if fractions.ndim != 1 or len(fractions) != len(start):
         raise ValueError(
-            f"t must be (M,) matching q0 length, got shape {t.shape}"
+            f"fractions must be (M,) matching start's length {len(start)}, got shape "
+            f"{fractions.shape}"
+        )
+    if np.any(fractions < 0.0) or np.any(fractions > 1.0):
+        raise ValueError("SLERP fractions must all be in [0, 1]")
+
+    # Double cover: negate `end` where the dot is negative, to take the shorter arc.
+    cosines = np.sum(start * end, axis=1)
+    shorter_arc_end = np.where(cosines[:, np.newaxis] < 0.0, -end, end)
+    cosines = np.clip(np.abs(cosines), 0.0, 1.0)
+
+    result = np.empty_like(start)
+
+    near = cosines > MINIMUM_SLERP_SEPARATION_COSINE
+    if np.any(near):
+        interpolated = start[near] + fractions[near, np.newaxis] * (
+            shorter_arc_end[near] - start[near]
+        )
+        result[near] = interpolated / np.linalg.norm(
+            interpolated, axis=1, keepdims=True
         )
 
-    # Double-cover: negate q1 where dot(q0, q1) < 0 to take shorter arc
-    dot = np.sum(q0 * q1, axis=1)  # (M,)
-    q1_adj = q1.copy()
-    neg_mask = dot < 0.0
-    q1_adj[neg_mask] = -q1_adj[neg_mask]
-    dot = np.abs(dot)
-    dot = np.clip(dot, 0.0, 1.0)
-
-    result = np.empty_like(q0)
-
-    # Near-parallel → NLERP (~0.002° threshold, avoids sin(θ)≈0)
-    near_mask = dot > (1.0 - 1e-10)
-    if np.any(near_mask):
-        lerp = q0[near_mask] + t[near_mask, np.newaxis] * (
-            q1_adj[near_mask] - q0[near_mask]
+    far = ~near
+    if np.any(far):
+        total_angles = np.arccos(cosines[far])
+        total_angle_sines = np.sin(total_angles)
+        start_weights = np.sin((1.0 - fractions[far]) * total_angles) / total_angle_sines
+        end_weights = np.sin(fractions[far] * total_angles) / total_angle_sines
+        interpolated = (
+            start_weights[:, np.newaxis] * start[far]
+            + end_weights[:, np.newaxis] * shorter_arc_end[far]
         )
-        norms = np.linalg.norm(lerp, axis=1, keepdims=True)
-        result[near_mask] = lerp / np.maximum(norms, 1e-10)
-
-    # Full SLERP for the rest
-    far_mask = ~near_mask
-    if np.any(far_mask):
-        theta = np.arccos(dot[far_mask])
-        sin_theta = np.sin(theta)
-        s0 = np.sin((1.0 - t[far_mask]) * theta) / sin_theta
-        s1 = np.sin(t[far_mask] * theta) / sin_theta
-        slerp_result = (
-            s0[:, np.newaxis] * q0[far_mask]
-            + s1[:, np.newaxis] * q1_adj[far_mask]
-        )
-        norms = np.linalg.norm(slerp_result, axis=1, keepdims=True)
-        result[far_mask] = slerp_result / np.maximum(norms, 1e-10)
+        result[far] = interpolated / np.linalg.norm(interpolated, axis=1, keepdims=True)
 
     return result
 
 
 def slerp_resample(
+    *,
     quaternions: FloatArray,
     original_timestamps: FloatArray,
     target_timestamps: FloatArray,
 ) -> FloatArray:
     """Resample a quaternion trajectory to new timestamps via SLERP.
 
-    Parameters
-    ----------
-    quaternions : (N, 4)
-        Source quaternion trajectory.
-    original_timestamps : (N,)
-        Strictly increasing timestamps for the source frames.
-    target_timestamps : (M,)
-        Monotonically increasing target timestamps.
+    Args:
+        quaternions: ``(N, 4)`` source trajectory.
+        original_timestamps: ``(N,)`` strictly increasing timestamps for the source frames.
+        target_timestamps: ``(M,)`` target timestamps.
 
-    Returns
-    -------
-    (M, 4)
-        Interpolated quaternions at each target timestamp. Target times
-        outside the original range are clamped to the boundary quaternion.
+    Returns:
+        ``(M, 4)`` interpolated quaternions. Target times outside the source range are
+        clamped to the boundary rotation.
     """
     quaternions = np.asarray(quaternions, dtype=np.float64)
     original_timestamps = np.asarray(original_timestamps, dtype=np.float64)
     target_timestamps = np.asarray(target_timestamps, dtype=np.float64)
 
-    _check_quat_shape(quaternions)
-    n_original = len(quaternions)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    number_of_source_frames = len(quaternions)
 
-    if len(original_timestamps) != n_original:
+    if len(original_timestamps) != number_of_source_frames:
         raise ValueError(
-            f"original_timestamps length ({len(original_timestamps)}) "
-            f"must match quaternions length ({n_original})"
+            f"original_timestamps length ({len(original_timestamps)}) must match "
+            f"quaternions length ({number_of_source_frames})"
         )
-    if n_original < 2:
+    if number_of_source_frames < 2:
         raise ValueError("Need at least 2 quaternions to resample")
-    if not np.all(np.diff(original_timestamps) > 0):
-        raise ValueError(
-            "original_timestamps must be strictly increasing"
-        )
+    _raise_unless_strictly_increasing(timestamps=original_timestamps)
 
-    n_target = len(target_timestamps)
-    indices = np.searchsorted(original_timestamps, target_timestamps)
-    idx_lo = np.clip(indices - 1, 0, n_original - 2)
-    idx_hi = idx_lo + 1
+    insertion_points = np.searchsorted(original_timestamps, target_timestamps)
+    lower_indices = np.clip(insertion_points - 1, 0, number_of_source_frames - 2)
+    upper_indices = lower_indices + 1
 
-    q0 = quaternions[idx_lo]
-    q1 = quaternions[idx_hi]
-    t0 = original_timestamps[idx_lo]
-    t1 = original_timestamps[idx_hi]
+    lower_times = original_timestamps[lower_indices]
+    upper_times = original_timestamps[upper_indices]
+    # Strictly increasing timestamps were enforced above, so every span is positive and
+    # the clip alone handles targets that fall outside the source range.
+    fractions = np.clip(
+        (target_timestamps - lower_times) / (upper_times - lower_times), 0.0, 1.0
+    )
 
-    dt = t1 - t0
-    dt_safe = np.where(dt > 1e-10, dt, 1.0)
-    t_param = (target_timestamps - t0) / dt_safe
-    t_param = np.clip(t_param, 0.0, 1.0)
-    # Clamp to boundaries for out-of-range target times
-    t_param = np.where(dt > 1e-10, t_param, 0.0)
-
-    return slerp_batch(q0, q1, t_param)
+    return slerp_batch(
+        start=quaternions[lower_indices],
+        end=quaternions[upper_indices],
+        fractions=fractions,
+    )
 
 
 # ── Angular velocity ───────────────────────────────────────────────
 
 
 def compute_angular_velocity(
-    quaternions: FloatArray,
-    timestamps: FloatArray,
+    *, quaternions: FloatArray, timestamps: FloatArray
 ) -> tuple[FloatArray, FloatArray]:
-    """Compute angular velocity from a quaternion trajectory.
+    """Angular velocity from a quaternion trajectory, by finite differences.
 
-    Uses finite differences: forward at frame 0, central for interior
-    frames, backward at the final frame. Relative quaternion between
-    consecutive poses is converted to axis-angle, then ω = axis · (θ / Δt).
+    Forward difference at frame 0, central for interior frames, backward at the last one.
+    The relative rotation between the bracketing poses is converted to axis-angle, then
+    ``omega = axis * (theta / dt)``.
 
-    Parameters
-    ----------
-    quaternions : (N, 4)
-    timestamps : (N,)
-        Strictly increasing timestamps in seconds.
+    Args:
+        quaternions: ``(N, 4)`` trajectory.
+        timestamps: ``(N,)`` strictly increasing timestamps in seconds.
 
-    Returns
-    -------
-    omega_global : (N, 3)
-        Angular velocity in the **world** frame (rad/s).
-    omega_local : (N, 3)
-        Angular velocity in the **body** frame (rad/s). Computed as
-        Rᵀ @ ω_global where R is the rotation matrix for each frame.
+    Returns:
+        ``(omega_world, omega_body)``, each ``(N, 3)`` in radians per second.
+        ``omega_body`` is ``R^T @ omega_world`` for each frame's rotation.
     """
     quaternions = np.asarray(quaternions, dtype=np.float64)
     timestamps = np.asarray(timestamps, dtype=np.float64)
-    _check_quat_shape(quaternions)
+    _raise_unless_quaternion_array(quaternions=quaternions)
 
-    n = len(quaternions)
-    if n < 2:
-        raise ValueError(f"Need at least 2 frames, got {n}")
-
-    dt_arr = np.diff(timestamps)
-    if np.any(dt_arr <= 1e-10):
-        bad = np.where(dt_arr <= 1e-10)[0]
+    number_of_frames = len(quaternions)
+    if number_of_frames < 2:
+        raise ValueError(f"Need at least 2 frames, got {number_of_frames}")
+    if len(timestamps) != number_of_frames:
         raise ValueError(
-            f"Timestamps must be strictly increasing; "
-            f"bad dt at frame {bad[0]} → {bad[0] + 1}: {dt_arr[bad[0]]:.2e}"
+            f"timestamps length ({len(timestamps)}) must match quaternions length "
+            f"({number_of_frames})"
         )
+    _raise_unless_strictly_increasing(timestamps=timestamps)
 
-    # Build index pairs for finite differences
-    # Frame 0:      forward  (curr=0,     next=1)
-    # Frames 1..N-2: central  (curr=i-1,   next=i+1)
-    # Frame N-1:    backward (curr=N-2,   next=N-1)
-    idx_curr = np.concatenate(
-        [[0], np.arange(0, n - 2), [n - 2]]
+    earlier_indices = np.concatenate(
+        [[0], np.arange(0, number_of_frames - 2), [number_of_frames - 2]]
     )
-    idx_next = np.concatenate(
-        [[1], np.arange(2, n), [n - 1]]
+    later_indices = np.concatenate(
+        [[1], np.arange(2, number_of_frames), [number_of_frames - 1]]
     )
 
-    time_deltas = np.empty(n, dtype=np.float64)
-    time_deltas[0] = timestamps[1] - timestamps[0]
-    time_deltas[1:-1] = timestamps[2:] - timestamps[:-2]
-    time_deltas[-1] = timestamps[-1] - timestamps[-2]
+    time_deltas = timestamps[later_indices] - timestamps[earlier_indices]
 
-    # Relative quaternion: q_rel = q_next * conj(q_curr)
-    q_curr = quaternions[idx_curr]
-    q_next = quaternions[idx_next]
-    q_curr_conj = conjugate_quaternion_array(q_curr)
-    q_rel = hamilton_product(q_next, q_curr_conj)
+    relative = hamilton_product(
+        left=quaternions[later_indices],
+        right=conjugate_quaternion_array(quaternions=quaternions[earlier_indices]),
+    )
+    axes, angles = quaternions_to_axis_angles(quaternions=relative)
+    omega_world = axes * (angles / time_deltas)[:, np.newaxis]
 
-    axes, angles = quaternion_to_axis_angle(q_rel)
-    omega_global = axes * (angles / time_deltas)[:, np.newaxis]
+    matrices = quaternions_to_rotation_matrices(quaternions=quaternions)
+    omega_body = np.einsum("nij,nj->ni", matrices.transpose(0, 2, 1), omega_world)
 
-    # Local: transform by current orientation
-    R = quaternion_to_rotation_matrix(quaternions)
-    omega_local = np.einsum("nij,nj->ni", R.transpose(0, 2, 1), omega_global)
-
-    return omega_global, omega_local
+    return omega_world, omega_body
 
 
 # ── Composition ────────────────────────────────────────────────────
 
 
-def compose_with_constant(
-    quaternions: FloatArray,
-    constant: FloatArray,
-    *,
-    pre_multiply: bool = True,
+def pre_multiply_by_constant(
+    *, quaternions: FloatArray, constant: FloatArray
 ) -> FloatArray:
-    """Compose every quaternion in an (N, 4) trajectory with a constant.
-
-    Parameters
-    ----------
-    quaternions : (N, 4)
-    constant : (4,)
-    pre_multiply : bool
-        If True, result = constant * quaternions (constant applied second).
-        If False, result = quaternions * constant (constant applied first).
-
-    Returns
-    -------
-    (N, 4)
-    """
+    """``constant * quaternions`` for every row: the constant rotation applied SECOND."""
     quaternions = np.asarray(quaternions, dtype=np.float64)
-    constant = np.asarray(constant, dtype=np.float64)
-    _check_quat_shape(quaternions)
-    if constant.shape != (4,):
-        raise ValueError(
-            f"constant must have shape (4,), got {constant.shape}"
-        )
-    q_const = np.broadcast_to(constant, (len(quaternions), 4))
-    if pre_multiply:
-        return hamilton_product(q_const, quaternions)
-    else:
-        return hamilton_product(quaternions, q_const)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    return hamilton_product(
+        left=_broadcast_constant(constant=constant, count=len(quaternions)),
+        right=quaternions,
+    )
+
+
+def post_multiply_by_constant(
+    *, quaternions: FloatArray, constant: FloatArray
+) -> FloatArray:
+    """``quaternions * constant`` for every row: the constant rotation applied FIRST."""
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    return hamilton_product(
+        left=quaternions,
+        right=_broadcast_constant(constant=constant, count=len(quaternions)),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -863,9 +827,32 @@ def compose_with_constant(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _check_quat_shape(q: FloatArray) -> None:
-    """Raise ValueError if *q* is not (N, 4)."""
-    if q.ndim != 2 or q.shape[1] != 4:
+def _broadcast_constant(*, constant: FloatArray, count: int) -> FloatArray:
+    """One ``(4,)`` quaternion repeated into an ``(N, 4)`` array."""
+    constant = np.asarray(constant, dtype=np.float64)
+    if constant.shape != (NUMBER_OF_QUATERNION_COMPONENTS,):
         raise ValueError(
-            f"Expected (N, 4) quaternion array, got shape {q.shape}"
+            f"constant must have shape ({NUMBER_OF_QUATERNION_COMPONENTS},), "
+            f"got {constant.shape}"
+        )
+    return np.broadcast_to(constant, (count, NUMBER_OF_QUATERNION_COMPONENTS))
+
+
+def _raise_unless_quaternion_array(*, quaternions: FloatArray) -> None:
+    """Raise unless `quaternions` is an ``(N, 4)`` array."""
+    if quaternions.ndim != 2 or quaternions.shape[1] != NUMBER_OF_QUATERNION_COMPONENTS:
+        raise ValueError(
+            f"Expected (N, {NUMBER_OF_QUATERNION_COMPONENTS}) quaternion array, got "
+            f"shape {quaternions.shape}"
+        )
+
+
+def _raise_unless_strictly_increasing(*, timestamps: FloatArray) -> None:
+    """Raise unless every consecutive timestamp advances by a meaningful amount."""
+    deltas = np.diff(timestamps)
+    if np.any(deltas <= MINIMUM_TIME_DELTA_SECONDS):
+        first_bad = int(np.where(deltas <= MINIMUM_TIME_DELTA_SECONDS)[0][0])
+        raise ValueError(
+            f"Timestamps must be strictly increasing; bad delta at frame {first_bad} -> "
+            f"{first_bad + 1}: {deltas[first_bad]:.2e}"
         )

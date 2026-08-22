@@ -95,7 +95,7 @@ def test_hydrate_segment_rigid_fits_many_landmarks() -> None:
     np.testing.assert_allclose(pose.origin.array, [1.0, 2.0, 3.0], atol=1e-8)
     for name, landmark in segment.landmarks.items():
         np.testing.assert_allclose(
-            pose.origin.array + pose.orientation.rotate_vector(landmark.local_position.array),
+            pose.origin.array + pose.orientation.rotate_vector(vector=landmark.local_position.array),
             observed[name].array,
             atol=1e-8,
         )
@@ -110,7 +110,7 @@ def test_hydrate_segment_recovers_a_direction_for_two_landmarks() -> None:
     }
     pose = hydrate_segment(segment=segment, observed=observed)
     np.testing.assert_allclose(
-        pose.orientation.rotate_vector(np.array([0.0, 1.0, 0.0])),
+        pose.orientation.rotate_vector(vector=np.array([0.0, 1.0, 0.0])),
         [1.0, 0.0, 0.0],
         atol=1e-8,
     )
@@ -142,4 +142,4 @@ def test_hydrate_skeleton_recovers_the_rest_pose() -> None:
     # The skull (many landmarks, rigid fit) recovers the rest pose orientation exactly.
     skull_orientation = hydrated.segment_poses["skull"].orientation
     expected = rest_pose.segment_orientations["skull"]
-    assert abs(skull_orientation.dot(expected)) > 0.999
+    assert abs(skull_orientation.dot(other=expected)) > 0.999

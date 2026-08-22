@@ -251,10 +251,10 @@ def test_quaternion_factory_rejects_a_near_zero_quaternion() -> None:
 
 
 def test_quaternion_products_stay_unit() -> None:
-    first = RotationQuaternion.from_rotation_vector(np.array([0.3, -1.2, 0.7]))
-    second = RotationQuaternion.from_rotation_vector(np.array([2.0, 0.1, -0.4]))
+    first = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.3, -1.2, 0.7]))
+    second = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([2.0, 0.1, -0.4]))
     product = first * second
-    assert product.dot(product) == pytest.approx(1.0)
+    assert product.dot(other=product) == pytest.approx(1.0)
 
 
 # ── Transform ─────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ def test_identity_transform_leaves_points_alone() -> None:
 
 def test_transform_inverse_round_trips() -> None:
     transform = Transform(
-        rotation=RotationQuaternion.from_rotation_vector(np.array([0.4, 0.2, -1.1])),
+        rotation=RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.4, 0.2, -1.1])),
         translation=Displacement.from_xyz(x=1.0, y=2.0, z=3.0),
     )
     points = Point.from_array(values=np.random.default_rng(seed=4).normal(size=(10, 3)))
@@ -732,3 +732,18 @@ def test_cyclic_sign_and_remaining_axis() -> None:
     # Opposite directions along one axis are still the same axis, and still rejected.
     with pytest.raises(ValueError, match=r"both axes are \+x"):
         SpatialAxis.X.cyclic_sign_toward(SpatialAxis.NEGATIVE_X)
+
+
+def test_an_underspecified_left_handed_definition_also_warns() -> None:
+    """"Every construction of one warns loudly" has to include the underspecified ones.
+
+    The warning sat after the early return for an underspecified definition, so a frame
+    declared left-handed before it had a secondary axis went through in silence.
+    """
+    with pytest.warns(LeftHandedCoordinateSystemWarning):
+        ReferenceFrameDefinition(
+            origin_point_name="origin",
+            primary_axis=SpatialAxis.Y,
+            primary_point_name="primary",
+            handedness=Handedness.LEFT_HANDED,
+        )

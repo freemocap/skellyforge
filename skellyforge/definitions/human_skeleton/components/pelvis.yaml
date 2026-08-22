@@ -17,8 +17,14 @@ segments:
       x_axis:
         landmark: left_hip_socket
         type: exact
+      # The superior direction is taken from the iliac crest, not the sacrum. Both are
+      # anatomically defensible choices for "up", but the crest is the one that lands
+      # on +y: it sits directly above the hip-socket midpoint, so the y axis Gram-Schmidt
+      # produces from it is exactly the +y the coordinates below are authored in. The
+      # sacrum sits up AND back, and using it tilted the whole pelvis frame 20 degrees
+      # posteriorly away from its own authoring frame.
       y_axis:
-        landmark: sacrum_top
+        landmark: left_iliac_crest
         type: approximate
 
 
@@ -32,11 +38,13 @@ landmarks:
     reference_frame: pelvis
     local_position: [ 0, 0, 0 ]
 
+  # Aliases exist to absorb the names other systems use for a point, not to collect
+  # synonyms for their own sake: every one of them enlarges the space in which landmark
+  # names have to stay globally unique. This one keeps the two standard vertebral names
+  # and drops three hand-coined variants (`sacral_base`, `s1_top`, `top_sacrum`) that no
+  # tracker emits.
   SACRUM_TOP:
     aliases:
-      - sacral_base
-      - s1_top
-      - top_sacrum
       - l5_s1_junction
       - lumbosacral_junction
     definition: "Geometric center of the lumbosacral junction (L5/S1), the top of the sacrum"

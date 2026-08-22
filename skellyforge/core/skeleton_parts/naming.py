@@ -13,19 +13,28 @@ what "global" contains.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
+from typing import Final
 
 from skellyforge.type_overloads import RigidBodySegmentName
 
+SNAKE_CASE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[a-z][a-z0-9]*(_[a-z0-9]+)*")
+
 
 def raise_unless_snake_case_segment_name(*, name: RigidBodySegmentName) -> None:
-    """Segment names are snake_case.
+    """Segment names are snake_case: lowercase letters and digits, joined by underscores.
 
-    Sidedness is carried by a `left_`/`right_` PREFIX, which the YAML loader adds, so a
-    sided name is already snake_case and needs no special case here.
+    Checked as a pattern rather than as "lowercase and no spaces", which is what this used
+    to do and which let `left-arm.l` through. Sidedness is carried by a `left_`/`right_`
+    PREFIX that the YAML loader adds, so a sided name is already snake_case and needs no
+    special case here.
     """
-    if not name or name != name.lower() or " " in name:
-        raise ValueError(f"segment name must be snake_case, got {name!r}")
+    if not SNAKE_CASE_PATTERN.fullmatch(name):
+        raise ValueError(
+            f"segment name must be snake_case - lowercase letters and digits separated by "
+            f"single underscores, starting with a letter - got {name!r}"
+        )
 
 
 def raise_unless_aliases_are_valid(*, name: str, aliases: Sequence[str]) -> None:

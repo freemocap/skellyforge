@@ -18,7 +18,7 @@ def test_rotation_maps_plus_x_onto_plus_y() -> None:
         to_direction=UnitVector.from_xyz(x=0.0, y=1.0, z=0.0),
     )
     np.testing.assert_allclose(
-        rotation.rotate_vector(np.array([1.0, 0.0, 0.0])), [0.0, 1.0, 0.0], atol=1e-10
+        rotation.rotate_vector(vector=np.array([1.0, 0.0, 0.0])), [0.0, 1.0, 0.0], atol=1e-10
     )
 
 
@@ -28,7 +28,7 @@ def test_rotation_maps_plus_z_onto_plus_x() -> None:
         to_direction=UnitVector.from_xyz(x=1.0, y=0.0, z=0.0),
     )
     np.testing.assert_allclose(
-        rotation.rotate_vector(np.array([0.0, 0.0, 1.0])), [1.0, 0.0, 0.0], atol=1e-10
+        rotation.rotate_vector(vector=np.array([0.0, 0.0, 1.0])), [1.0, 0.0, 0.0], atol=1e-10
     )
 
 
@@ -46,11 +46,11 @@ def test_rotation_flips_an_anti_parallel_vector() -> None:
         to_direction=UnitVector.from_xyz(x=-1.0, y=0.0, z=0.0),
     )
     np.testing.assert_allclose(
-        rotation.rotate_vector(np.array([1.0, 0.0, 0.0])), [-1.0, 0.0, 0.0], atol=1e-10
+        rotation.rotate_vector(vector=np.array([1.0, 0.0, 0.0])), [-1.0, 0.0, 0.0], atol=1e-10
     )
 
 
 def test_primary_axis_unit_returns_the_signed_axis() -> None:
-    np.testing.assert_allclose(primary_axis_unit(SpatialAxis.X), [1.0, 0.0, 0.0])
-    np.testing.assert_allclose(primary_axis_unit(SpatialAxis.NEGATIVE_Y), [0.0, -1.0, 0.0])
-    np.testing.assert_allclose(primary_axis_unit(SpatialAxis.Z), [0.0, 0.0, 1.0])
+    np.testing.assert_allclose(primary_axis_unit(axis=SpatialAxis.X), [1.0, 0.0, 0.0])
+    np.testing.assert_allclose(primary_axis_unit(axis=SpatialAxis.NEGATIVE_Y), [0.0, -1.0, 0.0])
+    np.testing.assert_allclose(primary_axis_unit(axis=SpatialAxis.Z), [0.0, 0.0, 1.0])

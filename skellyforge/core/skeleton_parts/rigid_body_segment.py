@@ -24,6 +24,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_RELATIVE_SINGULAR_VALUE,
+    MINIMUM_VECTOR_NORM,
+)
 from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basis import (
     calculate_orthonormal_basis,
     direction_along,
@@ -36,6 +40,9 @@ from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.math.kinematics.rigid_point_set import (
+    MINIMUM_POINTS_FOR_RIGID_FIT,
+)
 from skellyforge.core.skeleton_parts.naming import (
     raise_unless_aliases_are_valid,
     raise_unless_snake_case_segment_name,
@@ -48,7 +55,8 @@ class RigidBodySegment:
     """One rigid body: its landmarks and the frame definition they realize.
 
     Attributes:
-        name: snake_case segment name, optionally suffixed `.L` or `.R`.
+        name: snake_case segment name. Sidedness is a `left_`/`right_` PREFIX that
+            the YAML loader adds; there is no `.L`/`.R` suffix convention here.
         landmarks: this segment's landmarks, keyed by name. Must contain the definition's
             primary landmark; the origin may instead be a shared landmark owned by the
             parent segment (the joint a linkage is built on). Whether it also contains
@@ -98,6 +106,25 @@ class RigidBodySegment:
                 f"not have - it has {sorted(self.landmarks)}"
             )
 
+        # A segment's origin IS the zero of its own frame, by definition. When the origin
+        # landmark belongs to this segment rather than to its parent, that identity is a
+        # claim about the authored coordinates, and everything downstream relies on it:
+        # `length` measures the primary's magnitude, and hydration rotates local positions
+        # about a local origin it assumes is at zero. An authoring slip here would produce
+        # silently wrong lengths and orientations, so it is checked rather than trusted.
+        own_origin = self.landmarks.get(self.frame_definition.origin_point_name)
+        if own_origin is not None:
+            offset = float(np.linalg.norm(own_origin.local_position.array))
+            if offset > MINIMUM_VECTOR_NORM:
+                raise ValueError(
+                    f"segment {self.name!r}: its own origin landmark "
+                    f"{own_origin.name!r} must sit at [0, 0, 0] in this segment's frame, "
+                    f"because that is what being the origin means - got "
+                    f"{own_origin.local_position.array.tolist()} "
+                    f"({offset:.4g} away). Either move it to the origin, or make the "
+                    "origin a landmark owned by this segment's parent."
+                )
+
     @property
     def all_names(self) -> tuple[RigidBodySegmentName, ...]:
         """Every name this segment answers to, canonical name first."""
@@ -112,6 +139,32 @@ class RigidBodySegment:
         """
         secondary_point_name = self.frame_definition.secondary_point_name
         return secondary_point_name is not None and secondary_point_name in self.landmarks
+
+    @property
+    def supports_rigid_fit(self) -> bool:
+        """Whether this segment's own landmarks span a plane rather than just a line.
+
+        This is a STATIC property of the authored geometry, and it is what decides which
+        closed form hydrates the segment. A segment whose landmarks are collinear - a
+        two-landmark limb, or a straight spine link - can never yield a full orientation
+        from a rigid fit, however many frames are observed, because the roll about the
+        line they share is not in the data. Deciding the branch here, once, keeps the
+        decision out of a per-frame `try`/`except` and stops a genuine runtime failure
+        from being mistaken for a collinear segment.
+        """
+        if len(self.landmarks) < MINIMUM_POINTS_FOR_RIGID_FIT:
+            return False
+        local_positions = np.stack(
+            arrays=[landmark.local_position.array for landmark in self.landmarks.values()],
+            axis=0,
+        )
+        centered = local_positions - local_positions.mean(axis=0)
+        singular_values = np.linalg.svd(centered, compute_uv=False)
+        if singular_values[0] <= 0.0:
+            return False
+        return bool(
+            singular_values[1] > MINIMUM_RELATIVE_SINGULAR_VALUE * singular_values[0]
+        )
 
     @property
     def landmark_names(self) -> tuple[LandmarkNameString, ...]:
@@ -131,15 +184,15 @@ class RigidBodySegment:
 
     @property
     def length(self) -> float:
-        """Origin-to-primary distance, from the landmarks' rest positions."""
+        """Origin-to-primary distance, from the landmarks' rest positions.
+
+        The origin sits at `[0, 0, 0]` in this segment's frame whichever segment owns the
+        landmark - enforced above when this segment owns it, and true by construction when
+        the parent does, since a shared joint's rest position lives in the parent's frame -
+        so the length is the primary's magnitude, with no special case either way.
+        """
         primary = self.landmarks[self.frame_definition.primary_point_name].local_position
-        origin = self.landmarks.get(self.frame_definition.origin_point_name)
-        if origin is None:
-            # The origin is a shared landmark owned by the parent, so its rest position
-            # lives in the parent's frame. In THIS segment's frame the origin is at
-            # [0, 0, 0] by construction, so the length is just the primary's magnitude.
-            return float(np.linalg.norm(primary.array))
-        return float((primary - origin.local_position).norm())
+        return float(np.linalg.norm(primary.array))
 
     def calculate_direction(self, *, points: Mapping[str, Point]) -> UnitVector:
         """The observed origin-to-primary direction, signed to match the primary axis.
@@ -212,12 +265,17 @@ def calculate_bases_for_segments(
 ) -> dict[RigidBodySegmentName, OrthonormalBasis]:
     """Solve many segments' frames at once, grouping those that share an axis convention.
 
-    `calculate_orthonormal_basis` costs about 100 microseconds per CALL and about 0.23
-    microseconds per FRAME once batched, so its cost is almost entirely fixed overhead.
-    Solving segments one at a time pays that overhead per segment; stacking every segment
-    that shares a (primary axis, secondary axis, handedness) convention into one batched
-    call pays it once per convention. A skeleton whose segments share one convention
-    therefore solves in roughly the time a single segment used to take.
+    `calculate_orthonormal_basis`'s cost is almost entirely fixed per-call overhead
+    rather than batch size. Solving segments one at a time pays that overhead per segment;
+    stacking every segment that shares a (primary axis, secondary axis, handedness)
+    convention into one batched call pays it once per convention. Measured over twenty
+    segments of one convention: 5948 microseconds solved one at a time against 752
+    batched, a factor of about 8.
+
+    Note the scope. Only a FULLY SPECIFIED segment has a basis to solve, so on the shipped
+    human skeleton this applies to three segments of sixty-one; the rest are
+    direction-only. It earns its keep on dense rigid bodies and on batched time, not on
+    the limbs.
 
     The batch axis here is SEGMENTS rather than time, and it composes with time: each
     segment's points may themselves be a single frame, a rolling window, or a whole take,

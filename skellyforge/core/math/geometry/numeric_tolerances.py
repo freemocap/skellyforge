@@ -26,3 +26,21 @@ ORTHONORMALITY_TOLERANCE: Final[float] = UNIT_LENGTH_TOLERANCE
 # Gram-Schmidt loses stability as the defining vectors approach collinear, so the sine
 # threshold that guards it is three orders of magnitude looser than the vector minimum.
 MINIMUM_SINE_BETWEEN_DEFINING_VECTORS: Final[float] = 1000.0 * MINIMUM_VECTOR_NORM
+
+# The smallest ratio of second-to-largest singular value that still counts as "these
+# points span more than a line". It is the same question `MINIMUM_SINE_BETWEEN_DEFINING_
+# VECTORS` asks of two vectors - how far from degenerate a spanning pair must be - so it
+# is the same number, used by the Gram-Schmidt guard and by the rigid fit alike.
+MINIMUM_RELATIVE_SINGULAR_VALUE: Final[float] = MINIMUM_SINE_BETWEEN_DEFINING_VECTORS
+
+# Quaternion conversions divide by sin(theta/2) and by vector norms; below this the
+# result is noise rather than a direction, and the small-angle branch is taken instead.
+MINIMUM_QUATERNION_SINE: Final[float] = 0.1 * MINIMUM_VECTOR_NORM
+
+# SLERP degenerates as the two rotations approach each other, so below this angular
+# separation it falls back to normalized linear interpolation. One threshold, used by
+# both the scalar and the batched implementation, so the two agree by construction.
+MINIMUM_SLERP_SEPARATION_COSINE: Final[float] = 1.0 - MINIMUM_VECTOR_NORM
+
+# Timestamps must advance by more than this to count as two distinct samples.
+MINIMUM_TIME_DELTA_SECONDS: Final[float] = 0.1 * MINIMUM_VECTOR_NORM

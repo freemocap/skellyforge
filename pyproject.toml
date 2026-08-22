@@ -1,18 +1,13 @@
-# pyproject.toml
-
 [build-system]
 requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
 name = "skellyforge"
-description = "Basic template of a python repository"
+description = "The standard human: a YAML-defined skeleton and the closed-form math that hydrates it"
 readme = "README.md"
 authors = [{ name = "skellyforge", email = "info@freemocap.org" }]
 license = { file = "LICENSE" }
-
-
-
 
 classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)", #https://www.gnu.org/philosophy/open-source-misses-the-point.en.html
@@ -20,18 +15,19 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ] #additional classifiers can be found here: https://pypi.org/classifiers/
 
-
+# Runtime dependencies are deliberately few: the engine is numpy plus a YAML parser, and
+# `beartype` to make the annotations load-bearing. `scipy`, `pandas`, `toml` and `pyarrow`
+# were here for the post_processing package that has since been deleted, and had no other
+# callers.
 dependencies = [
-    "numpy",#<2",
-    "scipy",
-    "pandas",
-    "toml>=0.10.2",
+    "numpy",
     "pyyaml>=6.0",
-    "pyarrow>=21.0.0",
     "beartype>=0.22.9",
-    #
+    # Imported lazily: `__init__.py` currently configures stdlib logging instead, because
+    # skellylogs' websocket handler cannot open its multiprocessing queue under every
+    # sandbox. Restore the `skellylogs.configure_logging` call when the richer handlers
+    # are wanted again.
     "skellylogs",
-    "pytest>=9.1.1",
 ]
 
 requires-python = ">=3.11,<3.13"
@@ -39,18 +35,21 @@ requires-python = ">=3.11,<3.13"
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+dev = ["pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools"]
 
 [tool.uv.sources]
 skellylogs = { git = "https://github.com/freemocap/skellylogs", branch = "main" }
 
 [tool.pytest.ini_options]
-# The engine suite runs on numpy + pydantic only — no heavy optional dependencies —
-# so it stays fast and CI-cheap. Spec:
-# freemocap/docs/streaming-compatibility/14-engine-testing-strategy.md
+# The suite runs on numpy and pyyaml alone - no heavy optional dependencies - so it stays
+# fast and CI-cheap. Roughly three seconds for the whole thing.
 testpaths = ["skellyforge/tests"]
 python_files = ["test_*.py"]
 addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+source = ["skellyforge"]
+omit = ["skellyforge/tests/*"]
 
 [tool.bumpver] #bump the version by entering `bumpver update` in the terminal
 current_version = "v2024.12.1009"
@@ -63,7 +62,6 @@ push            = true
 [tool.bumpver.file_patterns]
 "pyproject.toml" = ["{version}"]
 "skellyforge/__init__.py" = ["{version}"]
-
 
 [project.scripts]
 skellyforge = "skellyforge.__main__:run"

@@ -11,8 +11,12 @@ from enum import Enum
 
 
 class LeftHandedCoordinateSystemWarning(UserWarning):
-    """Emitted whenever a left-handed coordinate system is requested."""
-    # print warning saying that the system is Left Handed, which may interfere with down stream operations that generally assume right handedness
+    """Emitted whenever a left-handed coordinate system is requested.
+
+    Its own category rather than a bare `UserWarning`, so that a caller deliberately
+    building left-handed geometry can silence exactly this and nothing else, and so that a
+    test can assert it was raised.
+    """
 
 
 class Handedness(Enum):

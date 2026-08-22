@@ -36,7 +36,9 @@ class ReferenceFrameDefinition:
         handedness: chirality of the resulting triad, right-handed by default. Left-handed
             frames emit a `LeftHandedCoordinateSystemWarning` because they flip the sign of
             every cross product, rotation, torque, and angular velocity computed in them.
-            Ignored while the definition is underspecified, since there is no triad yet.
+            The warning fires whether or not the definition is fully specified: an
+            underspecified one has no triad yet, but it carries the handedness it will be
+            completed with.
     """
 
     origin_point_name: str
@@ -58,6 +60,22 @@ class ReferenceFrameDefinition:
                 "Origin and primary points must differ - both are "
                 f"`{self.origin_point_name}`"
             )
+        # Warned about before the underspecified early return below, because "every
+        # construction of a left-handed frame announces itself" has to mean every one.
+        # An underspecified definition has no triad yet, but it carries the handedness it
+        # will be completed with, and that is the thing worth hearing about early.
+        if self.handedness is Handedness.LEFT_HANDED:
+            warnings.warn(
+                message=(
+                    "Building a LEFT_HANDED coordinate system: every cross product, "
+                    "rotation direction, torque, and angular velocity expressed in this "
+                    "frame will have the opposite sign from the right-handed convention. "
+                    "Use Handedness.RIGHT_HANDED unless you are deliberately matching a "
+                    "left-handed external convention."
+                ),
+                category=LeftHandedCoordinateSystemWarning,
+                stacklevel=2,
+            )
         if not self.is_fully_specified:
             return
 
@@ -75,18 +93,6 @@ class ReferenceFrameDefinition:
             raise ValueError(
                 f"Origin point `{self.origin_point_name}` must differ from the "
                 "primary and secondary points"
-            )
-        if self.handedness is Handedness.LEFT_HANDED:
-            warnings.warn(
-                message=(
-                    "Building a LEFT_HANDED coordinate system: every cross product, "
-                    "rotation direction, torque, and angular velocity expressed in this "
-                    "frame will have the opposite sign from the right-handed convention. "
-                    "Use Handedness.RIGHT_HANDED unless you are deliberately matching a "
-                    "left-handed external convention."
-                ),
-                category=LeftHandedCoordinateSystemWarning,
-                stacklevel=2,
             )
 
     @property

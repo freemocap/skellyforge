@@ -1,7 +1,10 @@
 # Work plan: geometry → skeleton definition → hydration
 
-**Status as of 2026-08-21.** 222 tests passing. Phase 2 (static definitions) is complete: the whole
-human skeleton loads — 61 segments, 124 landmarks, 52 face blendshapes.
+**Status as of 2026-08-22.** 317 tests passing. Phases 1 and 2 are complete and Phase 3
+(hydration) is working end to end: the whole human skeleton loads — 61 segments, 124
+landmarks, 52 face blendshapes — resolves to a rest pose, and hydrates back from observed
+positions with its free roll resolved. What is left of the plan is the **linkage and chain
+layers**, which are still placeholders.
 
 This document covers the work started after the "commit b4 bloodbath" checkpoint: rebuilding the
 geometry layer, then walking the human skeleton YAML component by component until the whole
@@ -15,10 +18,15 @@ skeleton loads.
 |---|---|---|
 | **1. Geometry** | the math the rest of it stands on | **done** |
 | **2. Static definitions** | `SkeletonDefinition` loaded from YAML — every landmark and segment, with rest positions and reference frames | **done** |
-| **3. Hydration** | observed data driving those definitions: per-frame poses, orientations, filtering | **not started** |
+| **3. Hydration** | observed data driving those definitions: per-frame poses, orientations, roll | **done** |
+| **4. Linkage + chain** | the two ontology layers above `segment`; today the hierarchy lives in `rest_pose.yaml` | **not started** |
 
-Phase 3 is why `rotation_quaternion.py` and `transform_math.py` exist. They currently have no
-callers outside their own tests. That is expected — nothing hydrates yet. Do not delete them.
+Phase 3 is why `rotation_quaternion.py` and `transform_math.py` exist, and both are now
+called: `Transform` by the Kabsch fit, the scalar quaternion throughout the rest pose and
+hydration. The **vectorized** half of `rotation_quaternion.py` still has no callers — it is
+for the per-frame hot loop, which does not exist until something streams — but it is now
+covered by parity tests against its scalar twin (96%), so it can be relied on when that
+arrives.
 
 ---
 
@@ -203,26 +211,48 @@ landmarks at one point — reconciling them into a single shared point is the li
 
 ---
 
-## Phase 3: Hydration (next)
+## Phase 3: Hydration (done)
 
-Observed data driving the static definitions. This is where the currently-orphaned tier gets used:
+Observed landmark positions in, per-segment poses out, in closed form and one frame at a
+time. `hydrate_skeleton` branches on a STATIC property of each segment rather than on what
+a fit happens to throw:
 
-- `rotation_quaternion.py` — `RotationQuaternion` (wxyz), slerp, batched ops
-- `transform_math.py` — `Transform` (rotation + translation)
-- `PointRingBuffer` — the streaming path
-- `calculate_bases_for_segments` — the batched solve
-- hydration solvers (tpose, rigidifier, orientation solver, D3/D4 filter, length estimation) — rebuilt from scratch on the new types; the pre-bloodbath `core/math/kinematics/` module was deleted
+- **`RigidBodySegment.supports_rigid_fit`** — whether the segment's own landmarks span a
+  plane. If they do, Kabsch fits every observed one of them and pins the full orientation.
+  On the shipped human that is 5 segments of 61 (pelvis, chest, skull, both carpals).
+- **Otherwise** the origin-to-primary direction is recovered by shortest arc, leaving roll
+  about the long axis free. **`ContinuousRollResolver`** then supplies that roll by
+  parallel transport — carrying the previous frame's secondary axis forward and
+  orthonormalizing it against the new direction, which is continuous through the pole where
+  a per-frame shortest-arc roll flips, and adds no lag.
+
+`SegmentPose.solved_by` records which of the three (`RIGID_FIT`, `DIRECTION`,
+`TRANSPORTED_ROLL`) produced a pose, so no consumer has to re-derive the branch — and
+because "measured" and "merely well-behaved" are different claims about the world.
+
+`estimate_segment_lengths` calibrates per-subject lengths as the median observed
+origin-to-primary distance, and refuses to measure a segment whose landmarks are missing
+rather than returning a silently short result.
+
+### Still to build
+
+- **The linkage layer.** Cross-component joints are already exactly coincident in the rest
+  pose (`wrist` / `carpal_origin`, `hip_socket` / `hip_joint`, `ankle` / `ankle_origin`,
+  `acromion` / `shoulder` all resolve to the same world point, to 0.00 mm), so this is a
+  naming and identity job rather than a geometric one — smaller than it looks.
+- **The chain layer**, above linkages.
+- **Filtering and the streaming path.** `PointRingBuffer` and the vectorized quaternion
+  functions are the pieces waiting for it.
 
 ### Performance, already established
 
-`calculate_orthonormal_basis` costs ~100 µs per **call** and ~0.23 µs per **frame** once batched.
-The cost is almost entirely fixed per-call overhead, so the batch axis matters more than the batch
-size.
-
-`calculate_bases_for_segments` therefore groups segments by `(primary axis, secondary axis,
-handedness)` and issues one call per convention. Twenty segments, one frame each: 2105 µs solving
-one at a time versus ~300 µs grouped — **7× faster**. That batch axis is *segments*, and it composes
-with time: each segment's points may be a single frame, a rolling window, or a whole take.
+`calculate_orthonormal_basis` costs almost entirely fixed per-call overhead, so the batch
+axis matters more than the batch size. `calculate_bases_for_segments` groups segments by
+`(primary axis, secondary axis, handedness)` and issues one call per convention: measured
+over twenty segments, 5948 µs solved one at a time against 752 µs batched, a factor of
+about 8. Note the scope — only a fully specified segment has a basis to solve, so on the
+shipped human that is three segments; it earns its keep on dense rigid bodies and on
+batched time, not on the limbs.
 
 Three data regimes, one code path:
 
@@ -231,8 +261,6 @@ Three data regimes, one code path:
 | realtime single frame | `(3,)` per point | `buffer.latest_by_name()` |
 | rolling window | `(window, 3)` | `buffer.window_by_name()` |
 | batch / post hoc | `(num_frames, 3)` | the whole take |
-
----
 
 ## Cleanup — done
 
@@ -243,5 +271,31 @@ Three data regimes, one code path:
 - ~~`CLAUDE.md` still describes the pre-bloodbath `skellymodels/standard_human/` layout~~ — rewritten.
 - ~~Six tolerance constants across four files, chosen ad hoc~~ — centralized in
   `numeric_tolerances.py`, each derived from one base (`MINIMUM_VECTOR_NORM = 1e-9`).
+  Finished properly in the audit sweep: `rotation_quaternion.py` had quietly reintroduced
+  fourteen of them, and `rigid_point_set.py` was using machine epsilon.
 - ~~`core/math/kinematics/` still writes `NDArray[np.float64]` inline (silently unchecked)~~ —
   swept to `FloatArray` across 7 files, so beartype now checks them.
+
+---
+
+## Audit sweep (2026-08-22)
+
+A full audit and its fixes are recorded in [`../AUDIT_REPORT.md`](../AUDIT_REPORT.md). The
+things that changed behaviour, rather than only tidying:
+
+- **The heel was upside down.** Its rest quaternion had `w` and `x` swapped, putting the
+  calcaneus 19.8 mm above the ankle; the calcaneus was also 45 mm rather than the ~80 mm
+  the anatomy actually is. Both feet now stand on one flat ground plane.
+- **The pelvis frame was 20.22° from its own coordinates**, because its approximate y axis
+  pointed at `sacrum_top`, which sits up *and* back. It points at `left_iliac_crest` now,
+  and the invariant is a test over every fully-specified segment.
+- **Left and right local frames now mean the same thing.** The loader negates x-axis
+  declarations on the right side (VRM convention, right-handed on both sides). This
+  surfaced a latent half-turn in hydration: it compared a signed world direction against
+  an unsigned local one, so any `NEGATIVE_*` primary axis would have hydrated 180° out.
+- **The rest pose fails loud.** Unknown or missing segment entries, more than one root, a
+  self-parent, and a `connect_at` the parent does not own — including a defaulted one —
+  all raise. A one-character typo used to silently move a limb to the world origin.
+- **`hydrate_segment` no longer swallows `ValueError`.** The branch is a static property.
+- **The roll convention moved into the library** from the viewer script.
+- **`core/post_processing/` was deleted** — eight modules that had never imported.

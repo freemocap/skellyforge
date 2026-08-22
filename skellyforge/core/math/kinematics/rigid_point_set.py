@@ -15,6 +15,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_RELATIVE_SINGULAR_VALUE,
+)
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 from skellyforge.core.math.geometry.transform_math import Transform
@@ -65,9 +68,14 @@ def align_point_sets_kabsch(*, reference: Point, observed: Point) -> Transform:
 
     cross_covariance = reference_centered.T @ observed_centered
     left, singular_values, right_transpose = np.linalg.svd(cross_covariance)
-    if singular_values[1] <= np.finfo(np.float64).eps * singular_values[0]:
+    # A relative threshold, not machine epsilon: a point set that is collinear to a
+    # part in 10^12 yields a roll that is amplified rounding error, not a measurement.
+    if singular_values[1] <= MINIMUM_RELATIVE_SINGULAR_VALUE * singular_values[0]:
         raise ValueError(
-            "points are collinear - no full rotation is recoverable from them"
+            "points are collinear - no full rotation is recoverable from them "
+            f"(second singular value is {singular_values[1]:.3e} against a largest of "
+            f"{singular_values[0]:.3e}, a ratio below "
+            f"{MINIMUM_RELATIVE_SINGULAR_VALUE:.1e})"
         )
 
     determinant = float(np.linalg.det(right_transpose.T @ left.T))
@@ -77,7 +85,7 @@ def align_point_sets_kabsch(*, reference: Point, observed: Point) -> Transform:
     translation = observed_centroid - rotation_matrix @ reference_centroid
 
     return Transform(
-        rotation=RotationQuaternion.from_rotation_matrix(rotation_matrix),
+        rotation=RotationQuaternion.from_rotation_matrix(matrix=rotation_matrix),
         translation=Displacement.from_prevalidated_array(array=translation),
     )
 

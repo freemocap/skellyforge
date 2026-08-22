@@ -1,4 +1,4 @@
-"""Top-level package for basic_template_repo."""
+"""skellyforge: the standard human, and the closed-form math that hydrates it."""
 
 __package_name__ = "skellyforge"
 __version__ = "v2024.12.1009"

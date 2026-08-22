@@ -126,9 +126,27 @@ def test_buffer_is_mutable_by_design_but_hands_out_frozen_values() -> None:
     # frozen like every other value.
     buffer = _buffer(capacity=2)
     buffer.append(positions=_frame(value=1.0))
-    buffer.capacity = 5  # a container, so rebinding a field is allowed
     with pytest.raises(Exception):
         buffer.latest(name="a").array = np.zeros(3)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [("capacity", 5), ("point_names", ("a", "b", "c"))],
+)
+def test_the_fields_the_storage_was_sized_from_cannot_be_rewritten(
+    field_name: str, value: object
+) -> None:
+    """Being a container does not make every field of it fair game.
+
+    Rebinding either of these after construction would leave the cursor, the name index
+    and the allocated array describing three different buffers, and every read afterwards
+    would be quietly wrong rather than loudly broken.
+    """
+    buffer = _buffer(capacity=2)
+    buffer.append(positions=_frame(value=1.0))
+    with pytest.raises(AttributeError, match="fixed once the buffer"):
+        setattr(buffer, field_name, value)
 
 
 def test_for_point_names_accepts_any_sequence() -> None:

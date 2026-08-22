@@ -1,3 +1,37 @@
+# Rest pose (T-pose) for the standard human, matching the VRM default humanoid.
+# `default-vrm.gltf.json5` in this directory is that humanoid as exported from the
+# Blender VRM extension - the reference the orientations below were derived against,
+# and what to check a change here against.
+#
+# Each segment names its `parent`, an optional `connect_at` (the PARENT-owned landmark its
+# origin sits on - defaulting to the segment's own origin landmark, which is exactly right
+# for a shared joint), and an optional `orientation`: a PARENT-RELATIVE [w, x, y, z]
+# quaternion, defaulting to identity. Walking the tree composes these into world
+# transforms. `RestPose.from_yaml` requires an entry for every segment of the skeleton and
+# exactly one root, and refuses a `connect_at` the parent does not own.
+#
+# Every segment's local +y runs proximal -> distal, so an identity orientation means "this
+# segment continues straight on from its parent". Only the following need to say more, and
+# each is derived rather than dialled in:
+#
+#   upper_arm   [0.5, -0.5, -+0.5, -+0.5]   maps local +y onto world -+x, so the arms reach
+#                                           out to the sides. The right side is the left
+#                                           mirrored across the sagittal plane, which for a
+#                                           quaternion is (w, x, -y, -z).
+#   upper_leg   [0, 1, 0, 0]                a half turn about x: local +y (toward the knee)
+#                                           becomes world -y, so the legs point down. Its
+#                                           own mirror image, so both sides are identical.
+#   foot        [0.849, -0.529, 0, 0]       -63.86 deg about x. Composed with the leg's
+#                                           half turn this puts the ankle 68.3 mm above the
+#                                           ball, which is the ankle joint centre's height.
+#   heel        [0.96276, 0.270359, 0, 0]      +31.34 deg about x. Composed with the leg's
+#                                           half turn it aims the 80 mm calcaneus at the
+#                                           SAME height as the ball, so the foot has a flat
+#                                           ground plane rather than a heel in the air.
+#   toes        [0, 0, 0.974, -0.226]       a half turn about (0, 0.974, -0.226), which
+#                                           lands the toes flat and forward from the ball.
+#                                           Self-mirroring, so both sides are identical.
+#
 name: human
 segments:
   pelvis: {}
@@ -95,9 +129,9 @@ segments:
   left_heel:
     parent: left_lower_leg
     connect_at: left_ankle
-    orientation:
-    - 0.529
-    - 0.849
+    orientation:  # +31.34 deg about x; heel runs down and back onto the ball's plane
+    - 0.96276
+    - 0.270359
     - 0
     - 0
   right_clavicle:
@@ -182,8 +216,8 @@ segments:
   right_heel:
     parent: right_lower_leg
     connect_at: right_ankle
-    orientation:
-    - 0.529
-    - 0.849
+    orientation:  # +31.34 deg about x; heel runs down and back onto the ball's plane
+    - 0.96276
+    - 0.270359
     - 0
     - 0

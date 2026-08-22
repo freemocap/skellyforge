@@ -40,9 +40,13 @@ landmarks:
     local_position: [0, 0, 0]
 
   CALCANEUS:
+    # 80 mm from the ankle joint centre: the calcaneal tuberosity sits about 42 mm
+    # posterior to it and about 68 mm inferior (the ankle joint centre's height above
+    # the ground), and hypot(42, 68) is 80. The earlier 45 mm was a horizontal-only
+    # estimate, which left the heel unable to reach the floor the ball stands on.
     definition: "Posterior tip of the calcaneus (heel bone), the calcaneal tuberosity"
     reference_frame: heel
-    local_position: [0, 45, 0]
+    local_position: [0, 80, 0]
 
   BALL:
     definition: "Geometric center of the ball of the foot, across the metatarsal heads"

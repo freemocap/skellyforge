@@ -14,7 +14,8 @@ from pathlib import Path
 
 import yaml
 
-BlendshapeName = str
+from skellyforge.type_overloads import BlendshapeName
+
 
 
 @dataclass(frozen=True, slots=True, eq=False)

@@ -18,6 +18,11 @@ two-landmark segment about its long axis; that roll is resolved here with a lag-
 (parallel-transport) convention so the full orientation is stable across frames without any
 temporal filtering.
 
+The HTML it writes is genuinely self-contained: three.js and OrbitControls are inlined
+from `scripts/vendor/`, so the file opens with no network and survives a strict content
+security policy. The output is a build artifact and is gitignored - regenerate it rather
+than committing it.
+
 Run from the repo root: python scripts/generate_skeleton_viewer.py
 """
 
@@ -28,17 +33,19 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import yaml
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.rest_pose import build_rest_pose
+from skellyforge.core.skeleton_parts.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton_parts.roll_resolution import ContinuousRollResolver
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton_parts.skeleton_hydration import hydrate_skeleton
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFINITIONS = REPO_ROOT / "skellyforge" / "definitions" / "human_skeleton"
 OUTPUT_PATH = Path(__file__).resolve().parent / "skeleton_viewer.html"
+VENDOR_DIRECTORY = Path(__file__).resolve().parent / "vendor"
+VENDORED_SCRIPT_NAMES = ("three.min.js", "OrbitControls.js")
 
 FRAME_COUNT = 60
 FPS = 30.0
@@ -46,8 +53,8 @@ LANDMARK_NOISE_MM = 1.0
 SHOULDER_VERTICAL_AMP = 0.7
 SHOULDER_HORIZONTAL_AMP = 0.55
 ELBOW_FLEX_AMP = np.pi / 2.0
-HEAD_NOD_AMP = 0.18
-HEAD_TURN_AMP = 0.12
+HEAD_NOD_AMP = 0.4
+HEAD_TURN_AMP = 0.4
 SYNTHESIS_SEED = 20260801
 
 
@@ -73,24 +80,6 @@ def _angle_between(a, b) -> float:
     return float(np.arccos(np.clip(np.dot(a, b), -1.0, 1.0)))
 
 
-def _read_rest_pose_tree() -> tuple[dict, dict, dict]:
-    document = yaml.safe_load((DEFINITIONS / "rest_pose.yaml").read_text(encoding="utf-8"))
-    parents: dict[str, str | None] = {}
-    connect_ats: dict[str, str | None] = {}
-    orientations: dict[str, RotationQuaternion] = {}
-    for name, entry in document["segments"].items():
-        parents[name] = entry.get("parent")
-        connect_ats[name] = entry.get("connect_at")
-        orientation = entry.get("orientation", [1.0, 0.0, 0.0, 0.0])
-        orientations[name] = RotationQuaternion.from_components(
-            w=float(orientation[0]),
-            x=float(orientation[1]),
-            y=float(orientation[2]),
-            z=float(orientation[3]),
-        )
-    return parents, connect_ats, orientations
-
-
 def _descendants(parents: dict[str, str | None], root: str) -> list[str]:
     children: dict[str, list[str]] = defaultdict(list)
     for name, parent in parents.items():
@@ -105,62 +94,15 @@ def _descendants(parents: dict[str, str | None], root: str) -> list[str]:
     return result
 
 
-def _perpendicular(direction: np.ndarray) -> np.ndarray:
-    """A deterministic unit vector perpendicular to direction."""
-    reference = np.array([1.0, 0.0, 0.0], dtype=np.float64)
-    if abs(float(direction[0])) > 0.9:
-        reference = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-    perpendicular = reference - float(np.dot(reference, direction)) * direction
-    return perpendicular / np.linalg.norm(perpendicular)
-
-
-def _continuous_roll_orientation(
-    raw: RotationQuaternion,
-    primary_local: np.ndarray,
-    secondary_local: np.ndarray,
-    previous_secondary: np.ndarray | None,
-) -> tuple[RotationQuaternion, np.ndarray]:
-    """Repoint a two-landmark segment's free roll with a lag-free parallel transport.
-
-    The hydration fixes the world direction but leaves the roll about it free. Rather than the
-    per-frame shortest-arc roll (which jumps when the direction crosses a pole), carry the
-    previous frame's secondary axis forward and orthonormalize it against the new direction.
-    This picks the roll closest to the previous frame's - continuous, and with no temporal lag.
-    """
-    world_primary = raw.rotate_vector(primary_local)
-    e1 = world_primary / np.linalg.norm(world_primary)
-
-    if previous_secondary is None:
-        reference = raw.rotate_vector(secondary_local)
-    else:
-        reference = previous_secondary
-
-    e2 = reference - float(np.dot(reference, e1)) * e1
-    norm = float(np.linalg.norm(e2))
-    if norm < 1e-9:
-        # The carried secondary is (nearly) parallel to the new direction: pick a fresh one.
-        e2 = _perpendicular(e1)
-    else:
-        e2 = e2 / norm
-    e3 = np.cross(e1, e2)
-
-    world_basis = np.column_stack([e1, e2, e3])
-    tertiary_local = np.cross(primary_local, secondary_local)
-    local_basis = np.column_stack([primary_local, secondary_local, tertiary_local])
-    rotation = RotationQuaternion.from_rotation_matrix(world_basis @ local_basis.T)
-    return rotation, e2
-
-
 def _build_data() -> dict:
     skeleton = SkeletonDefinition.from_yaml(path=DEFINITIONS / "human_skeleton.yaml")
-    parents, connect_ats, rest_orientations = _read_rest_pose_tree()
-
-    rest_world, _, _ = build_rest_pose(
-        skeleton=skeleton,
-        parents=parents,
-        connect_ats=connect_ats,
-        orientations=rest_orientations,
+    # The tree comes from RestPose, which is the one validated reader of rest_pose.yaml.
+    rest_pose = RestPose.from_yaml(
+        path=DEFINITIONS / "rest_pose.yaml", skeleton=skeleton
     )
+    parents = rest_pose.parents
+    connect_ats = rest_pose.connect_ats
+    rest_world = rest_pose.segment_orientations
 
     segment_order = list(skeleton.segments.keys())
     landmark_order = list(skeleton.landmarks.keys())
@@ -177,30 +119,18 @@ def _build_data() -> dict:
 
     finger_tip_name = skeleton.segments["left_index_distal_phalanx"].frame_definition.primary_point_name
 
+    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
     fit: dict[str, str] = {}
-    primary_units: dict[str, np.ndarray] = {}
-    secondary_locals: dict[str, np.ndarray] = {}
     segments_meta = []
     for name in segment_order:
         segment = skeleton.segments[name]
         owned_count = len(segment.landmarks)
-        if owned_count >= 3:
-            local_positions = np.stack(
-                [landmark.local_position.array for landmark in segment.landmarks.values()],
-                axis=0,
-            )
-            centered = local_positions - local_positions.mean(axis=0)
-            singular_values = np.linalg.svd(centered, compute_uv=False)
-            spans_plane = singular_values[1] > 1e-6 * singular_values[0]
-        else:
-            spans_plane = False
-        kind = "rigid" if spans_plane else "direction"
+        # Ask the segment, rather than re-deriving the same test with a second threshold:
+        # this is exactly the classification `hydrate_segment` will use.
+        kind = "rigid" if segment.supports_rigid_fit else "direction"
         fit[name] = kind
 
         primary_local = primary_locals[name]
-        primary_unit = primary_local / np.linalg.norm(primary_local)
-        primary_units[name] = primary_unit
-        secondary_locals[name] = _perpendicular(primary_unit)
 
         segments_meta.append(
             {
@@ -213,7 +143,6 @@ def _build_data() -> dict:
         )
 
     rng = np.random.default_rng(SYNTHESIS_SEED)
-    carried_secondary: dict[str, np.ndarray] = {}
 
     frames = []
     all_true_positions = []
@@ -238,19 +167,17 @@ def _build_data() -> dict:
         horizontal_angle = SHOULDER_HORIZONTAL_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT)
         elbow_angle = ELBOW_FLEX_AMP * (1.0 - np.cos(4.0 * np.pi * t / FRAME_COUNT)) / 2.0
 
-        shoulder_left = RotationQuaternion.from_rotation_vector(
-            np.array([0.0, -horizontal_angle, vertical_angle])
+        shoulder_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, -horizontal_angle, vertical_angle])
         )
-        shoulder_right = RotationQuaternion.from_rotation_vector(
-            np.array([0.0, horizontal_angle, -vertical_angle])
+        shoulder_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, horizontal_angle, -vertical_angle])
         )
-        elbow_left = RotationQuaternion.from_rotation_vector(np.array([0.0, 0.0, elbow_angle]))
-        elbow_right = RotationQuaternion.from_rotation_vector(np.array([0.0, 0.0, -elbow_angle]))
+        elbow_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, 0.0, elbow_angle]))
+        elbow_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, 0.0, -elbow_angle]))
 
         # A little head nod (pitch) + turn (yaw), skull only, so its landmarks move with it.
         head_nod = HEAD_NOD_AMP * np.sin(2.0 * np.pi * t / FRAME_COUNT + 1.2)
         head_turn = HEAD_TURN_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT + 0.6)
-        head_rotation = RotationQuaternion.from_rotation_vector(np.array([head_nod, head_turn, 0.0]))
+        head_rotation = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([head_nod, head_turn, 0.0]))
 
         world = {}
         for name in segment_order:
@@ -286,31 +213,24 @@ def _build_data() -> dict:
             for name, point in true_landmarks.items()
         }
 
-        hydrated = hydrate_skeleton(skeleton=skeleton, observed=observed)
+        # The library resolves the roll that two landmarks leave free; the viewer used to
+        # carry its own copy of that convention, which meant the picture and the package
+        # could disagree about what a limb's orientation is.
+        hydrated = resolver.resolve_pose(
+            pose=hydrate_skeleton(skeleton=skeleton, observed=observed)
+        )
 
         frame_segments = []
         dirs_rec = {}
         dirs_true = {}
         for name in segment_order:
             hydrated_pose = hydrated.segment_poses[name]
-            raw_rotation = hydrated_pose.orientation
-
-            if fit[name] == "direction":
-                rotation, carried = _continuous_roll_orientation(
-                    raw=raw_rotation,
-                    primary_local=primary_units[name],
-                    secondary_local=secondary_locals[name],
-                    previous_secondary=carried_secondary.get(name),
-                )
-                carried_secondary[name] = carried
-            else:
-                rotation = raw_rotation
-
+            rotation = hydrated_pose.orientation
             matrix = rotation.to_rotation_matrix()
             primary_local = primary_locals[name]
 
-            rec_dir = rotation.rotate_vector(primary_local)
-            true_dir = world_orientations[name].rotate_vector(primary_local)
+            rec_dir = rotation.rotate_vector(vector=primary_local)
+            true_dir = world_orientations[name].rotate_vector(vector=primary_local)
             dirs_rec[name] = rec_dir
             dirs_true[name] = true_dir
 
@@ -531,8 +451,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <p id="charts-sub">Click a chart to seek. The vertical cursor is the current frame.</p>
   <div id="charts"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+__VENDORED_SCRIPTS__
+</script>
 <script>
 var DATA = __DATA__;
 
@@ -780,9 +701,9 @@ DATA.timeseries.panels.forEach(function (panel) {
 
   var yaxis = document.createElement("div");
   yaxis.className = "yaxis";
-  var yMax = document.createElement("span"); yMax.textContent = fmt(dataMax);
+  var yMax = document.createElement("span"); yMax.textContent = fmt(max);
   var yUnit = document.createElement("span"); yUnit.className = "y-unit"; yUnit.textContent = panel.unit;
-  var yMin = document.createElement("span"); yMin.textContent = fmt(dataMin);
+  var yMin = document.createElement("span"); yMin.textContent = fmt(min);
   yaxis.appendChild(yMax);
   yaxis.appendChild(yUnit);
   yaxis.appendChild(yMin);
@@ -875,9 +796,28 @@ animate(performance.now());
 """
 
 
+def _vendored_scripts() -> str:
+    """The viewer's javascript dependencies, concatenated for inlining.
+
+    Read from disk rather than linked from a CDN so the written file needs no network, and
+    fails here - naming the missing file - rather than rendering an empty page later.
+    """
+    sources: list[str] = []
+    for name in VENDORED_SCRIPT_NAMES:
+        path = VENDOR_DIRECTORY / name
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"the viewer inlines {name}, which is missing from {VENDOR_DIRECTORY}. "
+                "See scripts/vendor/README.md for what it is and where to get it."
+            )
+        sources.append(f"/* ---- {name} ---- */\n{path.read_text(encoding='utf-8')}")
+    return "\n".join(sources)
+
+
 def main() -> None:
     data = _build_data()
-    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data))
+    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, separators=(",", ":")))
+    html = html.replace("__VENDORED_SCRIPTS__", _vendored_scripts())
     OUTPUT_PATH.write_text(html, encoding="utf-8")
     counts = data["counts"]
     print(f"wrote {OUTPUT_PATH}")

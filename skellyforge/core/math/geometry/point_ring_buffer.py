@@ -45,6 +45,7 @@ from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.type_overloads import FloatArray
 
 NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
+_IMMUTABLE_FIELD_NAMES: Final[frozenset[str]] = frozenset({"point_names", "capacity"})
 
 
 @dataclass(slots=True, eq=False)
@@ -75,6 +76,25 @@ class PointRingBuffer:
     _storage: FloatArray = field(init=False, repr=False)
     _cursor: int = field(init=False, repr=False, default=0)
     _number_of_appended_frames: int = field(init=False, repr=False, default=0)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Refuse to rewrite the two fields the allocated storage was sized from.
+
+        The buffer is mutable because a ring buffer's job is writing into storage it
+        already owns - but `point_names` and `capacity` are not the mutable part. Changing
+        either after `__post_init__` would leave the cursor, the index and the array
+        describing three different buffers, and every read afterwards would be quietly
+        wrong rather than loudly broken.
+        """
+        if name in _IMMUTABLE_FIELD_NAMES and hasattr(self, "_storage"):
+            raise AttributeError(
+                f"PointRingBuffer.{name} is fixed once the buffer has allocated its "
+                "storage - build a new buffer instead of resizing this one"
+            )
+        # `object.__setattr__` rather than a zero-argument `super()`: the dataclass
+        # decorator rebuilds a slotted class after this method's `__class__` cell is
+        # bound, so the zero-argument form raises here.
+        object.__setattr__(self, name, value)
 
     def __post_init__(self) -> None:
         if self.capacity < 1:

@@ -12,13 +12,15 @@ Four stages, each a pure function that raises rather than repairing:
    contents of the file it names, resolved relative to the INCLUDING file's directory. A
    document with includes is exactly equivalent to the same document with the included
    files pasted in.
-2. `lowercase_names` - one walk that lowercases every key and every string in the tree.
-   Names, aliases, references and reference frames are all just strings, so they all come
-   out canonical; the prose under `definition` is the one thing left as written.
+2. `lowercase_names` - one walk that lowercases every key, and those values listed in
+   `NAME_VALUED_KEYS` as being names or keywords. Every landmark and segment name is a
+   key, so all of those come out canonical; prose, numbers and paths are left as written.
 3. `expand_sided_entries` - `sided: true` becomes `left_<name>` and `right_<name>`, with
-   the right side's `local_position` mirrored across the sagittal plane (x -> -x). A sided
-   entry is authored for the LEFT side, so its x must be >= 0 or the sides would silently
-   swap.
+   the right side's `local_position` mirrored across the sagittal plane (x -> -x) and any
+   x-axis declaration in its `reference_geometry` negated to match. A sided landmark's x
+   may itself be negative: mirror-symmetric structures like the pelvis sit on one side of
+   the sagittal plane, but fan-shaped ones like the hand and foot legitimately span both,
+   with the thumb at +x and the pinky at -x.
 4. `build_reference_frame_definition` - `reference_geometry` becomes a
    `ReferenceFrameDefinition`. The `type: exact` axis is the primary one, `type:
    approximate` the secondary.
@@ -45,6 +47,9 @@ INCLUDE_KEY: Final[str] = "$include"
 SIDE_PREFIXES: Final[tuple[str, str]] = ("left", "right")
 EXACT_AXIS_TYPE: Final[str] = "exact"
 APPROXIMATE_AXIS_TYPE: Final[str] = "approximate"
+# The sagittal mirror negates x, so an axis declared along x is the one whose sign has
+# to follow the mirror. y and z are unchanged by it.
+MIRRORED_AXIS_KEY: Final[str] = "x_axis"
 AXIS_KEY_TO_SPATIAL_AXIS: Final[dict[str, SpatialAxis]] = {
     "x_axis": SpatialAxis.X,
     "y_axis": SpatialAxis.Y,
@@ -55,7 +60,11 @@ NEGATED_AXIS: Final[dict[SpatialAxis, SpatialAxis]] = {
     SpatialAxis.Y: SpatialAxis.NEGATIVE_Y,
     SpatialAxis.Z: SpatialAxis.NEGATIVE_Z,
 }
-PROSE_KEYS: Final[frozenset[str]] = frozenset({"definition"})
+# The keys whose VALUES are names or keywords rather than prose, data or paths. Keys
+# themselves are always lowercased; this is the allowlist for what else is.
+NAME_VALUED_KEYS: Final[frozenset[str]] = frozenset(
+    {"name", "aliases", "reference_frame", "origin", "landmark", "type"}
+)
 LANDMARK_KEYS: Final[frozenset[str]] = frozenset(
     {"aliases", "definition", "reference_frame", "local_position", "sided"}
 )
@@ -140,26 +149,41 @@ def _load_included_file(
 
 
 def lowercase_names(*, node: object) -> object:
-    """Lowercase every key and every string in the document, except prose.
+    """Lowercase every KEY, and those values that are names.
 
     The SCREAMING_SNAKE in the YAML is there to make the document scannable; the canonical
-    runtime name is lowercase. Names, aliases, references, reference frames and the keys
-    themselves are all just strings in the tree, so one walk lowercases the lot. The only
-    thing that is not a name is the prose under `definition`, which is left as written.
+    runtime name is lowercase. Every landmark and segment name is a key, so keys are
+    lowercased unconditionally. Values are a different matter: `NAME_VALUED_KEYS` lists the
+    keys whose values are names or keywords, and only those are touched.
+
+    An earlier version lowercased every string in the tree and exempted `definition`. That
+    is the same thing for today's document, and the wrong rule: it made "is this text a
+    name?" depend on a blocklist that any new field would have to remember to join, and it
+    silently mangled anything that was neither - a citation, a units string, a path. An
+    allowlist fails the safe way round, by leaving an unrecognized value alone.
     """
-    if isinstance(node, str):
-        return node.lower()
     if isinstance(node, Mapping):
         lowercased: dict[str, object] = {}
         for key, value in node.items():
             lowercased_key = str(key).lower()
             lowercased[lowercased_key] = (
-                value if lowercased_key in PROSE_KEYS else lowercase_names(node=value)
+                _lowercased_names_in(value=value)
+                if lowercased_key in NAME_VALUED_KEYS
+                else lowercase_names(node=value)
             )
         return lowercased
     if isinstance(node, list):
         return [lowercase_names(node=item) for item in node]
     return node
+
+
+def _lowercased_names_in(*, value: object) -> object:
+    """One name, or a list of them, lowercased. Anything else is passed through."""
+    if isinstance(value, str):
+        return value.lower()
+    if isinstance(value, list):
+        return [_lowercased_names_in(value=item) for item in value]
+    return value
 
 
 def _as_list(*, name: str, field_name: str, value: object) -> list[object]:
@@ -280,7 +304,25 @@ def _sided_reference(
 def _sided_reference_geometry(
     *, reference_geometry: Mapping[str, object], side: str, sided_names: frozenset[str] | set[str]
 ) -> dict[str, object]:
-    """A `reference_geometry` with its landmark references resolved to one side."""
+    """A `reference_geometry` resolved to one side, with the x axis flipped on the right.
+
+    Mirroring the coordinates is only half of mirroring a component. The x coordinate of
+    every landmark is negated, so an axis DECLARED along x would come out pointing the
+    opposite way in the world on the right side from the way it points on the left - which
+    would make local `+z` anterior on one side of the body and posterior on the other, and
+    a joint angle mean different things left and right.
+
+    Negating x-axis declarations on the right side fixes that: both sides end up with
+    local `+x` toward the subject's left, `+y` up and `+z` forward, matching the VRM
+    convention the whole package is authored in, and both stay right-handed. The cost is
+    that local `+x` is lateral on the left and medial on the right - unavoidable, since a
+    right-handed triad cannot mirror all three axes at once - so it is anterior and distal
+    that correspond across the body, not lateral.
+
+    The named landmark still lies EXACTLY on its declared signed axis; the declaration
+    just becomes the negative half of that axis.
+    """
+    mirror_the_x_axis = side == SIDE_PREFIXES[1]
     resolved: dict[str, object] = {}
     for key, value in reference_geometry.items():
         if key == "origin":
@@ -288,10 +330,17 @@ def _sided_reference_geometry(
                 reference=str(value), side=side, sided_names=sided_names
             )
             continue
+        if not isinstance(value, Mapping):
+            raise ValueError(
+                f"`reference_geometry.{key}` must be a mapping with a `landmark` and a "
+                f"`type` - got {type(value).__name__} ({value!r})"
+            )
         axis_entry = dict(value)
         axis_entry["landmark"] = _sided_reference(
             reference=str(axis_entry["landmark"]), side=side, sided_names=sided_names
         )
+        if mirror_the_x_axis and key == MIRRORED_AXIS_KEY:
+            axis_entry["negate"] = not bool(axis_entry.get("negate", False))
         resolved[key] = axis_entry
     return resolved
 
@@ -485,10 +534,15 @@ def _build_segment(
     frame_definition = build_reference_frame_definition(
         segment_name=name, reference_geometry=reference_geometry
     )
+    aliases = tuple(str(alias) for alias in entry.get("aliases", ()))
+    # A landmark may name its segment by any of the segment's names. Matching only the
+    # canonical one would leave an alias-referencing landmark owned by nothing, which
+    # `SkeletonDefinition` would then have to catch as an error rather than a typo.
+    owned_by_names = {name, *aliases}
     owned_landmarks = {
         landmark_name: landmark
         for landmark_name, landmark in landmarks.items()
-        if landmark.segment == name
+        if landmark.segment in owned_by_names
     }
     # The origin may name a landmark this segment does NOT own - that is the shared
     # point where this segment meets its parent (e.g. the elbow belongs to the upper arm
@@ -509,5 +563,5 @@ def _build_segment(
         name=name,
         landmarks=owned_landmarks,
         frame_definition=frame_definition,
-        aliases=tuple(str(alias) for alias in entry.get("aliases", ())),
+        aliases=aliases,
     )

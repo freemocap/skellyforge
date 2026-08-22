@@ -360,8 +360,15 @@ def _many_segments(*, count: int) -> tuple[list[RigidBodySegment], dict[str, Poi
     for index in range(count):
         names = [f"origin_{index}", f"primary_{index}", f"secondary_{index}"]
         segment_name = f"segment_{index}"
+        # The origin landmark sits at the origin of its own segment's frame, which the
+        # segment requires; the other two are placed anywhere non-degenerate.
+        local_positions = {
+            names[0]: (0.0, 0.0, 0.0),
+            names[1]: (0.0, 1.0, 0.0),
+            names[2]: (2.0, 0.0, 0.0),
+        }
         landmarks = {
-            name: _landmark(name=name, position=(0.0, 1.0, 2.0), segment=segment_name)
+            name: _landmark(name=name, position=local_positions[name], segment=segment_name)
             for name in names
         }
         # Alternate conventions so the grouping logic is actually exercised.
