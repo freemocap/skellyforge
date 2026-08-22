@@ -498,7 +498,7 @@ def test_the_whole_human_skeleton_loads() -> None:
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     assert skeleton.name == "human"
     assert len(skeleton.segments) == 59
-    assert len(skeleton.landmarks) == 167
+    assert len(skeleton.landmarks) == 169
     # Pelvis, chest, and skull are fully specified; the rest are still roll-underspecified.
     assert set(skeleton.underspecified_segment_names)
     assert "pelvis" not in skeleton.underspecified_segment_names

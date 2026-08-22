@@ -202,7 +202,7 @@ Observed data driving the static definitions. This is where the currently-orphan
 - `transform_math.py` — `Transform` (rotation + translation)
 - `PointRingBuffer` — the streaming path
 - `calculate_bases_for_segments` — the batched solve
-- `core/math/kinematics/` — tpose, rigidifier, orientation solver, D3/D4 filter, length estimation
+- hydration solvers (tpose, rigidifier, orientation solver, D3/D4 filter, length estimation) — rebuilt from scratch on the new types; the pre-bloodbath `core/math/kinematics/` module was deleted
 
 ### Performance, already established
 

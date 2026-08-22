@@ -251,6 +251,14 @@ landmarks:
     reference_frame: chest
     local_position: [20, 210, 110]
 
+  ACROMION:
+    sided: true
+    aliases:
+      - shoulder_tip
+    definition: "Geometric center of the acromion process of the scapula, the lateral tip of the shoulder"
+    reference_frame: chest
+    local_position: [110, 295, 65]
+
   XIPHOID_PROCESS:
     aliases:
       - xiphoid

@@ -15,22 +15,14 @@ objects, not strings. See `freemocap/current-work-plans/ontology.md` first. Layo
 skellyforge/
 ├── core/
 │   ├── math/
-│   │   ├── geometry/                     # Phase 1 (done): the affine algebra + frames
-│   │   │   ├── spatial_vectors.py        #   Point / Displacement / UnitVector
-│   │   │   ├── rotation_quaternion.py    #   RotationQuaternion (wxyz) + vectorized ops
-│   │   │   ├── transform_math.py         #   Transform (rotation + translation)
-│   │   │   ├── point_ring_buffer.py      #   PointRingBuffer (streaming, zero-copy window)
-│   │   │   ├── numeric_tolerances.py     #   shared tolerances, derived from one base
-│   │   │   └── orthonormal_basis/        #   SpatialAxis, ReferenceFrameDefinition,
-│   │   │                                 #   OrthonormalBasis, calculate_orthonormal_basis
-│   │   └── kinematics/                   # Phase 3 (pending): observed-data solvers
-│   │       ├── tpose.py                  #   build_standard_human_tpose
-│   │       ├── skeleton_rigidifier.py    #   rigidify_landmarks
-│   │       ├── orientation_solver.py     #   solve_frame_orientations
-│   │       ├── coordinate_frame_ops.py   #   Kabsch, rotation_between_vectors
-│   │       ├── critically_damped_orientation.py  # D3/D4 filter
-│   │       ├── segment_length_estimation.py
-│   │       └── …
+│   │   └── geometry/                     # Phase 1 (done): the affine algebra + frames
+│   │       ├── spatial_vectors.py        #   Point / Displacement / UnitVector
+│   │       ├── rotation_quaternion.py    #   RotationQuaternion (wxyz) + vectorized ops
+│   │       ├── transform_math.py         #   Transform (rotation + translation)
+│   │       ├── point_ring_buffer.py      #   PointRingBuffer (streaming, zero-copy window)
+│   │       ├── numeric_tolerances.py     #   shared tolerances, derived from one base
+│   │       └── orthonormal_basis/        #   SpatialAxis, ReferenceFrameDefinition,
+│   │                                     #   OrthonormalBasis, calculate_orthonormal_basis
 │   ├── skeleton_parts/                   # Phase 2 (done): the typed model
 │   │   ├── anatomical_landmark.py        #   AnatomicalLandmark
 │   │   ├── rigid_body_segment.py         #   RigidBodySegment + calculate_bases_for_segments
@@ -53,7 +45,9 @@ skellyforge/
 **Pipeline status:** Phase 1 (geometry) and Phase 2 (static definitions) are **done** — the whole
 human skeleton loads (59 segments / 167 landmarks / 52 face blendshapes). Phase 3 (hydration) is **not
 started**: `rotation_quaternion.py`, `transform_math.py`, `PointRingBuffer`, and
-`calculate_bases_for_segments` have no callers outside their own tests yet. Do not delete them.
+`calculate_bases_for_segments` have no callers outside their own tests yet. Do not delete them. The old
+`core/math/kinematics/` module (pre-bloodbath solvers on the retired `skellymodels` types) was deleted; the
+rest pose and hydration solvers are being rebuilt from scratch on the new types.
 
 ## Commands
 

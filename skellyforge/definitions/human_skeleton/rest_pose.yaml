@@ -1,0 +1,183 @@
+name: human
+segments:
+  pelvis: {}
+  lumbar_spine:
+    parent: pelvis
+    connect_at: sacrum_top
+  chest:
+    parent: lumbar_spine
+    connect_at: spine_l1_top
+  cervical_spine:
+    parent: chest
+    connect_at: spine_t1_top
+  skull:
+    parent: cervical_spine
+    connect_at: spine_c1_top
+  left_upper_arm:
+    parent: chest
+    connect_at: left_acromion
+    orientation:
+    - 0.5
+    - -0.5
+    - -0.5
+    - -0.5
+  left_lower_arm:
+    parent: left_upper_arm
+  left_carpals:
+    parent: left_lower_arm
+    connect_at: left_wrist
+  left_thumb_metacarpal:
+    parent: left_carpals
+  left_thumb_proximal_phalanx:
+    parent: left_thumb_metacarpal
+  left_thumb_distal_phalanx:
+    parent: left_thumb_proximal_phalanx
+  left_index_metacarpal:
+    parent: left_carpals
+  left_index_proximal_phalanx:
+    parent: left_index_metacarpal
+  left_index_middle_phalanx:
+    parent: left_index_proximal_phalanx
+  left_index_distal_phalanx:
+    parent: left_index_middle_phalanx
+  left_middle_metacarpal:
+    parent: left_carpals
+  left_middle_proximal_phalanx:
+    parent: left_middle_metacarpal
+  left_middle_middle_phalanx:
+    parent: left_middle_proximal_phalanx
+  left_middle_distal_phalanx:
+    parent: left_middle_middle_phalanx
+  left_ring_metacarpal:
+    parent: left_carpals
+  left_ring_proximal_phalanx:
+    parent: left_ring_metacarpal
+  left_ring_middle_phalanx:
+    parent: left_ring_proximal_phalanx
+  left_ring_distal_phalanx:
+    parent: left_ring_middle_phalanx
+  left_pinky_metacarpal:
+    parent: left_carpals
+  left_pinky_proximal_phalanx:
+    parent: left_pinky_metacarpal
+  left_pinky_middle_phalanx:
+    parent: left_pinky_proximal_phalanx
+  left_pinky_distal_phalanx:
+    parent: left_pinky_middle_phalanx
+  left_upper_leg:
+    parent: pelvis
+    connect_at: left_hip_socket
+    orientation:
+    - 0
+    - 1
+    - 0
+    - 0
+  left_lower_leg:
+    parent: left_upper_leg
+  left_foot:
+    parent: left_lower_leg
+    connect_at: left_ankle
+    orientation:
+    - 0.849
+    - -0.529
+    - 0
+    - 0
+  left_toes:
+    parent: left_foot
+    orientation:
+    - 0
+    - 0
+    - 0.974
+    - -0.226
+  left_heel:
+    parent: left_lower_leg
+    connect_at: left_ankle
+    orientation:
+    - 0.529
+    - 0.849
+    - 0
+    - 0
+  right_upper_arm:
+    parent: chest
+    connect_at: right_acromion
+    orientation:
+    - 0.5
+    - -0.5
+    - 0.5
+    - 0.5
+  right_lower_arm:
+    parent: right_upper_arm
+  right_carpals:
+    parent: right_lower_arm
+    connect_at: right_wrist
+  right_thumb_metacarpal:
+    parent: right_carpals
+  right_thumb_proximal_phalanx:
+    parent: right_thumb_metacarpal
+  right_thumb_distal_phalanx:
+    parent: right_thumb_proximal_phalanx
+  right_index_metacarpal:
+    parent: right_carpals
+  right_index_proximal_phalanx:
+    parent: right_index_metacarpal
+  right_index_middle_phalanx:
+    parent: right_index_proximal_phalanx
+  right_index_distal_phalanx:
+    parent: right_index_middle_phalanx
+  right_middle_metacarpal:
+    parent: right_carpals
+  right_middle_proximal_phalanx:
+    parent: right_middle_metacarpal
+  right_middle_middle_phalanx:
+    parent: right_middle_proximal_phalanx
+  right_middle_distal_phalanx:
+    parent: right_middle_middle_phalanx
+  right_ring_metacarpal:
+    parent: right_carpals
+  right_ring_proximal_phalanx:
+    parent: right_ring_metacarpal
+  right_ring_middle_phalanx:
+    parent: right_ring_proximal_phalanx
+  right_ring_distal_phalanx:
+    parent: right_ring_middle_phalanx
+  right_pinky_metacarpal:
+    parent: right_carpals
+  right_pinky_proximal_phalanx:
+    parent: right_pinky_metacarpal
+  right_pinky_middle_phalanx:
+    parent: right_pinky_proximal_phalanx
+  right_pinky_distal_phalanx:
+    parent: right_pinky_middle_phalanx
+  right_upper_leg:
+    parent: pelvis
+    connect_at: right_hip_socket
+    orientation:
+    - 0
+    - 1
+    - 0
+    - 0
+  right_lower_leg:
+    parent: right_upper_leg
+  right_foot:
+    parent: right_lower_leg
+    connect_at: right_ankle
+    orientation:
+    - 0.849
+    - -0.529
+    - 0
+    - 0
+  right_toes:
+    parent: right_foot
+    orientation:
+    - 0
+    - 0
+    - 0.974
+    - -0.226
+  right_heel:
+    parent: right_lower_leg
+    connect_at: right_ankle
+    orientation:
+    - 0.529
+    - 0.849
+    - 0
+    - 0
