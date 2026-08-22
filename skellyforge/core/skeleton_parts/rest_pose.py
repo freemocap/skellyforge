@@ -23,6 +23,72 @@ from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 SEGMENT_ENTRY_KEYS = frozenset({"parent", "connect_at", "orientation"})
 
 
+def build_rest_pose(
+    *,
+    skeleton: SkeletonDefinition,
+    parents: Mapping[RigidBodySegmentName, RigidBodySegmentName | None],
+    connect_ats: Mapping[RigidBodySegmentName, LandmarkNameString | None],
+    orientations: Mapping[RigidBodySegmentName, RotationQuaternion],
+) -> tuple[
+    dict[RigidBodySegmentName, RotationQuaternion],
+    dict[RigidBodySegmentName, Point],
+    dict[LandmarkNameString, Point],
+]:
+    """Forward kinematics: compose parent-relative orientations into world transforms.
+
+    Walks the tree once, composing each segment's parent-relative orientation onto its
+    parent's world orientation, and placing each segment's origin on its parent's
+    connect_at landmark. Returns the world orientations, world origins, and world landmark
+    positions - the forward direction of hydration, and what a synthetic pose is generated
+    from.
+    """
+    world_orientations: dict[RigidBodySegmentName, RotationQuaternion] = {}
+    world_origins: dict[RigidBodySegmentName, Point] = {}
+    visiting: set[RigidBodySegmentName] = set()
+    visited: set[RigidBodySegmentName] = set()
+
+    def resolve(name: RigidBodySegmentName) -> None:
+        if name in visited:
+            return
+        if name in visiting:
+            raise ValueError(f"rest pose has a parent cycle at {name!r}")
+        visiting.add(name)
+        parent = parents[name]
+        if parent is None:
+            world_orientations[name] = orientations[name]
+            world_origins[name] = Point.from_xyz(x=0.0, y=0.0, z=0.0)
+        else:
+            resolve(parent)
+            parent_orientation = world_orientations[parent]
+            world_orientations[name] = parent_orientation * orientations[name]
+            connect_at = (
+                connect_ats[name]
+                or skeleton.segments[name].frame_definition.origin_point_name
+            )
+            offset = Displacement.from_prevalidated_array(
+                array=parent_orientation.rotate_vector(
+                    skeleton.landmarks[connect_at].local_position.array
+                )
+            )
+            world_origins[name] = world_origins[parent] + offset
+        visiting.remove(name)
+        visited.add(name)
+
+    for segment_name in skeleton.segments:
+        resolve(segment_name)
+
+    landmark_positions: dict[LandmarkNameString, Point] = {}
+    for landmark in skeleton.landmarks.values():
+        offset = Displacement.from_prevalidated_array(
+            array=world_orientations[landmark.segment].rotate_vector(
+                landmark.local_position.array
+            )
+        )
+        landmark_positions[landmark.name] = world_origins[landmark.segment] + offset
+
+    return world_orientations, world_origins, landmark_positions
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class RestPose:
     """The T-pose, resolved to world transforms per segment and landmark."""
@@ -94,49 +160,12 @@ class RestPose:
             orientations[segment.name] = orientation
             connect_ats[segment.name] = connect_at
 
-        world_orientations: dict[RigidBodySegmentName, RotationQuaternion] = {}
-        world_origins: dict[RigidBodySegmentName, Point] = {}
-        visiting: set[RigidBodySegmentName] = set()
-        visited: set[RigidBodySegmentName] = set()
-
-        def resolve(name: RigidBodySegmentName) -> None:
-            if name in visited:
-                return
-            if name in visiting:
-                raise ValueError(f"rest pose has a parent cycle at {name!r}")
-            visiting.add(name)
-            parent = parents[name]
-            if parent is None:
-                world_orientations[name] = orientations[name]
-                world_origins[name] = Point.from_xyz(x=0.0, y=0.0, z=0.0)
-            else:
-                resolve(parent)
-                parent_orientation = world_orientations[parent]
-                world_orientations[name] = parent_orientation * orientations[name]
-                connect_at = (
-                    connect_ats[name]
-                    or skeleton.segments[name].frame_definition.origin_point_name
-                )
-                offset = Displacement.from_prevalidated_array(
-                    array=parent_orientation.rotate_vector(
-                        skeleton.landmarks[connect_at].local_position.array
-                    )
-                )
-                world_origins[name] = world_origins[parent] + offset
-            visiting.remove(name)
-            visited.add(name)
-
-        for segment_name in skeleton.segments:
-            resolve(segment_name)
-
-        landmark_positions: dict[LandmarkNameString, Point] = {}
-        for landmark in skeleton.landmarks.values():
-            offset = Displacement.from_prevalidated_array(
-                array=world_orientations[landmark.segment].rotate_vector(
-                    landmark.local_position.array
-                )
-            )
-            landmark_positions[landmark.name] = world_origins[landmark.segment] + offset
+        world_orientations, world_origins, landmark_positions = build_rest_pose(
+            skeleton=skeleton,
+            parents=parents,
+            connect_ats=connect_ats,
+            orientations=orientations,
+        )
 
         return cls(
             name=str(document.get("name", path.stem)),
