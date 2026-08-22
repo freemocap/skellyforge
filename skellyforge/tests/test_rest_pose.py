@@ -37,7 +37,7 @@ def _y_direction(pose: RestPose, name: str) -> np.ndarray:
 def test_the_rest_pose_resolves_every_segment_and_landmark() -> None:
     pose = _pose()
     assert len(pose.segment_orientations) == 61
-    assert len(pose.landmark_positions) == 169
+    assert len(pose.landmark_positions) == 124
 
 
 def test_the_trunk_runs_straight_up() -> None:

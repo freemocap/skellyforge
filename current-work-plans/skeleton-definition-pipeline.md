@@ -1,7 +1,7 @@
 # Work plan: geometry → skeleton definition → hydration
 
 **Status as of 2026-08-21.** 222 tests passing. Phase 2 (static definitions) is complete: the whole
-human skeleton loads — 59 segments, 167 landmarks, 52 face blendshapes.
+human skeleton loads — 61 segments, 124 landmarks, 52 face blendshapes.
 
 This document covers the work started after the "commit b4 bloodbath" checkpoint: rebuilding the
 geometry layer, then walking the human skeleton YAML component by component until the whole
@@ -173,7 +173,7 @@ Working down the `$include` list in `human_skeleton.yaml`, fixing each as we rea
 | component | segments | state |
 |---|---|---|
 | **pelvis** | 1 | **done** — 15 landmarks (5 midline + 5 sided × 2), `PELVIS` fully specified |
-| **spine** | 3 | **done** — 52 landmarks (24 vertebra base + 24 `_top` + 4 sternum), `CHEST` fully specified, lumbar/cervical underspecified |
+| **spine** | 4 | **done** — 9 landmarks (3 vertebral-junction boundaries + 4 sternum + 2 acromion); per-vertebra landmarks removed, lumbar/cervical are shared-origin direction segments |
 | **skull** | 1 | **done** — 14 landmarks, fully specified (collapsed from a 3-segment scaffold) |
 | **arm** | 2 | **done** — shoulder/elbow/wrist, elbow shared between upper and lower arm |
 | **hand** | 20 | **done** — 33 landmarks (carpals + 5 digits), all joints shared via the carpals/metacarpals |
@@ -181,7 +181,7 @@ Working down the `$include` list in `human_skeleton.yaml`, fixing each as we rea
 | **foot** | 3 | **done** — heel/foot/toes, simplified to a midline ball and toe tip |
 | **face** | — | **done (holder)** — 52 ARKit blendshapes in `face.yaml`, loaded by `FaceBlendShapes` |
 
-Whole skeleton: **59 segments, 167 landmarks, 52 blendshapes**. Fully specified: pelvis, chest, skull
+Whole skeleton: **61 segments, 124 landmarks, 52 blendshapes**. Fully specified: pelvis, chest, skull
 (they carry a roll landmark); the limbs and spine are still roll-underspecified.
 
 ### Rest pose (T-pose)

@@ -43,7 +43,7 @@ skellyforge/
 ```
 
 **Pipeline status:** Phase 1 (geometry) and Phase 2 (static definitions) are **done** — the whole
-human skeleton loads (59 segments / 167 landmarks / 52 face blendshapes). Phase 3 (hydration) is **not
+human skeleton loads (61 segments / 124 landmarks / 52 face blendshapes). Phase 3 (hydration) is **not
 started**: `rotation_quaternion.py`, `transform_math.py`, `PointRingBuffer`, and
 `calculate_bases_for_segments` have no callers outside their own tests yet. Do not delete them. The old
 `core/math/kinematics/` module (pre-bloodbath solvers on the retired `skellymodels` types) was deleted; the

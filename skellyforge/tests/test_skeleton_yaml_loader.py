@@ -282,7 +282,7 @@ def test_negate_selects_the_negative_half_axis() -> None:
         segment_name="lumbar_spine",
         reference_geometry={
             "origin": "sacrum_top",
-            "y_axis": {"landmark": "spine_t12", "type": "exact"},
+            "y_axis": {"landmark": "thoracolumbar_junction", "type": "exact"},
             "z_axis": {"landmark": "xiphoid_process", "type": "approximate", "negate": True},
         },
     )
@@ -498,7 +498,7 @@ def test_the_whole_human_skeleton_loads() -> None:
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     assert skeleton.name == "human"
     assert len(skeleton.segments) == 61
-    assert len(skeleton.landmarks) == 169
+    assert len(skeleton.landmarks) == 124
     # Pelvis, chest, and skull are fully specified; the rest are still roll-underspecified.
     assert set(skeleton.underspecified_segment_names)
     assert "pelvis" not in skeleton.underspecified_segment_names

@@ -6,13 +6,13 @@ segments:
     connect_at: sacrum_top
   chest:
     parent: lumbar_spine
-    connect_at: spine_l1_top
+    connect_at: thoracolumbar_junction
   cervical_spine:
     parent: chest
-    connect_at: spine_t1_top
+    connect_at: cervicothoracic_junction
   skull:
     parent: cervical_spine
-    connect_at: spine_c1_top
+    connect_at: craniocervical_junction
   left_clavicle:
     parent: chest
     connect_at: left_sternoclavicular
