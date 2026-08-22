@@ -66,9 +66,7 @@ default env either (no lint gate here yet).
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once at load.
 - The authored data carries **provenance comments** (sourced vs. estimated-with-said-so) — the honesty
   rules in `freemocap/current-work-plans/archive/phase-1-work-plans/09-segment-model.md` §7.
-- Boundary rule: skellyforge **never imports** skellytracker or freemocap — the tracker→standard-human
-  mapping is applied in freemocap (e.g. `biomechanics.tracker_mapping.apply(filtered_keypoints)`), never
-  inside skellyforge.
+- Boundary rule: skellyforge **never imports** skellytracker or freemocap - it must have a standalone existence and expose functionality that `freemocap` consumes
 - Vocabulary: **keypoint / landmark / segment**. A **keypoint** is tracker-side — a point measured by
   a detector, triangulated to 3D. A **landmark** is model-side — a named point in a segment's local
   frame with a static rest definition and a per-frame world hydration (the mapping hydrates its name

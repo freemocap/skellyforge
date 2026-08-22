@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Standard Human Skeleton</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1a2e; }
+  canvas { display: block; }
+  #info {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(0, 0, 0, 0.6); color: #eee;
+    padding: 12px 16px; border-radius: 8px;
+    font-family: system-ui, sans-serif; font-size: 13px;
+    pointer-events: none;
+  }
+  #info h1 { font-size: 15px; margin: 0 0 6px 0; }
+  #info p { margin: 2px 0; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  #tooltip {
+    position: absolute; display: none;
+    background: rgba(0, 0, 0, 0.85); color: #fff;
+    padding: 4px 10px; border-radius: 4px;
+    font-family: system-ui, sans-serif; font-size: 12px;
+    pointer-events: none; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="info">
+  <h1>Standard Human Skeleton</h1>
+  <p id="counts"></p>
+  <p>
+    <span class="dot" style="background:#e74c3c"></span> left
+    <span class="dot" style="background:#3498db"></span> right
+    <span class="dot" style="background:#95a5a6"></span> midline
+    <span class="dot" style="background:#f1c40f"></span> landmark
+  </p>
+</div>
+<div id="tooltip"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+var DATA = {"segments": [{"name": "pelvis", "side": "midline", "origin": [0.0, 0.0, 0.0], "end": [88.0, 0.0, 0.0]}, {"name": "lumbar_spine", "side": "midline", "origin": [0.0, 95.0, -35.0], "end": [0.0, 260.0, -35.0]}, {"name": "chest", "side": "midline", "origin": [0.0, 260.0, -35.0], "end": [0.0, 588.0, -35.0]}, {"name": "cervical_spine", "side": "midline", "origin": [0.0, 588.0, -35.0], "end": [0.0, 716.0, -35.0]}, {"name": "left_clavicle", "side": "left", "origin": [20.0, 470.0, 75.0], "end": [160.0, 470.0, 75.0]}, {"name": "right_clavicle", "side": "right", "origin": [-20.0, 470.0, 75.0], "end": [-160.0, 470.0, 75.0]}, {"name": "skull", "side": "midline", "origin": [0.0, 716.0, -35.0], "end": [0.0, 846.0, -35.0]}, {"name": "left_upper_arm", "side": "left", "origin": [160.0, 470.0, 75.0], "end": [460.0, 470.0, 75.0]}, {"name": "right_upper_arm", "side": "right", "origin": [-160.0, 470.0, 75.0], "end": [-460.0, 470.0, 75.0]}, {"name": "left_lower_arm", "side": "left", "origin": [460.0, 470.0, 75.0], "end": [720.0, 470.0, 75.0]}, {"name": "right_lower_arm", "side": "right", "origin": [-460.0, 470.0, 75.0], "end": [-720.0, 470.0, 75.0]}, {"name": "left_carpals", "side": "left", "origin": [720.0, 470.0, 75.0], "end": [745.0, 470.0, 75.0]}, {"name": "right_carpals", "side": "right", "origin": [-720.0, 470.0, 75.0], "end": [-745.0, 470.0, 75.0]}, {"name": "left_thumb_metacarpal", "side": "left", "origin": [745.0, 470.0, 97.0], "end": [790.0, 470.0, 97.0]}, {"name": "right_thumb_metacarpal", "side": "right", "origin": [-745.0, 470.0, 97.0], "end": [-790.0, 470.0, 97.0]}, {"name": "left_thumb_proximal_phalanx", "side": "left", "origin": [790.0, 470.0, 97.0], "end": [820.0, 470.0, 97.0]}, {"name": "right_thumb_proximal_phalanx", "side": "right", "origin": [-790.0, 470.0, 97.0], "end": [-820.0, 470.0, 97.0]}, {"name": "left_thumb_distal_phalanx", "side": "left", "origin": [820.0, 470.0, 97.0], "end": [840.0, 470.0, 97.0]}, {"name": "right_thumb_distal_phalanx", "side": "right", "origin": [-820.0, 470.0, 97.0], "end": [-840.0, 470.0, 97.0]}, {"name": "left_index_metacarpal", "side": "left", "origin": [745.0, 470.0, 86.0], "end": [810.0, 470.0, 86.0]}, {"name": "right_index_metacarpal", "side": "right", "origin": [-745.0, 470.0, 86.0], "end": [-810.0, 470.0, 86.0]}, {"name": "left_index_proximal_phalanx", "side": "left", "origin": [810.0, 470.0, 86.0], "end": [850.0, 470.0, 86.0]}, {"name": "right_index_proximal_phalanx", "side": "right", "origin": [-810.0, 470.0, 86.0], "end": [-850.0, 470.0, 86.0]}, {"name": "left_index_middle_phalanx", "side": "left", "origin": [850.0, 470.0, 86.0], "end": [875.0, 470.0, 86.0]}, {"name": "right_index_middle_phalanx", "side": "right", "origin": [-850.0, 470.0, 86.0], "end": [-875.0, 470.0, 86.0]}, {"name": "left_index_distal_phalanx", "side": "left", "origin": [875.0, 470.0, 86.0], "end": [895.0, 470.0, 86.0]}, {"name": "right_index_distal_phalanx", "side": "right", "origin": [-875.0, 470.0, 86.0], "end": [-895.0, 470.0, 86.0]}, {"name": "left_middle_metacarpal", "side": "left", "origin": [745.0, 470.0, 75.0], "end": [813.0, 470.0, 75.0]}, {"name": "right_middle_metacarpal", "side": "right", "origin": [-745.0, 470.0, 75.0], "end": [-813.0, 470.0, 75.0]}, {"name": "left_middle_proximal_phalanx", "side": "left", "origin": [813.0, 470.0, 75.0], "end": [858.0, 470.0, 75.0]}, {"name": "right_middle_proximal_phalanx", "side": "right", "origin": [-813.0, 470.0, 75.0], "end": [-858.0, 470.0, 75.0]}, {"name": "left_middle_middle_phalanx", "side": "left", "origin": [858.0, 470.0, 75.0], "end": [886.0, 470.0, 75.0]}, {"name": "right_middle_middle_phalanx", "side": "right", "origin": [-858.0, 470.0, 75.0], "end": [-886.0, 470.0, 75.0]}, {"name": "left_middle_distal_phalanx", "side": "left", "origin": [886.0, 470.0, 75.0], "end": [906.0, 470.0, 75.0]}, {"name": "right_middle_distal_phalanx", "side": "right", "origin": [-886.0, 470.0, 75.0], "end": [-906.0, 470.0, 75.0]}, {"name": "left_ring_metacarpal", "side": "left", "origin": [745.0, 470.0, 65.0], "end": [805.0, 470.0, 65.0]}, {"name": "right_ring_metacarpal", "side": "right", "origin": [-745.0, 470.0, 65.0], "end": [-805.0, 470.0, 65.0]}, {"name": "left_ring_proximal_phalanx", "side": "left", "origin": [805.0, 470.0, 65.0], "end": [845.0, 470.0, 65.0]}, {"name": "right_ring_proximal_phalanx", "side": "right", "origin": [-805.0, 470.0, 65.0], "end": [-845.0, 470.0, 65.0]}, {"name": "left_ring_middle_phalanx", "side": "left", "origin": [845.0, 470.0, 65.0], "end": [870.0, 470.0, 65.0]}, {"name": "right_ring_middle_phalanx", "side": "right", "origin": [-845.0, 470.0, 65.0], "end": [-870.0, 470.0, 65.0]}, {"name": "left_ring_distal_phalanx", "side": "left", "origin": [870.0, 470.0, 65.0], "end": [888.0, 470.0, 65.0]}, {"name": "right_ring_distal_phalanx", "side": "right", "origin": [-870.0, 470.0, 65.0], "end": [-888.0, 470.0, 65.0]}, {"name": "left_pinky_metacarpal", "side": "left", "origin": [745.0, 470.0, 56.0], "end": [795.0, 470.0, 56.0]}, {"name": "right_pinky_metacarpal", "side": "right", "origin": [-745.0, 470.0, 56.0], "end": [-795.0, 470.0, 56.0]}, {"name": "left_pinky_proximal_phalanx", "side": "left", "origin": [795.0, 470.0, 56.0], "end": [825.0, 470.0, 56.0]}, {"name": "right_pinky_proximal_phalanx", "side": "right", "origin": [-795.0, 470.0, 56.0], "end": [-825.0, 470.0, 56.0]}, {"name": "left_pinky_middle_phalanx", "side": "left", "origin": [825.0, 470.0, 56.0], "end": [843.0, 470.0, 56.0]}, {"name": "right_pinky_middle_phalanx", "side": "right", "origin": [-825.0, 470.0, 56.0], "end": [-843.0, 470.0, 56.0]}, {"name": "left_pinky_distal_phalanx", "side": "left", "origin": [843.0, 470.0, 56.0], "end": [859.0, 470.0, 56.0]}, {"name": "right_pinky_distal_phalanx", "side": "right", "origin": [-843.0, 470.0, 56.0], "end": [-859.0, 470.0, 56.0]}, {"name": "left_upper_leg", "side": "left", "origin": [88.0, 0.0, 0.0], "end": [88.0, -440.0, 0.0]}, {"name": "right_upper_leg", "side": "right", "origin": [-88.0, 0.0, 0.0], "end": [-88.0, -440.0, 0.0]}, {"name": "left_lower_leg", "side": "left", "origin": [88.0, -440.0, 0.0], "end": [88.0, -850.0, 0.0]}, {"name": "right_lower_leg", "side": "right", "origin": [-88.0, -440.0, 0.0], "end": [-88.0, -850.0, 0.0]}, {"name": "left_heel", "side": "left", "origin": [88.0, -850.0, 0.0], "end": [88.0, -830.17, -40.39]}, {"name": "right_heel", "side": "right", "origin": [-88.0, -850.0, 0.0], "end": [-88.0, -830.17, -40.39]}, {"name": "left_foot", "side": "left", "origin": [88.0, -850.0, 0.0], "end": [88.0, -918.3, 139.14]}, {"name": "right_foot", "side": "right", "origin": [-88.0, -850.0, 0.0], "end": [-88.0, -918.3, 139.14]}, {"name": "left_toes", "side": "left", "origin": [88.0, -918.3, 139.14], "end": [88.0, -918.32, 184.14]}, {"name": "right_toes", "side": "right", "origin": [-88.0, -918.3, 139.14], "end": [-88.0, -918.32, 184.14]}], "landmarks": [{"name": "pelvis_origin", "side": "midline", "position": [0.0, 0.0, 0.0]}, {"name": "sacrum_top", "side": "midline", "position": [0.0, 95.0, -35.0]}, {"name": "sacrum", "side": "midline", "position": [0.0, 40.0, -55.0]}, {"name": "coccyx_tip", "side": "midline", "position": [0.0, -30.0, -40.0]}, {"name": "pubic_symphysis", "side": "midline", "position": [0.0, -10.0, 60.0]}, {"name": "left_hip_socket", "side": "left", "position": [88.0, 0.0, 0.0]}, {"name": "right_hip_socket", "side": "right", "position": [-88.0, 0.0, 0.0]}, {"name": "left_iliac_crest", "side": "left", "position": [145.0, 100.0, 0.0]}, {"name": "right_iliac_crest", "side": "right", "position": [-145.0, 100.0, 0.0]}, {"name": "left_anterior_superior_iliac_spine", "side": "left", "position": [125.0, 70.0, 50.0]}, {"name": "right_anterior_superior_iliac_spine", "side": "right", "position": [-125.0, 70.0, 50.0]}, {"name": "left_posterior_superior_iliac_spine", "side": "left", "position": [42.0, 85.0, -55.0]}, {"name": "right_posterior_superior_iliac_spine", "side": "right", "position": [-42.0, 85.0, -55.0]}, {"name": "left_sacroiliac_joint", "side": "left", "position": [25.0, 80.0, -45.0]}, {"name": "right_sacroiliac_joint", "side": "right", "position": [-25.0, 80.0, -45.0]}, {"name": "spine_l5", "side": "midline", "position": [0.0, 95.0, -35.0]}, {"name": "spine_l5_top", "side": "midline", "position": [0.0, 120.0, -35.0]}, {"name": "spine_l4", "side": "midline", "position": [0.0, 130.0, -35.0]}, {"name": "spine_l4_top", "side": "midline", "position": [0.0, 155.0, -35.0]}, {"name": "spine_l3", "side": "midline", "position": [0.0, 165.0, -35.0]}, {"name": "spine_l3_top", "side": "midline", "position": [0.0, 190.0, -35.0]}, {"name": "spine_l2", "side": "midline", "position": [0.0, 200.0, -35.0]}, {"name": "spine_l2_top", "side": "midline", "position": [0.0, 225.0, -35.0]}, {"name": "spine_l1", "side": "midline", "position": [0.0, 235.0, -35.0]}, {"name": "spine_l1_top", "side": "midline", "position": [0.0, 260.0, -35.0]}, {"name": "spine_t12", "side": "midline", "position": [0.0, 260.0, -35.0]}, {"name": "spine_t12_top", "side": "midline", "position": [0.0, 280.0, -35.0]}, {"name": "spine_t11", "side": "midline", "position": [0.0, 288.0, -35.0]}, {"name": "spine_t11_top", "side": "midline", "position": [0.0, 308.0, -35.0]}, {"name": "spine_t10", "side": "midline", "position": [0.0, 316.0, -35.0]}, {"name": "spine_t10_top", "side": "midline", "position": [0.0, 336.0, -35.0]}, {"name": "spine_t9", "side": "midline", "position": [0.0, 344.0, -35.0]}, {"name": "spine_t9_top", "side": "midline", "position": [0.0, 364.0, -35.0]}, {"name": "spine_t8", "side": "midline", "position": [0.0, 372.0, -35.0]}, {"name": "spine_t8_top", "side": "midline", "position": [0.0, 392.0, -35.0]}, {"name": "spine_t7", "side": "midline", "position": [0.0, 400.0, -35.0]}, {"name": "spine_t7_top", "side": "midline", "position": [0.0, 420.0, -35.0]}, {"name": "spine_t6", "side": "midline", "position": [0.0, 428.0, -35.0]}, {"name": "spine_t6_top", "side": "midline", "position": [0.0, 448.0, -35.0]}, {"name": "spine_t5", "side": "midline", "position": [0.0, 456.0, -35.0]}, {"name": "spine_t5_top", "side": "midline", "position": [0.0, 476.0, -35.0]}, {"name": "spine_t4", "side": "midline", "position": [0.0, 484.0, -35.0]}, {"name": "spine_t4_top", "side": "midline", "position": [0.0, 504.0, -35.0]}, {"name": "spine_t3", "side": "midline", "position": [0.0, 512.0, -35.0]}, {"name": "spine_t3_top", "side": "midline", "position": [0.0, 532.0, -35.0]}, {"name": "spine_t2", "side": "midline", "position": [0.0, 540.0, -35.0]}, {"name": "spine_t2_top", "side": "midline", "position": [0.0, 560.0, -35.0]}, {"name": "spine_t1", "side": "midline", "position": [0.0, 568.0, -35.0]}, {"name": "spine_t1_top", "side": "midline", "position": [0.0, 588.0, -35.0]}, {"name": "spine_c7", "side": "midline", "position": [0.0, 588.0, -35.0]}, {"name": "spine_c7_top", "side": "midline", "position": [0.0, 602.0, -35.0]}, {"name": "spine_c6", "side": "midline", "position": [0.0, 607.0, -35.0]}, {"name": "spine_c6_top", "side": "midline", "position": [0.0, 621.0, -35.0]}, {"name": "spine_c5", "side": "midline", "position": [0.0, 626.0, -35.0]}, {"name": "spine_c5_top", "side": "midline", "position": [0.0, 640.0, -35.0]}, {"name": "spine_c4", "side": "midline", "position": [0.0, 645.0, -35.0]}, {"name": "spine_c4_top", "side": "midline", "position": [0.0, 659.0, -35.0]}, {"name": "spine_c3", "side": "midline", "position": [0.0, 664.0, -35.0]}, {"name": "spine_c3_top", "side": "midline", "position": [0.0, 678.0, -35.0]}, {"name": "spine_c2", "side": "midline", "position": [0.0, 683.0, -35.0]}, {"name": "spine_c2_top", "side": "midline", "position": [0.0, 697.0, -35.0]}, {"name": "spine_c1", "side": "midline", "position": [0.0, 702.0, -35.0]}, {"name": "spine_c1_top", "side": "midline", "position": [0.0, 716.0, -35.0]}, {"name": "sternoclavicular_notch", "side": "midline", "position": [0.0, 470.0, 75.0]}, {"name": "left_sternoclavicular", "side": "left", "position": [20.0, 470.0, 75.0]}, {"name": "right_sternoclavicular", "side": "right", "position": [-20.0, 470.0, 75.0]}, {"name": "left_acromion", "side": "left", "position": [160.0, 470.0, 75.0]}, {"name": "right_acromion", "side": "right", "position": [-160.0, 470.0, 75.0]}, {"name": "xiphoid_process", "side": "midline", "position": [0.0, 315.0, 95.0]}, {"name": "head_center", "side": "midline", "position": [0.0, 716.0, -35.0]}, {"name": "head_vertex", "side": "midline", "position": [0.0, 846.0, -35.0]}, {"name": "nose", "side": "midline", "position": [0.0, 716.0, 65.0]}, {"name": "chin", "side": "midline", "position": [0.0, 621.0, 60.0]}, {"name": "left_eye", "side": "left", "position": [32.0, 756.0, 30.0]}, {"name": "right_eye", "side": "right", "position": [-32.0, 756.0, 30.0]}, {"name": "left_eye_inner", "side": "left", "position": [16.0, 754.0, 35.0]}, {"name": "right_eye_inner", "side": "right", "position": [-16.0, 754.0, 35.0]}, {"name": "left_eye_outer", "side": "left", "position": [46.0, 754.0, 25.0]}, {"name": "right_eye_outer", "side": "right", "position": [-46.0, 754.0, 25.0]}, {"name": "left_ear", "side": "left", "position": [70.0, 711.0, -45.0]}, {"name": "right_ear", "side": "right", "position": [-70.0, 711.0, -45.0]}, {"name": "left_canine_tooth_tip", "side": "left", "position": [20.0, 666.0, 25.0]}, {"name": "right_canine_tooth_tip", "side": "right", "position": [-20.0, 666.0, 25.0]}, {"name": "left_shoulder", "side": "left", "position": [160.0, 470.0, 75.0]}, {"name": "right_shoulder", "side": "right", "position": [-160.0, 470.0, 75.0]}, {"name": "left_elbow", "side": "left", "position": [460.0, 470.0, 75.0]}, {"name": "right_elbow", "side": "right", "position": [-460.0, 470.0, 75.0]}, {"name": "left_wrist", "side": "left", "position": [720.0, 470.0, 75.0]}, {"name": "right_wrist", "side": "right", "position": [-720.0, 470.0, 75.0]}, {"name": "left_carpal_origin", "side": "left", "position": [720.0, 470.0, 75.0]}, {"name": "right_carpal_origin", "side": "right", "position": [-720.0, 470.0, 75.0]}, {"name": "left_scaphoid", "side": "left", "position": [728.0, 470.0, 87.0]}, {"name": "right_scaphoid", "side": "right", "position": [-728.0, 470.0, 87.0]}, {"name": "left_lunate", "side": "left", "position": [728.0, 470.0, 79.0]}, {"name": "right_lunate", "side": "right", "position": [-728.0, 470.0, 79.0]}, {"name": "left_triquetrum", "side": "left", "position": [728.0, 470.0, 67.0]}, {"name": "right_triquetrum", "side": "right", "position": [-728.0, 470.0, 67.0]}, {"name": "left_pisiform", "side": "left", "position": [726.0, 470.0, 61.0]}, {"name": "right_pisiform", "side": "right", "position": [-726.0, 470.0, 61.0]}, {"name": "left_trapezium", "side": "left", "position": [740.0, 470.0, 91.0]}, {"name": "right_trapezium", "side": "right", "position": [-740.0, 470.0, 91.0]}, {"name": "left_trapezoid", "side": "left", "position": [740.0, 470.0, 84.0]}, {"name": "right_trapezoid", "side": "right", "position": [-740.0, 470.0, 84.0]}, {"name": "left_capitate", "side": "left", "position": [741.0, 470.0, 75.0]}, {"name": "right_capitate", "side": "right", "position": [-741.0, 470.0, 75.0]}, {"name": "left_hamate", "side": "left", "position": [740.0, 470.0, 66.0]}, {"name": "right_hamate", "side": "right", "position": [-740.0, 470.0, 66.0]}, {"name": "left_thumb_cmc", "side": "left", "position": [745.0, 470.0, 97.0]}, {"name": "right_thumb_cmc", "side": "right", "position": [-745.0, 470.0, 97.0]}, {"name": "left_index_cmc", "side": "left", "position": [745.0, 470.0, 86.0]}, {"name": "right_index_cmc", "side": "right", "position": [-745.0, 470.0, 86.0]}, {"name": "left_middle_cmc", "side": "left", "position": [745.0, 470.0, 75.0]}, {"name": "right_middle_cmc", "side": "right", "position": [-745.0, 470.0, 75.0]}, {"name": "left_ring_cmc", "side": "left", "position": [745.0, 470.0, 65.0]}, {"name": "right_ring_cmc", "side": "right", "position": [-745.0, 470.0, 65.0]}, {"name": "left_pinky_cmc", "side": "left", "position": [745.0, 470.0, 56.0]}, {"name": "right_pinky_cmc", "side": "right", "position": [-745.0, 470.0, 56.0]}, {"name": "left_thumb_mcp", "side": "left", "position": [790.0, 470.0, 97.0]}, {"name": "right_thumb_mcp", "side": "right", "position": [-790.0, 470.0, 97.0]}, {"name": "left_index_mcp", "side": "left", "position": [810.0, 470.0, 86.0]}, {"name": "right_index_mcp", "side": "right", "position": [-810.0, 470.0, 86.0]}, {"name": "left_middle_mcp", "side": "left", "position": [813.0, 470.0, 75.0]}, {"name": "right_middle_mcp", "side": "right", "position": [-813.0, 470.0, 75.0]}, {"name": "left_ring_mcp", "side": "left", "position": [805.0, 470.0, 65.0]}, {"name": "right_ring_mcp", "side": "right", "position": [-805.0, 470.0, 65.0]}, {"name": "left_pinky_mcp", "side": "left", "position": [795.0, 470.0, 56.0]}, {"name": "right_pinky_mcp", "side": "right", "position": [-795.0, 470.0, 56.0]}, {"name": "left_thumb_ip", "side": "left", "position": [820.0, 470.0, 97.0]}, {"name": "right_thumb_ip", "side": "right", "position": [-820.0, 470.0, 97.0]}, {"name": "left_index_pip", "side": "left", "position": [850.0, 470.0, 86.0]}, {"name": "right_index_pip", "side": "right", "position": [-850.0, 470.0, 86.0]}, {"name": "left_middle_pip", "side": "left", "position": [858.0, 470.0, 75.0]}, {"name": "right_middle_pip", "side": "right", "position": [-858.0, 470.0, 75.0]}, {"name": "left_ring_pip", "side": "left", "position": [845.0, 470.0, 65.0]}, {"name": "right_ring_pip", "side": "right", "position": [-845.0, 470.0, 65.0]}, {"name": "left_pinky_pip", "side": "left", "position": [825.0, 470.0, 56.0]}, {"name": "right_pinky_pip", "side": "right", "position": [-825.0, 470.0, 56.0]}, {"name": "left_index_dip", "side": "left", "position": [875.0, 470.0, 86.0]}, {"name": "right_index_dip", "side": "right", "position": [-875.0, 470.0, 86.0]}, {"name": "left_middle_dip", "side": "left", "position": [886.0, 470.0, 75.0]}, {"name": "right_middle_dip", "side": "right", "position": [-886.0, 470.0, 75.0]}, {"name": "left_ring_dip", "side": "left", "position": [870.0, 470.0, 65.0]}, {"name": "right_ring_dip", "side": "right", "position": [-870.0, 470.0, 65.0]}, {"name": "left_pinky_dip", "side": "left", "position": [843.0, 470.0, 56.0]}, {"name": "right_pinky_dip", "side": "right", "position": [-843.0, 470.0, 56.0]}, {"name": "left_thumb_tip", "side": "left", "position": [840.0, 470.0, 97.0]}, {"name": "right_thumb_tip", "side": "right", "position": [-840.0, 470.0, 97.0]}, {"name": "left_index_tip", "side": "left", "position": [895.0, 470.0, 86.0]}, {"name": "right_index_tip", "side": "right", "position": [-895.0, 470.0, 86.0]}, {"name": "left_middle_tip", "side": "left", "position": [906.0, 470.0, 75.0]}, {"name": "right_middle_tip", "side": "right", "position": [-906.0, 470.0, 75.0]}, {"name": "left_ring_tip", "side": "left", "position": [888.0, 470.0, 65.0]}, {"name": "right_ring_tip", "side": "right", "position": [-888.0, 470.0, 65.0]}, {"name": "left_pinky_tip", "side": "left", "position": [859.0, 470.0, 56.0]}, {"name": "right_pinky_tip", "side": "right", "position": [-859.0, 470.0, 56.0]}, {"name": "left_hip_joint", "side": "left", "position": [88.0, 0.0, 0.0]}, {"name": "right_hip_joint", "side": "right", "position": [-88.0, 0.0, 0.0]}, {"name": "left_knee", "side": "left", "position": [88.0, -440.0, 0.0]}, {"name": "right_knee", "side": "right", "position": [-88.0, -440.0, 0.0]}, {"name": "left_ankle", "side": "left", "position": [88.0, -850.0, 0.0]}, {"name": "right_ankle", "side": "right", "position": [-88.0, -850.0, 0.0]}, {"name": "left_ankle_origin", "side": "left", "position": [88.0, -850.0, 0.0]}, {"name": "right_ankle_origin", "side": "right", "position": [-88.0, -850.0, 0.0]}, {"name": "left_calcaneus", "side": "left", "position": [88.0, -830.17, -40.39]}, {"name": "right_calcaneus", "side": "right", "position": [-88.0, -830.17, -40.39]}, {"name": "left_ball", "side": "left", "position": [88.0, -918.3, 139.14]}, {"name": "right_ball", "side": "right", "position": [-88.0, -918.3, 139.14]}, {"name": "left_toe_tip", "side": "left", "position": [88.0, -918.32, 184.14]}, {"name": "right_toe_tip", "side": "right", "position": [-88.0, -918.32, 184.14]}]};
+
+var COLORS = { midline: 0x95a5a6, left: 0xe74c3c, right: 0x3498db };
+var LANDMARK_COLOR = 0xf1c40f;
+var BONE_RADIUS = 5;
+var LANDMARK_RADIUS = 9;
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+
+var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 10, 20000);
+camera.position.set(1000, 600, 1400);
+
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+var controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 50, 0);
+controls.update();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+var light = new THREE.DirectionalLight(0xffffff, 0.5);
+light.position.set(1, 1, 1);
+scene.add(light);
+
+scene.add(new THREE.AxesHelper(200));
+
+var hoverables = [];
+
+var segGroup = new THREE.Group();
+DATA.segments.forEach(function (seg) {
+  var a = new THREE.Vector3(seg.origin[0], seg.origin[1], seg.origin[2]);
+  var b = new THREE.Vector3(seg.end[0], seg.end[1], seg.end[2]);
+  var d = b.clone().sub(a);
+  var len = d.length();
+  if (len < 0.5) return;
+  var cyl = new THREE.Mesh(
+    new THREE.CylinderGeometry(BONE_RADIUS, BONE_RADIUS, len, 10),
+    new THREE.MeshLambertMaterial({ color: COLORS[seg.side] })
+  );
+  cyl.position.copy(a).addScaledVector(d, 0.5);
+  cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+  cyl.userData.name = seg.name;
+  hoverables.push(cyl);
+  segGroup.add(cyl);
+});
+scene.add(segGroup);
+
+var lmGroup = new THREE.Group();
+DATA.landmarks.forEach(function (lm) {
+  var sph = new THREE.Mesh(
+    new THREE.SphereGeometry(LANDMARK_RADIUS, 10, 10),
+    new THREE.MeshLambertMaterial({ color: LANDMARK_COLOR })
+  );
+  sph.position.set(lm.position[0], lm.position[1], lm.position[2]);
+  sph.userData.name = lm.name;
+  hoverables.push(sph);
+  lmGroup.add(sph);
+});
+scene.add(lmGroup);
+
+document.getElementById("counts").textContent =
+  DATA.segments.length + " segments / " + DATA.landmarks.length + " landmarks";
+
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+var tooltip = document.getElementById("tooltip");
+var hovered = null;
+
+window.addEventListener("mousemove", function (event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  var hits = raycaster.intersectObjects(hoverables);
+  if (hits.length > 0) {
+    var obj = hits[0].object;
+    if (hovered !== obj) {
+      if (hovered) hovered.material.emissive.setHex(0x000000);
+      hovered = obj;
+      hovered.material.emissive.setHex(0xffffff);
+    }
+    tooltip.style.display = "block";
+    tooltip.style.left = (event.clientX + 14) + "px";
+    tooltip.style.top = (event.clientY + 14) + "px";
+    tooltip.textContent = obj.userData.name;
+    document.body.style.cursor = "pointer";
+  } else {
+    if (hovered) {
+      hovered.material.emissive.setHex(0x000000);
+      hovered = null;
+    }
+    tooltip.style.display = "none";
+    document.body.style.cursor = "default";
+  }
+});
+
+window.addEventListener("resize", function () {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

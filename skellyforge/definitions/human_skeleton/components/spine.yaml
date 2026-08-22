@@ -28,6 +28,16 @@ segments:
         landmark: spine_c1_top
         type: exact
 
+  CLAVICLE:
+    sided: true
+    aliases:
+      - collarbone
+    reference_geometry:
+      origin: sternoclavicular
+      x_axis:
+        landmark: acromion
+        type: exact
+
 
 landmarks:
 # Vertebra landmarks. Each vertebra gets a base landmark (geometric center of its
@@ -256,8 +266,8 @@ landmarks:
     aliases:
       - shoulder_tip
     definition: "Geometric center of the acromion process of the scapula, the lateral tip of the shoulder"
-    reference_frame: chest
-    local_position: [110, 295, 65]
+    reference_frame: clavicle
+    local_position: [140, 0, 0]
 
   XIPHOID_PROCESS:
     aliases:

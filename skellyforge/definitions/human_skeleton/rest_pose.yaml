@@ -13,8 +13,11 @@ segments:
   skull:
     parent: cervical_spine
     connect_at: spine_c1_top
-  left_upper_arm:
+  left_clavicle:
     parent: chest
+    connect_at: left_sternoclavicular
+  left_upper_arm:
+    parent: left_clavicle
     connect_at: left_acromion
     orientation:
     - 0.5
@@ -97,8 +100,11 @@ segments:
     - 0.849
     - 0
     - 0
-  right_upper_arm:
+  right_clavicle:
     parent: chest
+    connect_at: right_sternoclavicular
+  right_upper_arm:
+    parent: right_clavicle
     connect_at: right_acromion
     orientation:
     - 0.5

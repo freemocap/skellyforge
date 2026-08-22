@@ -184,13 +184,22 @@ Working down the `$include` list in `human_skeleton.yaml`, fixing each as we rea
 Whole skeleton: **59 segments, 167 landmarks, 52 blendshapes**. Fully specified: pelvis, chest, skull
 (they carry a roll landmark); the limbs and spine are still roll-underspecified.
 
-### Known deferral: rest pose
+### Rest pose (T-pose)
 
-Landmark `local_position` values are anatomical estimates, not a calibrated rest pose. They are
-internally consistent enough to load and solve, but the segment frames and the authored coordinates
-do not yet agree — and at the shared cross-component joints (wrist, hip, ankle) the same physical
-point is authored in *two* different frames. Reconciling those is the rest-pose / T-pose pass, which
-comes after the linkage layer.
+The rest pose is now defined in `definitions/human_skeleton/rest_pose.yaml`, loaded by
+`RestPose.from_yaml` in `core/skeleton_parts/rest_pose.py`. Each segment names its `parent`,
+an optional `connect_at` (the parent landmark its origin sits on — defaulting to the segment's own
+origin landmark, which is exactly right for a shared joint), and an optional `orientation` (a wxyz
+quaternion, parent-relative). Walking the tree composes these into per-segment world transforms.
+
+It matches the VRM default humanoid: the trunk runs straight up, the arms point out to ±x, the legs
+point down, the feet slope forward-and-down, and the toes point forward — with only ~10 non-identity
+orientations spelled out. The old `build_standard_human_tpose` (pre-bloodbath `skellymodels` code)
+was deleted along with the rest of `core/math/kinematics/`.
+
+**Still deferred:** the rest pose nails the *shape* (orientations). The *positions* it produces use our
+anatomical lengths (not the VRM's), and the cross-component joints (wrist, hip, ankle) remain two
+landmarks at one point — reconciling them into a single shared point is the linkage pass.
 
 ---
 
