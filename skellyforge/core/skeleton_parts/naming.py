@@ -19,12 +19,13 @@ from skellyforge.type_overloads import RigidBodySegmentName
 
 
 def raise_unless_snake_case_segment_name(*, name: RigidBodySegmentName) -> None:
-    """Segment names are snake_case, optionally suffixed with `.L` or `.R`."""
-    base_name = name[:-2] if name.endswith((".L", ".R")) else name
-    if not base_name or base_name != base_name.lower() or " " in base_name:
-        raise ValueError(
-            f"segment name must be snake_case (optionally .L/.R), got {name!r}"
-        )
+    """Segment names are snake_case.
+
+    Sidedness is carried by a `left_`/`right_` PREFIX, which the YAML loader adds, so a
+    sided name is already snake_case and needs no special case here.
+    """
+    if not name or name != name.lower() or " " in name:
+        raise ValueError(f"segment name must be snake_case, got {name!r}")
 
 
 def raise_unless_aliases_are_valid(*, name: str, aliases: Sequence[str]) -> None:

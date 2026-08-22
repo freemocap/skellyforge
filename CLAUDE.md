@@ -13,35 +13,47 @@ objects, not strings. See `freemocap/current-work-plans/ontology.md` first. Layo
 
 ```
 skellyforge/
-├── skellymodels/standard_human/
-│   ├── anatomical_landmark.py   # AnatomicalLandmark (name + anatomical_definition + rest_position + reference_frame)
-│   ├── rigid_body_segment.py    # RigidBodySegment + AxisDefinition (length derived from rest_position)
-│   ├── joint_linkage.py         # JointLinkage (parent + child + shared landmark, derived from parent edges)
-│   ├── kinematic_chain.py       # KinematicChain (start → end path; the IK/FABRIK unit)
-│   ├── human_skeleton.py        # HumanSkeleton.from_yaml (parts + sidedness + Y-mirroring + $include)
-│   ├── face_blendshapes.py      # FaceBlendShapes (52 ARKit blendshapes; eyes/ears/nose are skull LANDMARKS)
-│   ├── config_types.py          # typed YAML config shapes (cls(**data), no string-key indexing)
-│   ├── definitions/             # flat part files: standard_human, pelvis, axial, arm, hand, leg, foot, face
-│   ├── segment_definition.py    # OLD — SegmentDefinition (being retired)
-│   ├── reference_geometry.py    # OLD — ReferenceGeometry / SegmentReferenceGeometry (being retired)
-│   ├── rest_pose.py             # OLD — RestSegment / RestLandmark (wire projection)
-│   └── … (body_part.py / hand_part.py / face_part.py / standard_human_model.py — OLD, being retired)
-└── kinematics/
-    ├── quaternion_math.py       # RotationQuaternion (wxyz) + vectorized ops
-    ├── coordinate_frame_ops.py  # basis construction, Kabsch, rotation_between_vectors
-    ├── orientation_solver.py    # solve_frame_orientations (Kabsch for 3+, swing+twist for 2)
-    ├── critically_damped_orientation.py  # the D3/D4 filter (per-segment state, time-constant based)
-    ├── tpose.py                 # build_standard_human_tpose (the T-pose reference geometry)
-    ├── skeleton_rigidifier.py   # rigidify_landmarks (forward-pass tree + rotation-pinned Procrustes)
-    ├── segment_length_estimation.py  # estimate_segment_lengths (per-segment rolling median)
-    └── …
+├── core/
+│   ├── math/
+│   │   ├── geometry/                     # Phase 1 (done): the affine algebra + frames
+│   │   │   ├── spatial_vectors.py        #   Point / Displacement / UnitVector
+│   │   │   ├── rotation_quaternion.py    #   RotationQuaternion (wxyz) + vectorized ops
+│   │   │   ├── transform_math.py         #   Transform (rotation + translation)
+│   │   │   ├── point_ring_buffer.py      #   PointRingBuffer (streaming, zero-copy window)
+│   │   │   ├── numeric_tolerances.py     #   shared tolerances, derived from one base
+│   │   │   └── orthonormal_basis/        #   SpatialAxis, ReferenceFrameDefinition,
+│   │   │                                 #   OrthonormalBasis, calculate_orthonormal_basis
+│   │   └── kinematics/                   # Phase 3 (pending): observed-data solvers
+│   │       ├── tpose.py                  #   build_standard_human_tpose
+│   │       ├── skeleton_rigidifier.py    #   rigidify_landmarks
+│   │       ├── orientation_solver.py     #   solve_frame_orientations
+│   │       ├── coordinate_frame_ops.py   #   Kabsch, rotation_between_vectors
+│   │       ├── critically_damped_orientation.py  # D3/D4 filter
+│   │       ├── segment_length_estimation.py
+│   │       └── …
+│   ├── skeleton_parts/                   # Phase 2 (done): the typed model
+│   │   ├── anatomical_landmark.py        #   AnatomicalLandmark
+│   │   ├── rigid_body_segment.py         #   RigidBodySegment + calculate_bases_for_segments
+│   │   ├── segment_linkage.py            #   SegmentLinkage (placeholder, linkage layer pending)
+│   │   ├── kinematic_chain.py            #   KinematicChain (placeholder, chain layer pending)
+│   │   ├── skeleton_definition.py        #   SkeletonDefinition.from_yaml / from_component_yaml
+│   │   ├── skeleton_yaml_loader.py       #   $include → lowercase → sided → reference frames
+│   │   ├── landmark_name_resolver.py     #   alias → canonical, resolved once at load
+│   │   ├── face_blendshapes.py           #   FaceBlendShapes (52 ARKit blendshapes, NOT a component)
+│   │   └── naming.py
+│   └── post_processing/                  # filters + interpolation (register-based)
+├── definitions/human_skeleton/           # authored YAML (the static source of truth)
+│   ├── human_skeleton.yaml               #   components: pelvis, spine, skull, arm, hand, leg, foot
+│   ├── face.yaml                         #   52 blendshapes (loaded by FaceBlendShapes, not the skeleton)
+│   └── components/                       #   one .yaml/.yml file per component
+├── type_overloads.py                     # FloatArray (beartype-checkable float64 ndarray)
+└── tests/
 ```
 
-**Old-architecture (being retired — do NOT build on them):** `segment_definition.py` (`SegmentDefinition`),
-`dead_reference_geometry.py` (`ReferenceGeometry`/`SegmentReferenceGeometry`), `rest_pose.py`
-(`RestSegment`/`RestLandmark`), the Python-authored `body_part.py` / `hand_part.py` / `face_part.py` /
-`standard_human_model.py`, plus `skellymodels/models/` + `managers/`,
-`tracker_info/*.yaml`, `skellyforge/biomechanics/` (dead), `pipelines/dlc_pipeline.py` (dead).
+**Pipeline status:** Phase 1 (geometry) and Phase 2 (static definitions) are **done** — the whole
+human skeleton loads (59 segments / 167 landmarks / 52 face blendshapes). Phase 3 (hydration) is **not
+started**: `rotation_quaternion.py`, `transform_math.py`, `PointRingBuffer`, and
+`calculate_bases_for_segments` have no callers outside their own tests yet. Do not delete them.
 
 ## Commands
 
@@ -62,9 +74,7 @@ default env either (no lint gate here yet).
   rules in `freemocap/current-work-plans/archive/phase-1-work-plans/09-segment-model.md` §7.
 - Boundary rule: skellyforge **never imports** skellytracker or freemocap — the tracker→standard-human
   mapping is applied in freemocap (e.g. `biomechanics.tracker_mapping.apply(filtered_keypoints)`), never
-  inside skellyforge. The old `tracker_contract.py` (the one sanctioned exception, which imported
-  skellytracker to validate the "every landmark must be produced" completeness contract) was deleted
-  together with that contract.
+  inside skellyforge.
 - Vocabulary: **keypoint / landmark / segment**. A **keypoint** is tracker-side — a point measured by
   a detector, triangulated to 3D. A **landmark** is model-side — a named point in a segment's local
   frame with a static rest definition and a per-frame world hydration (the mapping hydrates its name

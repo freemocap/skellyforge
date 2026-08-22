@@ -4,8 +4,10 @@ components:
   pelvis: { $include: components/pelvis.yaml }
   spine: { $include: components/spine.yaml }
   skull: { $include: components/skull.yaml }
-  arm: { $include: components/arm.yaml }
-  hand: { $include: components/hand.yaml }
-  leg: { $include: components/leg.yaml }
-  foot: { $include: components/foot.yaml }
-  face: { $include: components/face.yaml }
+  arm: { $include: components/arm.yml }
+  hand: { $include: components/hand.yml }
+  leg: { $include: components/leg.yml }
+  foot: { $include: components/foot.yml }
+
+# The face is NOT a skeleton component: it is the 52 ARKit blendshapes, loaded separately
+# by FaceBlendShapes.from_yaml from definitions/human_skeleton/face.yaml.

@@ -32,15 +32,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.coordinate_frame_ops import align_point_sets_kabsch
 
 
 def embed_distance_matrix(
-    distance_matrix: NDArray[np.float64],
+    distance_matrix: FloatArray,
     n_dims: int = 3,
-) -> NDArray[np.float64]:
+) -> FloatArray:
     """Recover point positions from a distance matrix via Classical MDS.
 
     Double-centers ``D²`` with ``H = I − 1/n``, eigen-decomposes, and scales
@@ -97,7 +97,7 @@ class RigidPointTemplate:
     """
 
     point_names: tuple[str, ...]
-    positions: NDArray[np.float64]
+    positions: FloatArray
     pair_distances: dict[tuple[str, str], float]
 
     # Built once in ``__post_init__`` so the per-frame fit does index lookups,
@@ -137,7 +137,7 @@ class RigidPointTemplate:
         point_names: list[str] | tuple[str, ...],
         pair_distances: dict[tuple[str, str], float],
         *,
-        reference_configuration: dict[str, NDArray[np.float64]] | None = None,
+        reference_configuration: dict[str, FloatArray] | None = None,
     ) -> RigidPointTemplate:
         """Build a template from pairwise distances.
 
@@ -222,7 +222,7 @@ class RigidPointTemplate:
         )
 
     @property
-    def distance_matrix(self) -> NDArray[np.float64]:
+    def distance_matrix(self) -> FloatArray:
         """The (n, n) distance matrix implied by ``positions``."""
         n = len(self.point_names)
         dm = np.zeros((n, n), dtype=np.float64)
@@ -235,10 +235,10 @@ class RigidPointTemplate:
 
 def fit_template_to_observed(
     template: RigidPointTemplate,
-    observed: dict[str, NDArray[np.float64]],
+    observed: dict[str, FloatArray],
     *,
     anchor_name: str | None = None,
-) -> dict[str, NDArray[np.float64]]:
+) -> dict[str, FloatArray]:
     """Place the template onto observed landmarks with a closed-form rigid fit.
 
     The common points are the template names present in ``observed`` with all
@@ -274,7 +274,7 @@ def fit_template_to_observed(
 
     Returns
     -------
-    dict[str, (3,) NDArray]
+    dict[str, (3,) FloatArray]
         Corrected positions for every template point name.
     """
     # Common points: present, finite.  Position lookups use the template's

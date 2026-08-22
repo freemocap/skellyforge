@@ -34,14 +34,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Final
-
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_QUATERNION_NORM,
+    UNIT_QUATERNION_TOLERANCE,
+)
 from skellyforge.type_overloads import FloatArray
-
-MINIMUM_QUATERNION_NORM: Final[float] = 1e-10
-UNIT_QUATERNION_TOLERANCE: Final[float] = 1e-9
 
 
 # ═══════════════════════════════════════════════════════════════════════

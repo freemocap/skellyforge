@@ -1,0 +1,62 @@
+# Face blendshapes: the 52 ARKit named expressions that drive the standard-human face.
+#
+# The face is NOT a segment/landmark component - it is a set of scalar expressions whose
+# weights animate the facial mesh each frame. Loaded by `FaceBlendShapes.from_yaml`, not
+# by the skeleton component loader. Driving these (mapping observed keypoints to weights)
+# comes later.
+
+name: human_face
+
+blendshapes:
+  - browDownLeft
+  - browDownRight
+  - browInnerUp
+  - browOuterUpLeft
+  - browOuterUpRight
+  - cheekPuff
+  - cheekSquintLeft
+  - cheekSquintRight
+  - eyeBlinkLeft
+  - eyeBlinkRight
+  - eyeLookDownLeft
+  - eyeLookDownRight
+  - eyeLookInLeft
+  - eyeLookInRight
+  - eyeLookOutLeft
+  - eyeLookOutRight
+  - eyeLookUpLeft
+  - eyeLookUpRight
+  - eyeSquintLeft
+  - eyeSquintRight
+  - eyeWideLeft
+  - eyeWideRight
+  - jawForward
+  - jawLeft
+  - jawOpen
+  - jawRight
+  - mouthClose
+  - mouthDimpleLeft
+  - mouthDimpleRight
+  - mouthFrownLeft
+  - mouthFrownRight
+  - mouthFunnel
+  - mouthLeft
+  - mouthLowerDownLeft
+  - mouthLowerDownRight
+  - mouthPressLeft
+  - mouthPressRight
+  - mouthPucker
+  - mouthRight
+  - mouthRollLower
+  - mouthRollUpper
+  - mouthShrugLower
+  - mouthShrugUpper
+  - mouthSmileLeft
+  - mouthSmileRight
+  - mouthStretchLeft
+  - mouthStretchRight
+  - mouthUpperUpLeft
+  - mouthUpperUpRight
+  - noseSneerLeft
+  - noseSneerRight
+  - tongueOut

@@ -7,5 +7,7 @@ LinkageNameString = str
 
 @dataclass(frozen=True, slots=True)
 class SegmentLinkage:
+    """Two segments joined at a shared landmark; the parent precedes the child."""
+
     name: LinkageNameString
-    segments: tuple[RigidBodySegment]
+    segments: tuple[RigidBodySegment, ...]

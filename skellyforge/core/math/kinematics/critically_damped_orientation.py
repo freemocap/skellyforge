@@ -58,7 +58,7 @@ filter would happily smooth the long way around.
 from dataclasses import dataclass
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.quaternion_math import RotationQuaternion
 
@@ -73,7 +73,7 @@ class CriticallyDampedOrientationState:
     """
 
     orientation: RotationQuaternion
-    angular_velocity_radians_per_second: NDArray[np.float64]
+    angular_velocity_radians_per_second: FloatArray
 
     @classmethod
     def at_rest(cls, orientation: RotationQuaternion) -> "CriticallyDampedOrientationState":

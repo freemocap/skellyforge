@@ -1,3 +1,15 @@
+# Pelvis component.
+#
+# Local frame (right-handed, VRM convention):
+#   origin  - midpoint between the two hip sockets
+#   +x      - subject's LEFT
+#   +y      - UP (superior)
+#   +z      - FORWARD (anterior)
+# Units are millimetres, sized for a 50th-percentile adult.
+#
+# `sided: true` entries are written for the LEFT side only; the loader emits
+# `left_*` and `right_*`, mirroring x for the right.
+
 segments:
   PELVIS:
     reference_geometry:
@@ -5,8 +17,8 @@ segments:
       x_axis:
         landmark: left_hip_socket
         type: exact
-      z_axis:
-        landmark: lumbrosacral_junction
+      y_axis:
+        landmark: sacrum_top
         type: approximate
 
 
@@ -25,27 +37,26 @@ landmarks:
       - sacral_base
       - s1_top
       - top_sacrum
-      - SI_JOINT
-      - l1_base
+      - l5_s1_junction
       - lumbosacral_junction
     definition: "Geometric center of the lumbosacral junction (L5/S1), the top of the sacrum"
     reference_frame: pelvis
-    local_position: [ 0, 0, 120 ]
+    local_position: [ 0, 95, -35 ]
 
   SACRUM:
-    definition: "Geometric mean of the Sacrum (S1)"
+    definition: "Geometric center of the sacral body, around the S2 level"
     reference_frame: pelvis
-    local_position: [ 0, 100, 25 ]
+    local_position: [ 0, 40, -55 ]
 
   COCCYX_TIP:
     definition: "Distal tip of the coccyx (tailbone apex)"
     reference_frame: pelvis
-    local_position: [ 0, -35, 35 ]
+    local_position: [ 0, -30, -40 ]
 
   PUBIC_SYMPHYSIS:
     definition: "Geometric center of the pubic symphysis"
     reference_frame: pelvis
-    local_position: [ 0, -40, 0 ]
+    local_position: [ 0, -10, 60 ]
 
   # sided stuff
   HIP_SOCKET:
@@ -58,10 +69,10 @@ landmarks:
 
   ILIAC_CREST:
     aliases:
-      - illium
+      - iliocristale
     definition: "Most superior point of the iliac crest"
     reference_frame: pelvis
-    local_position: [ -88, 80, 0 ]
+    local_position: [ 145, 100, 0 ]
     sided: true
 
   ANTERIOR_SUPERIOR_ILIAC_SPINE:
@@ -69,14 +80,21 @@ landmarks:
       - ASIS
     definition: "Anterior superior iliac spine (ASIS), the anterior bony prominence of the iliac crest"
     reference_frame: pelvis
-    local_position: [ -100, 40, -55 ]
+    local_position: [ 125, 70, 50 ]
     sided: true
-
 
   POSTERIOR_SUPERIOR_ILIAC_SPINE:
     aliases:
       - PSIS
     definition: "Posterior superior iliac spine (PSIS), the posterior bony prominence of the iliac crest"
     reference_frame: pelvis
-    local_position: [ -25, 50, 55 ]
+    local_position: [ 42, 85, -55 ]
+    sided: true
+
+  SACROILIAC_JOINT:
+    aliases:
+      - SI_JOINT
+    definition: "Geometric center of the sacroiliac joint, where the sacrum meets the ilium"
+    reference_frame: pelvis
+    local_position: [ 25, 80, -45 ]
     sided: true

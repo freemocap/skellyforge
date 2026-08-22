@@ -27,7 +27,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.quaternion_math import (
     RotationQuaternion,
@@ -40,7 +40,6 @@ from skellyforge.kinematics.quaternion_math import (
 )
 
 if TYPE_CHECKING:
-    from numpy import float64
     from skellyforge.skellymodels.standard_human.dead_reference_geometry import (
         SegmentReferenceGeometry,
     )
@@ -52,9 +51,9 @@ if TYPE_CHECKING:
 
 
 def compute_linear_velocity(
-    positions: NDArray[float64],
-    timestamps: NDArray[float64],
-) -> NDArray[float64]:
+    positions: FloatArray,
+    timestamps: FloatArray,
+) -> FloatArray:
     """Compute linear velocity from positions via finite differences.
 
     Forward difference at frame 0, central for interior frames, backward
@@ -103,9 +102,9 @@ def compute_linear_velocity(
 
 
 def compute_linear_acceleration(
-    velocity: NDArray[float64],
-    timestamps: NDArray[float64],
-) -> NDArray[float64]:
+    velocity: FloatArray,
+    timestamps: FloatArray,
+) -> FloatArray:
     """Compute linear acceleration from velocity via finite differences.
 
     Same finite-difference scheme as ``compute_linear_velocity``.
@@ -127,10 +126,10 @@ def compute_linear_acceleration(
 
 
 def compute_angular_acceleration(
-    angular_velocity_global: NDArray[float64],
-    timestamps: NDArray[float64],
-    quaternions: NDArray[float64],
-) -> tuple[NDArray[float64], NDArray[float64]]:
+    angular_velocity_global: FloatArray,
+    timestamps: FloatArray,
+    quaternions: FloatArray,
+) -> tuple[FloatArray, FloatArray]:
     """Compute angular acceleration from angular velocity.
 
     Finite differences on angular velocity, then transform to local frame
@@ -170,10 +169,10 @@ def compute_angular_acceleration(
 
 
 def compute_keypoint_world_positions(
-    local_positions: NDArray[float64],
-    quaternions: NDArray[float64],
-    origin_positions: NDArray[float64],
-) -> NDArray[float64]:
+    local_positions: FloatArray,
+    quaternions: FloatArray,
+    origin_positions: FloatArray,
+) -> FloatArray:
     """Project local keypoint positions to world frame.
 
     For each frame, rotates the keypoint positions (in the body's local
@@ -243,9 +242,9 @@ class RigidBodyKinematics:
     """
 
     name: str
-    timestamps: NDArray[float64]
-    position_xyz: NDArray[float64]
-    quaternions_wxyz: NDArray[float64]
+    timestamps: FloatArray
+    position_xyz: FloatArray
+    quaternions_wxyz: FloatArray
     reference_geometry: "SegmentReferenceGeometry | None" = None
 
     def __post_init__(self) -> None:
@@ -279,19 +278,19 @@ class RigidBodyKinematics:
     # ── Derived kinematics (lazy) ─────────────────────────────────
 
     @cached_property
-    def linear_velocity(self) -> NDArray[float64]:
+    def linear_velocity(self) -> FloatArray:
         """(N, 3) Linear velocity in mm/s."""
         return compute_linear_velocity(self.position_xyz, self.timestamps)
 
     @cached_property
-    def linear_acceleration(self) -> NDArray[float64]:
+    def linear_acceleration(self) -> FloatArray:
         """(N, 3) Linear acceleration in mm/s²."""
         return compute_linear_acceleration(
             self.linear_velocity, self.timestamps
         )
 
     @cached_property
-    def angular_velocity_global(self) -> NDArray[float64]:
+    def angular_velocity_global(self) -> FloatArray:
         """(N, 3) Angular velocity in world frame (rad/s)."""
         g, _ = _compute_angular_velocity(
             self.quaternions_wxyz, self.timestamps
@@ -299,7 +298,7 @@ class RigidBodyKinematics:
         return g
 
     @cached_property
-    def angular_velocity_local(self) -> NDArray[float64]:
+    def angular_velocity_local(self) -> FloatArray:
         """(N, 3) Angular velocity in body frame (rad/s)."""
         _, l = _compute_angular_velocity(
             self.quaternions_wxyz, self.timestamps
@@ -307,7 +306,7 @@ class RigidBodyKinematics:
         return l
 
     @cached_property
-    def angular_acceleration_global(self) -> NDArray[float64]:
+    def angular_acceleration_global(self) -> FloatArray:
         """(N, 3) Angular acceleration in world frame (rad/s²)."""
         g, _ = compute_angular_acceleration(
             self.angular_velocity_global,
@@ -317,7 +316,7 @@ class RigidBodyKinematics:
         return g
 
     @cached_property
-    def angular_acceleration_local(self) -> NDArray[float64]:
+    def angular_acceleration_local(self) -> FloatArray:
         """(N, 3) Angular acceleration in body frame (rad/s²)."""
         _, l = compute_angular_acceleration(
             self.angular_velocity_global,
@@ -327,12 +326,12 @@ class RigidBodyKinematics:
         return l
 
     @cached_property
-    def euler_angles(self) -> NDArray[float64]:
+    def euler_angles(self) -> FloatArray:
         """(N, 3) Euler angles [roll, pitch, yaw] in radians, ZYX intrinsic."""
         return quaternion_to_euler(self.quaternions_wxyz)
 
     @cached_property
-    def keypoint_world_positions(self) -> NDArray[float64] | None:
+    def keypoint_world_positions(self) -> FloatArray | None:
         """(N, M, 3) World-frame keypoint positions, or None if no reference geometry."""
         if self.reference_geometry is None:
             return None
@@ -356,7 +355,7 @@ class RigidBodyKinematics:
 
     def get_pose_at_frame(
         self, frame: int
-    ) -> tuple[NDArray[float64], RotationQuaternion]:
+    ) -> tuple[FloatArray, RotationQuaternion]:
         """Return ``(position, quaternion)`` at frame index *frame*."""
         if not 0 <= frame < self.n_frames:
             raise IndexError(
@@ -367,24 +366,24 @@ class RigidBodyKinematics:
     # ── Component accessors ──────────────────────────────────────
 
     @cached_property
-    def speed(self) -> NDArray[float64]:
+    def speed(self) -> FloatArray:
         """(N,) Scalar speed (magnitude of linear velocity) in mm/s."""
         return np.linalg.norm(self.linear_velocity, axis=1)
 
     @cached_property
-    def angular_speed_global(self) -> NDArray[float64]:
+    def angular_speed_global(self) -> FloatArray:
         """(N,) Scalar angular speed in world frame (rad/s)."""
         return np.linalg.norm(self.angular_velocity_global, axis=1)
 
     @cached_property
-    def angular_speed_local(self) -> NDArray[float64]:
+    def angular_speed_local(self) -> FloatArray:
         """(N,) Scalar angular speed in body frame (rad/s)."""
         return np.linalg.norm(self.angular_velocity_local, axis=1)
 
     # ── Resampling ───────────────────────────────────────────────
 
     def resample(
-        self, target_timestamps: NDArray[float64]
+        self, target_timestamps: FloatArray
     ) -> "RigidBodyKinematics":
         """Resample to new timestamps.
 
@@ -446,9 +445,9 @@ class RigidBodyKinematics:
     def from_pose_arrays(
         cls,
         name: str,
-        timestamps: NDArray[float64],
-        position_xyz: NDArray[float64],
-        quaternions_wxyz: NDArray[float64],
+        timestamps: FloatArray,
+        position_xyz: FloatArray,
+        quaternions_wxyz: FloatArray,
         reference_geometry: "SegmentReferenceGeometry | None" = None,
     ) -> "RigidBodyKinematics":
         """Construct from raw pose arrays (auto-normalizes quaternions).
@@ -476,7 +475,7 @@ class RigidBodyKinematics:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _check_strictly_increasing(timestamps: NDArray[float64]) -> None:
+def _check_strictly_increasing(timestamps: FloatArray) -> None:
     """Raise ValueError if timestamps are not strictly increasing."""
     if len(timestamps) < 2:
         return

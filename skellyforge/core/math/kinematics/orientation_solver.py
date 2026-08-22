@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
     align_point_sets_kabsch,
@@ -44,8 +44,8 @@ DEFAULT_TWIST_TIME_CONSTANT_SECONDS = 0.05
 class FrameOrientationResult:
     """Per-segment orientations for one frame (result only - no state)."""
 
-    world_quaternions: dict[str, NDArray[np.float64]]
-    local_quaternions: dict[str, NDArray[np.float64]]
+    world_quaternions: dict[str, FloatArray]
+    local_quaternions: dict[str, FloatArray]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,14 +71,14 @@ class SolveState:
     )
 
 
-def _wxyz(q: RotationQuaternion) -> NDArray[np.float64]:
+def _wxyz(q: RotationQuaternion) -> FloatArray:
     return np.array([q.w, q.x, q.y, q.z], dtype=np.float64)
 
 
 def solve_frame_orientations(
     skeleton: HumanSkeleton,
     tpose: StandardHumanTPose,
-    landmarks: dict[str, NDArray[np.float64]],
+    landmarks: dict[str, FloatArray],
     *,
     timestamp_seconds: float,
     state: SolveState,
@@ -116,8 +116,8 @@ def solve_frame_orientations(
 
         # 3+ landmarks: full rigid body via Kabsch over the whole cloud
         if len(segment.landmarks) >= 3:
-            ref_pts: list[NDArray[np.float64]] = []
-            live_pts: list[NDArray[np.float64]] = []
+            ref_pts: list[FloatArray] = []
+            live_pts: list[FloatArray] = []
             for lm in segment.landmarks:
                 ref_p = tpose.landmarks.get(lm.name)
                 live_p = landmarks.get(lm.name)
@@ -205,7 +205,7 @@ def solve_frame_orientations(
         world_quats[segment.name] = damped.orientation
 
     # local quaternions (q_child_local = conj(q_parent) * q_child)
-    local_quats: dict[str, NDArray[np.float64]] = {}
+    local_quats: dict[str, FloatArray] = {}
     for segment in skeleton.segments:
         world = world_quats.get(segment.name)
         if world is None:

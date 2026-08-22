@@ -1,82 +1,260 @@
 segments:
   LUMBAR_SPINE:
     reference_geometry:
-      origin: sacrum_top
-      z_axis:
-        landmark: spine_t12
-        type: exact
+      origin: spine_l5
       y_axis:
-        negate: true
-        landmark: xiphoid_process
-        type: approximate
+        landmark: spine_l1_top
+        type: exact
 
   CHEST:
     aliases:
-      - thoraxic_spine
+      - thoracic_spine
       - thorax
       - ribs
       - ribcage
     reference_geometry:
       origin: spine_t12
-      z_axis:
-        landmark: spine_c7
-        type: exact
       y_axis:
-        negate: true
+        landmark: spine_t1_top
+        type: exact
+      z_axis:
         landmark: xiphoid_process
         type: approximate
 
   CERVICAL_SPINE:
     reference_geometry:
       origin: spine_c7
-      z_axis:
-        landmark: spine_c1
-        type: exact
       y_axis:
-        negate: true
-        landmark: xiphoid_process
-        type: approximate
+        landmark: spine_c1_top
+        type: exact
 
 
 landmarks:
-# todo - make landmarks for each vertebra (defined as gemetric mean of the base of that vertebra) and also a `..._TOP` landmark for each one defined as the mean of the upper surface
-#  SPINE_C1 (atlas)
-#  SPINE_C2 (axis)
-#  SPINE_C3
-#  SPINE_C4
-#  SPINE_C5
-#  SPINE_C6
-#  SPINE_C7 (neck center)
-#  SPINE_T1
-#  SPINE_T2
-#  SPINE_T3
-#  SPINE_T4
-#  SPINE_T5
-#  SPINE_...
-#  SPINE_T12 (chest_center)
-#  SPINE_L1
-#  SPINE_L2
-#  SPINE_L3
-#  SPINE_L4
-#  SPINE_L5
+# Vertebra landmarks. Each vertebra gets a base landmark (geometric center of its
+# inferior surface) and a `_TOP` landmark (geometric center of its superior surface).
+# Positions are anatomical estimates: the column runs up the local +y axis (superior)
+# with the frame origin on the inferior-most vertebra base, using 50th-percentile
+# vertebral body heights and disc thicknesses. Reconciling these with the segment
+# frames is the rest-pose pass.
+  SPINE_L5:
+    definition: "Geometric center of the inferior surface (base) of the L5 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 0, 0]
+  SPINE_L5_TOP:
+    definition: "Geometric center of the superior surface (top) of the L5 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 25, 0]
+  SPINE_L4:
+    definition: "Geometric center of the inferior surface (base) of the L4 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 35, 0]
+  SPINE_L4_TOP:
+    definition: "Geometric center of the superior surface (top) of the L4 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 60, 0]
+  SPINE_L3:
+    definition: "Geometric center of the inferior surface (base) of the L3 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 70, 0]
+  SPINE_L3_TOP:
+    definition: "Geometric center of the superior surface (top) of the L3 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 95, 0]
+  SPINE_L2:
+    definition: "Geometric center of the inferior surface (base) of the L2 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 105, 0]
+  SPINE_L2_TOP:
+    definition: "Geometric center of the superior surface (top) of the L2 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 130, 0]
+  SPINE_L1:
+    definition: "Geometric center of the inferior surface (base) of the L1 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 140, 0]
+  SPINE_L1_TOP:
+    definition: "Geometric center of the superior surface (top) of the L1 vertebra"
+    reference_frame: lumbar_spine
+    local_position: [0, 165, 0]
+  SPINE_T12:
+    aliases:
+      - chest_center
+    definition: "Geometric center of the inferior surface (base) of the T12 vertebra"
+    reference_frame: chest
+    local_position: [0, 0, 0]
+  SPINE_T12_TOP:
+    definition: "Geometric center of the superior surface (top) of the T12 vertebra"
+    reference_frame: chest
+    local_position: [0, 20, 0]
+  SPINE_T11:
+    definition: "Geometric center of the inferior surface (base) of the T11 vertebra"
+    reference_frame: chest
+    local_position: [0, 28, 0]
+  SPINE_T11_TOP:
+    definition: "Geometric center of the superior surface (top) of the T11 vertebra"
+    reference_frame: chest
+    local_position: [0, 48, 0]
+  SPINE_T10:
+    definition: "Geometric center of the inferior surface (base) of the T10 vertebra"
+    reference_frame: chest
+    local_position: [0, 56, 0]
+  SPINE_T10_TOP:
+    definition: "Geometric center of the superior surface (top) of the T10 vertebra"
+    reference_frame: chest
+    local_position: [0, 76, 0]
+  SPINE_T9:
+    definition: "Geometric center of the inferior surface (base) of the T9 vertebra"
+    reference_frame: chest
+    local_position: [0, 84, 0]
+  SPINE_T9_TOP:
+    definition: "Geometric center of the superior surface (top) of the T9 vertebra"
+    reference_frame: chest
+    local_position: [0, 104, 0]
+  SPINE_T8:
+    definition: "Geometric center of the inferior surface (base) of the T8 vertebra"
+    reference_frame: chest
+    local_position: [0, 112, 0]
+  SPINE_T8_TOP:
+    definition: "Geometric center of the superior surface (top) of the T8 vertebra"
+    reference_frame: chest
+    local_position: [0, 132, 0]
+  SPINE_T7:
+    definition: "Geometric center of the inferior surface (base) of the T7 vertebra"
+    reference_frame: chest
+    local_position: [0, 140, 0]
+  SPINE_T7_TOP:
+    definition: "Geometric center of the superior surface (top) of the T7 vertebra"
+    reference_frame: chest
+    local_position: [0, 160, 0]
+  SPINE_T6:
+    definition: "Geometric center of the inferior surface (base) of the T6 vertebra"
+    reference_frame: chest
+    local_position: [0, 168, 0]
+  SPINE_T6_TOP:
+    definition: "Geometric center of the superior surface (top) of the T6 vertebra"
+    reference_frame: chest
+    local_position: [0, 188, 0]
+  SPINE_T5:
+    definition: "Geometric center of the inferior surface (base) of the T5 vertebra"
+    reference_frame: chest
+    local_position: [0, 196, 0]
+  SPINE_T5_TOP:
+    definition: "Geometric center of the superior surface (top) of the T5 vertebra"
+    reference_frame: chest
+    local_position: [0, 216, 0]
+  SPINE_T4:
+    definition: "Geometric center of the inferior surface (base) of the T4 vertebra"
+    reference_frame: chest
+    local_position: [0, 224, 0]
+  SPINE_T4_TOP:
+    definition: "Geometric center of the superior surface (top) of the T4 vertebra"
+    reference_frame: chest
+    local_position: [0, 244, 0]
+  SPINE_T3:
+    definition: "Geometric center of the inferior surface (base) of the T3 vertebra"
+    reference_frame: chest
+    local_position: [0, 252, 0]
+  SPINE_T3_TOP:
+    definition: "Geometric center of the superior surface (top) of the T3 vertebra"
+    reference_frame: chest
+    local_position: [0, 272, 0]
+  SPINE_T2:
+    definition: "Geometric center of the inferior surface (base) of the T2 vertebra"
+    reference_frame: chest
+    local_position: [0, 280, 0]
+  SPINE_T2_TOP:
+    definition: "Geometric center of the superior surface (top) of the T2 vertebra"
+    reference_frame: chest
+    local_position: [0, 300, 0]
+  SPINE_T1:
+    definition: "Geometric center of the inferior surface (base) of the T1 vertebra"
+    reference_frame: chest
+    local_position: [0, 308, 0]
+  SPINE_T1_TOP:
+    definition: "Geometric center of the superior surface (top) of the T1 vertebra"
+    reference_frame: chest
+    local_position: [0, 328, 0]
+  SPINE_C7:
+    aliases:
+      - neck_center
+    definition: "Geometric center of the inferior surface (base) of the C7 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 0, 0]
+  SPINE_C7_TOP:
+    definition: "Geometric center of the superior surface (top) of the C7 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 14, 0]
+  SPINE_C6:
+    definition: "Geometric center of the inferior surface (base) of the C6 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 19, 0]
+  SPINE_C6_TOP:
+    definition: "Geometric center of the superior surface (top) of the C6 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 33, 0]
+  SPINE_C5:
+    definition: "Geometric center of the inferior surface (base) of the C5 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 38, 0]
+  SPINE_C5_TOP:
+    definition: "Geometric center of the superior surface (top) of the C5 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 52, 0]
+  SPINE_C4:
+    definition: "Geometric center of the inferior surface (base) of the C4 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 57, 0]
+  SPINE_C4_TOP:
+    definition: "Geometric center of the superior surface (top) of the C4 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 71, 0]
+  SPINE_C3:
+    definition: "Geometric center of the inferior surface (base) of the C3 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 76, 0]
+  SPINE_C3_TOP:
+    definition: "Geometric center of the superior surface (top) of the C3 vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 90, 0]
+  SPINE_C2:
+    definition: "Geometric center of the inferior surface (base) of the C2 (axis) vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 95, 0]
+  SPINE_C2_TOP:
+    definition: "Geometric center of the superior surface (top) of the C2 (axis) vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 109, 0]
+  SPINE_C1:
+    definition: "Geometric center of the inferior surface (base) of the C1 (atlas) vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 114, 0]
+  SPINE_C1_TOP:
+    definition: "Geometric center of the superior surface (top) of the C1 (atlas) vertebra"
+    reference_frame: cervical_spine
+    local_position: [0, 128, 0]
 
 
 
   STERNOCLAVICULAR_NOTCH:
-    definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum"
+    aliases:
+      - suprasternal_notch
+      - jugular_notch
+    definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum between the two clavicles"
     reference_frame: chest
-    local_position: [-15, 271, 0]
+    local_position: [0, 210, 110]
 
   STERNOCLAVICULAR:
     sided: true
-    definition: "[Side ] sternoclavicular joint"
+    aliases:
+      - sc_joint
+    definition: "Geometric center of the sternoclavicular joint, where the clavicle meets the manubrium of the sternum"
     reference_frame: chest
-    local_position: [-15, 271, 0]
+    local_position: [20, 210, 110]
 
   XIPHOID_PROCESS:
-    alias:
-      - xipoid
-    sided: true
-    definition: "Center of the sternoclavicular joint"
+    aliases:
+      - xiphoid
+      - xiphisternum
+    definition: "Distal tip of the xiphoid process, the cartilaginous inferior end of the sternum"
     reference_frame: chest
-    local_position: [-15, 271, 0]
+    local_position: [0, 55, 130]

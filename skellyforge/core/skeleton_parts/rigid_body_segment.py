@@ -50,8 +50,10 @@ class RigidBodySegment:
     Attributes:
         name: snake_case segment name, optionally suffixed `.L` or `.R`.
         landmarks: this segment's landmarks, keyed by name. Must contain the definition's
-            origin and primary landmarks; whether it also contains the secondary one is
-            what makes the segment fully specified. Typed as a `Mapping` because the
+            primary landmark; the origin may instead be a shared landmark owned by the
+            parent segment (the joint a linkage is built on). Whether it also contains
+            the secondary one is what makes the segment fully specified. Typed as a
+            `Mapping` because the
             segment stores it without copying - mutating it afterwards is not part of the
             contract.
         frame_definition: which landmarks lie on which signed axes. The segment's origin
@@ -89,19 +91,11 @@ class RigidBodySegment:
                     )
                 claimed_by[known_name] = landmark.name
 
-        missing_required = [
-            name
-            for name in (
-                self.frame_definition.origin_point_name,
-                self.frame_definition.primary_point_name,
-            )
-            if name not in self.landmarks
-        ]
-        if missing_required:
+        if self.frame_definition.primary_point_name not in self.landmarks:
             raise ValueError(
-                f"segment {self.name!r}: frame definition names landmarks "
-                f"{missing_required} that this segment does not have - it has "
-                f"{sorted(self.landmarks)}"
+                f"segment {self.name!r}: frame definition names its primary landmark "
+                f"{self.frame_definition.primary_point_name!r}, which this segment does "
+                f"not have - it has {sorted(self.landmarks)}"
             )
 
     @property
@@ -126,16 +120,26 @@ class RigidBodySegment:
         Origin and primary always; the secondary one too once it is available, since that
         is exactly when it starts being used.
         """
-        return tuple(
-            name for name in self.frame_definition.point_names if name in self.landmarks
-        )
+        names = [
+            self.frame_definition.origin_point_name,
+            self.frame_definition.primary_point_name,
+        ]
+        secondary_point_name = self.frame_definition.secondary_point_name
+        if secondary_point_name is not None and secondary_point_name in self.landmarks:
+            names.append(secondary_point_name)
+        return tuple(names)
 
     @property
     def length(self) -> float:
         """Origin-to-primary distance, from the landmarks' rest positions."""
-        origin = self.landmarks[self.frame_definition.origin_point_name].local_position
         primary = self.landmarks[self.frame_definition.primary_point_name].local_position
-        return float((primary - origin).norm())
+        origin = self.landmarks.get(self.frame_definition.origin_point_name)
+        if origin is None:
+            # The origin is a shared landmark owned by the parent, so its rest position
+            # lives in the parent's frame. In THIS segment's frame the origin is at
+            # [0, 0, 0] by construction, so the length is just the primary's magnitude.
+            return float(np.linalg.norm(primary.array))
+        return float((primary - origin.local_position).norm())
 
     def calculate_direction(self, *, points: Mapping[str, Point]) -> UnitVector:
         """The observed origin-to-primary direction, signed to match the primary axis.

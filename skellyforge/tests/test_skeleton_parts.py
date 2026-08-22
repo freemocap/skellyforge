@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -20,13 +22,14 @@ from skellyforge.core.skeleton_parts.rigid_body_segment import (
     calculate_bases_for_segments,
 )
 from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver
+from skellyforge.core.skeleton_parts.face_blendshapes import FaceBlendShapes
 
 
 def _landmark(
     *,
     name: str,
     position: tuple[float, float, float],
-    segment: str = "upper_arm.L",
+    segment: str = "left_upper_arm",
     aliases: tuple[str, ...] = (),
 ) -> AnatomicalLandmark:
     return AnatomicalLandmark(
@@ -38,7 +41,7 @@ def _landmark(
     )
 
 
-def _segment(*, name: str = "upper_arm.L") -> RigidBodySegment:
+def _segment(*, name: str = "left_upper_arm") -> RigidBodySegment:
     landmarks = {
         "shoulder": _landmark(name="shoulder", position=(0.0, 0.0, 0.0), segment=name),
         "elbow": _landmark(name="elbow", position=(0.0, 3.0, 0.0), segment=name),
@@ -74,7 +77,7 @@ def test_landmark_rejects_a_batched_rest_position() -> None:
             name="elbow",
             anatomical_definition="the elbow",
             local_position=Point.from_array(values=np.zeros(shape=(10, 3))),
-            segment="upper_arm.L",
+            segment="left_upper_arm",
         )
 
 
@@ -102,7 +105,7 @@ def test_segment_str_names_its_axes() -> None:
     assert "+y -> elbow" in str(_segment())
 
 
-def test_segment_rejects_a_frame_definition_missing_its_origin_or_primary() -> None:
+def test_segment_rejects_a_frame_definition_missing_its_primary() -> None:
     segment = _segment()
     with pytest.raises(ValueError, match="does not have"):
         RigidBodySegment(
@@ -118,6 +121,32 @@ def test_segment_rejects_a_frame_definition_missing_its_origin_or_primary() -> N
         )
 
 
+def test_a_segment_may_take_its_origin_from_its_parent_segment() -> None:
+    # The elbow belongs to the upper arm but is the lower arm's origin - the shared
+    # joint a linkage is built on. The origin is not among this segment's landmarks.
+    forearm = RigidBodySegment(
+        name="left_lower_arm",
+        landmarks={
+            "wrist": _landmark(name="wrist", position=(0.0, 260.0, 0.0), segment="left_lower_arm"),
+        },
+        frame_definition=ReferenceFrameDefinition(
+            origin_point_name="elbow",
+            primary_axis=SpatialAxis.Y,
+            primary_point_name="wrist",
+        ),
+    )
+    assert not forearm.is_fully_specified
+    assert forearm.landmark_names == ("elbow", "wrist")
+    assert forearm.length == pytest.approx(260.0)
+    points = {
+        "elbow": Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        "wrist": Point.from_xyz(x=0.0, y=260.0, z=0.0),
+    }
+    np.testing.assert_allclose(
+        forearm.calculate_direction(points=points).array, [0.0, 1.0, 0.0], atol=1e-12
+    )
+
+
 def test_segment_rejects_landmarks_keyed_by_the_wrong_name() -> None:
     segment = _segment()
     mis_keyed = dict(segment.landmarks)
@@ -128,7 +157,7 @@ def test_segment_rejects_landmarks_keyed_by_the_wrong_name() -> None:
         )
 
 
-@pytest.mark.parametrize("name", ["Upper_Arm", "upper arm", "", "upperArm"])
+@pytest.mark.parametrize("name", ["Upper_Arm", "upper arm", "", "upperArm", "left_upper_arm.L"])
 def test_segment_rejects_non_snake_case_names(name: str) -> None:
     segment = _segment()
     with pytest.raises(ValueError, match="snake_case"):
@@ -148,10 +177,10 @@ def test_segment_rejects_non_snake_case_names(name: str) -> None:
 def _segment_with_no_secondary_axis() -> RigidBodySegment:
     """Way 1: the definition itself stops at a direction."""
     return RigidBodySegment(
-        name="forearm.L",
+        name="left_forearm",
         landmarks={
-            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L"),
-            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="forearm.L"),
+            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="left_forearm"),
+            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="left_forearm"),
         },
         frame_definition=ReferenceFrameDefinition(
             origin_point_name="elbow",
@@ -164,10 +193,10 @@ def _segment_with_no_secondary_axis() -> RigidBodySegment:
 def _segment_awaiting_its_secondary_landmark() -> RigidBodySegment:
     """Way 2: the definition names a roll reference this segment has not been given."""
     return RigidBodySegment(
-        name="forearm.L",
+        name="left_forearm",
         landmarks={
-            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="forearm.L"),
-            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="forearm.L"),
+            "elbow": _landmark(name="elbow", position=(0.0, 0.0, 0.0), segment="left_forearm"),
+            "wrist": _landmark(name="wrist", position=(0.0, -2.0, 0.0), segment="left_forearm"),
         },
         frame_definition=ReferenceFrameDefinition(
             origin_point_name="elbow",
@@ -259,7 +288,7 @@ def test_adding_the_secondary_landmark_promotes_the_same_segment() -> None:
         landmarks={
             **underspecified.landmarks,
             "ulnar_styloid": _landmark(
-                name="ulnar_styloid", position=(1.0, -2.0, 0.0), segment="forearm.L"
+                name="ulnar_styloid", position=(1.0, -2.0, 0.0), segment="left_forearm"
             ),
         },
         frame_definition=underspecified.frame_definition,
@@ -420,15 +449,15 @@ def test_batched_solve_rejects_duplicate_segment_names() -> None:
 
 def test_all_names_puts_the_canonical_name_first() -> None:
     landmark = _landmark(
-        name="shoulder.L", position=(0.0, 0.0, 0.0), aliases=("LSHO", "left_shoulder")
+        name="left_shoulder", position=(0.0, 0.0, 0.0), aliases=("LSHO", "shoulder_joint")
     )
-    assert landmark.all_names == ("shoulder.L", "LSHO", "left_shoulder")
+    assert landmark.all_names == ("left_shoulder", "LSHO", "shoulder_joint")
     assert "aka LSHO" in str(landmark)
 
 
 def test_landmark_with_no_aliases_answers_only_to_its_name() -> None:
-    landmark = _landmark(name="shoulder.L", position=(0.0, 0.0, 0.0))
-    assert landmark.all_names == ("shoulder.L",)
+    landmark = _landmark(name="left_shoulder", position=(0.0, 0.0, 0.0))
+    assert landmark.all_names == ("left_shoulder",)
     assert "aka" not in str(landmark)
 
 
@@ -437,17 +466,17 @@ def test_landmark_with_no_aliases_answers_only_to_its_name() -> None:
     [
         (("",), "non-empty"),
         (("LSHO", "LSHO"), "distinct"),
-        (("shoulder.L",), "differ from the canonical name"),
+        (("left_shoulder",), "differ from the canonical name"),
     ],
     ids=["empty", "duplicated", "same-as-name"],
 )
 def test_landmark_rejects_bad_aliases(aliases: tuple[str, ...], message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        _landmark(name="shoulder.L", position=(0.0, 0.0, 0.0), aliases=tuple(aliases))
+        _landmark(name="left_shoulder", position=(0.0, 0.0, 0.0), aliases=tuple(aliases))
 
 
 def test_aliases_are_an_immutable_tuple() -> None:
-    landmark = _landmark(name="shoulder.L", position=(0.0, 0.0, 0.0), aliases=("LSHO",))
+    landmark = _landmark(name="left_shoulder", position=(0.0, 0.0, 0.0), aliases=("LSHO",))
     with pytest.raises(AttributeError):
         landmark.aliases.append("nope")
 
@@ -458,9 +487,9 @@ def test_segment_carries_aliases_too() -> None:
         name=segment.name,
         landmarks=segment.landmarks,
         frame_definition=segment.frame_definition,
-        aliases=("humerus.L", "arm_upper.L"),
+        aliases=("left_humerus", "left_arm_upper"),
     )
-    assert aliased.all_names == ("upper_arm.L", "humerus.L", "arm_upper.L")
+    assert aliased.all_names == ("left_upper_arm", "left_humerus", "left_arm_upper")
 
 
 def test_underspecified_segment_carries_aliases_too() -> None:
@@ -469,9 +498,9 @@ def test_underspecified_segment_carries_aliases_too() -> None:
         name=segment.name,
         landmarks=segment.landmarks,
         frame_definition=segment.frame_definition,
-        aliases=("radius_ulna.L",),
+        aliases=("left_radius_ulna",),
     )
-    assert aliased.all_names == ("forearm.L", "radius_ulna.L")
+    assert aliased.all_names == ("left_forearm", "left_radius_ulna")
 
 
 def test_segment_rejects_landmarks_whose_names_collide_through_an_alias() -> None:
@@ -484,7 +513,7 @@ def test_segment_rejects_landmarks_whose_names_collide_through_an_alias() -> Non
     }
     with pytest.raises(ValueError, match="claimed by both"):
         RigidBodySegment(
-            name="upper_arm.L",
+            name="left_upper_arm",
             landmarks=landmarks,
             frame_definition=_segment().frame_definition,
         )
@@ -564,7 +593,7 @@ def test_aliased_stream_solves_a_segment_end_to_end() -> None:
     # boundary, and the solver only ever sees canonical names.
     landmarks = {landmark.name: landmark for landmark in _aliased_landmarks()}
     segment = RigidBodySegment(
-        name="upper_arm.L",
+        name="left_upper_arm",
         landmarks=landmarks,
         frame_definition=ReferenceFrameDefinition(
             origin_point_name="shoulder",
@@ -584,7 +613,7 @@ def test_aliased_stream_solves_a_segment_end_to_end() -> None:
         segments=[segment], points=resolver.resolve_points(points=foreign_stream)
     )
     np.testing.assert_allclose(
-        bases["upper_arm.L"].y_axis.array, [0.0, 1.0, 0.0], atol=1e-12
+        bases["left_upper_arm"].y_axis.array, [0.0, 1.0, 0.0], atol=1e-12
     )
 
 
@@ -596,3 +625,20 @@ def test_resolve_all_keys_a_ring_buffer_canonically() -> None:
         capacity=4,
     )
     assert buffer.point_names == ("shoulder", "elbow", "lateral_epicondyle")
+
+# ── FaceBlendShapes ───────────────────────────────────────────────────
+
+
+def test_the_shipped_face_yaml_holds_52_blendshapes() -> None:
+    face_path = (
+        Path(__file__).resolve().parents[1]
+        / "definitions"
+        / "human_skeleton"
+        / "face.yaml"
+    )
+    face = FaceBlendShapes.from_yaml(path=face_path)
+    assert face.name == "human_face"
+    assert len(face) == 52
+    assert "eyeBlinkLeft" in face.blendshape_names
+    assert "tongueOut" in face.blendshape_names
+    assert len(set(face.blendshape_names)) == 52

@@ -1,9 +1,51 @@
+# Leg component.
+#
+# `sided: true` at the file level: authored for the LEFT leg; the loader emits
+# left_* / right_* (right is mirrored across the sagittal plane).
+# Each segment's local +y runs proximal -> distal. The knee is a SHARED landmark: owned
+# by the upper leg (its distal joint), and used as the lower leg's origin. Millimetres,
+# 50th-percentile adult; positions are estimates.
+
 sided: true
+
 segments:
   UPPER_LEG:
+    aliases:
+      - femur
+    reference_geometry:
+      origin: hip_joint
+      y_axis:
+        landmark: knee
+        type: exact
+
   LOWER_LEG:
+    aliases:
+      - tibia_fibula
+    reference_geometry:
+      origin: knee
+      y_axis:
+        landmark: ankle
+        type: exact
 
 landmarks:
-  KNEE = "Center of the right knee joint, intersection of the medial condyle of the femur and the tibia"
-  ANKLE = "Center of the right ankle joint, geometric center of the medial and lateral malleoli"
-  #include condyles, maleoli, greater trochanter, etc
+
+  HIP_JOINT:
+    aliases:
+      - coxofemoral_joint
+    definition: "Geometric center of the hip joint, the femoral head seated in the acetabulum"
+    reference_frame: upper_leg
+    local_position: [0, 0, 0]
+
+  KNEE:
+    aliases:
+      - tibiofemoral_joint
+    definition: "Geometric center of the knee joint, between the femoral condyles and the tibial plateau"
+    reference_frame: upper_leg
+    local_position: [0, 440, 0]
+
+  ANKLE:
+    aliases:
+      - talocrural_joint
+    definition: "Geometric center of the ankle joint, between the tibia/fibula and the talus"
+    reference_frame: lower_leg
+    local_position: [0, 410, 0]

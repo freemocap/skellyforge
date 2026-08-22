@@ -14,18 +14,17 @@ points between the world frame and the newly defined local frame.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Final
-
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_SINE_BETWEEN_DEFINING_VECTORS,
+)
 from skellyforge.core.math.geometry.orthonormal_basis.orthonormal_basis import OrthonormalBasis
 from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition import (
     ReferenceFrameDefinition,
 )
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point, UnitVector
-
-MINIMUM_SINE_BETWEEN_DEFINING_VECTORS: Final[float] = 1e-6
 
 
 def calculate_orthonormal_basis(

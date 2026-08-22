@@ -1,86 +1,91 @@
+# Skull component.
+#
+# Local frame (right-handed, VRM convention):
+#   origin  - geometric center of the foramen magnum (base of the skull)
+#   +x      - subject's LEFT
+#   +y      - UP (superior)
+#   +z      - FORWARD (anterior)
+# Units are millimetres, sized for a 50th-percentile adult. Positions are anatomical
+# estimates, reconciled against the segment frames in the rest-pose pass.
 
 segments:
   SKULL:
-    alias:
+    aliases:
       - head
     reference_geometry:
       origin: head_center
-      z_axis:
-        landmark: skull_vertex
-        type: exact
       y_axis:
+        landmark: head_vertex
+        type: exact
+      z_axis:
         landmark: nose
         type: approximate
-  EYE_BONE:
-    sided: true
-    alias:
-      - eye
-    reference_geometry:
-      origin: head_center
-      z_axis:
-        landmark: eye_socket
-        type: exact
-      y_axis:
-        landmark: skull_top
-        type: approximate
-
-  JAW:
-    reference_geometry:
-      origin: head_center
-      x_axis:
-        landmark: chin
-        type: exact
-      y_axis:
-        landmark: left_ear
-        type: approximate
-
-
-
 
 landmarks:
+
   HEAD_CENTER:
-    definition: "Geometric center of the foramen magnum, the hole at the base of the skull"
-    reference_frame: neck
-    local_position: [0, 157, 0]
+    aliases:
+      - skull_center
+    definition: "Geometric center of the foramen magnum, the hole at the base of the skull where the spinal cord enters"
+    reference_frame: skull
+    local_position: [0, 0, 0]
 
   HEAD_VERTEX:
-    definition: "Tippy top of the head, intersection of the coronal and sagittal sutures (bregma)"
-    reference_frame: head
-    LOCAL_POSITION: [0, 70, 0]
+    aliases:
+      - skull_top
+      - bregma
+    definition: "Top of the head at the bregma, the intersection of the coronal and sagittal sutures"
+    reference_frame: skull
+    local_position: [0, 130, 0]
 
   NOSE:
+    aliases:
+      - nose_tip
     definition: "Tip of the nose"
-    reference_frame: head
-    LOCAL_POSITION: [0, -5, 40]
+    reference_frame: skull
+    local_position: [0, 0, 100]
+
+  CHIN:
+    aliases:
+      - menton
+    definition: "Tip of the chin (menton), the most inferior point of the mandible"
+    reference_frame: skull
+    local_position: [0, -95, 95]
 
   EYE:
     sided: true
-    definition: "Center of the left orbit (inner/outer canthus midpoint)"
-    reference_frame: head
-    local_position: [15, 10, 32]
+    aliases:
+      - eye_center
+    definition: "Geometric center of the eye, the midpoint of the inner and outer canthi"
+    reference_frame: skull
+    local_position: [32, 40, 65]
+
+  EYE_INNER:
+    sided: true
+    aliases:
+      - inner_canthus
+    definition: "Inner corner of the eye (inner canthus), at the lacrimal fossa (tear duct)"
+    reference_frame: skull
+    local_position: [16, 38, 70]
+
+  EYE_OUTER:
+    sided: true
+    aliases:
+      - outer_canthus
+    definition: "Outer corner of the eye (outer canthus), at the junction of the frontal and zygomatic bones"
+    reference_frame: skull
+    local_position: [46, 38, 60]
 
   EAR:
     sided: true
-    definition: "Entrance to the left ear canal (acoustic meatus)"
-    reference_frame: head
-    local_position: [35, -5, 0]
+    aliases:
+      - acoustic_meatus
+    definition: "Entrance to the ear canal (acoustic meatus), just behind the tragus"
+    reference_frame: skull
+    local_position: [70, -5, -10]
 
-##TODO - add these
-# ## skull
-#    SKULL_ORIGIN_FORAMEN_MAGNUM = "Gemoetric center of the foramen magnum, the hole at the base of the skull where the spinal cord enters"
-#    SKULL_TOP_BREGMA = "tippy top of the head, intersection of coronal and sagittal sutures"
-#
-#    ### face
-#    NOSE_TIP = "Tip of the nose"
-#    #### right-face
-#    RIGHT_EYE_INNER = "Inner corner of the right eye socket, in the Lacrimal fossa (aka tear duct), intersection of the frontal bone and the maxilla"
-#    RIGHT_EYE_CENTER = "Geometric center of the `inner` and `outer` keypoints of the right eye keypoints - NOTE - not the center of the orbit"
-#    RIGHT_EYE_OUTER = "Outer corner of the right eye, intersection of the frontal bone and the zygomatic bone"
-#    RIGHT_ACOUSTIC_MEATUS = "Entrance to the Right ear canal, intersection of the temporal bone and the mandible (behind tragus)"
-#    RIGHT_CANINE_TOOTH_TIP = "Tip of the right canine tooth, roughly behind the right corner of the mouth"
-#    #### left-face,
-#    LEFT_EYE_INNER = "Inner corner of the left eye socket, in the Lacrimal fossa (aka tear duct), intersection of the frontal bone and the maxilla"
-#    LEFT_EYE_CENTER = "Geometric center of the `inner` and `outer` keypoints of the left eye keypoints - NOTE - not the center of the orbit"
-#    LEFT_EYE_OUTER = "Outer corner of the left eye, intersection of the frontal bone and the zygomatic bone"
-#    LEFT_ACOUSTIC_MEATUS = "Entrance to the left ear canal, intersection of the temporal bone and the mandible (behind tragus)"
-#    LEFT_CANINE_TOOTH_TIP = "Tip of the left canine tooth, roughly behind the right corner of the mouth"
+  CANINE_TOOTH_TIP:
+    sided: true
+    definition: "Tip of the canine tooth, roughly behind the corner of the mouth"
+    reference_frame: skull
+    local_position: [20, -50, 60]

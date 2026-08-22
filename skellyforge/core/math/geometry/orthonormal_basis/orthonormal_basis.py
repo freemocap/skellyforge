@@ -15,16 +15,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final
-
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import ORTHONORMALITY_TOLERANCE
 from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedness
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point, UnitVector
 from skellyforge.type_overloads import FloatArray
-
-ORTHONORMALITY_TOLERANCE: Final[float] = 1e-8
 
 
 @dataclass(frozen=True, slots=True, eq=False)

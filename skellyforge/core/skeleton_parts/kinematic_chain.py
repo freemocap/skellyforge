@@ -1,7 +1,7 @@
 
 from dataclasses import dataclass
 
-from skellyforge.skeleton_parts.segment_linkage import SegmentLinkage
+from skellyforge.core.skeleton_parts.segment_linkage import SegmentLinkage
 
 ChainNameString = str
 

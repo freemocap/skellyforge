@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.skellymodels.standard_human.human_skeleton import HumanSkeleton
 
@@ -44,7 +44,7 @@ class SegmentLengthState:
 
 def estimate_segment_lengths(
     skeleton: HumanSkeleton,
-    landmarks: dict[str, NDArray[np.float64]],
+    landmarks: dict[str, FloatArray],
     *,
     timestamp_seconds: float,
     window_seconds: float | None,

@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.coordinate_frame_ops import (
     assemble_named_basis,
@@ -33,7 +33,7 @@ from skellyforge.skellymodels.standard_human.standard_human_tpose import (
 )
 
 
-def _axis_rest_direction(axis: AxisDefinition) -> NDArray[np.float64]:
+def _axis_rest_direction(axis: AxisDefinition) -> FloatArray:
     """The axis's authored rest direction, or its row's positive unit vector."""
     if axis.rest_direction is not None:
         return np.asarray(axis.rest_direction, dtype=np.float64)
@@ -41,7 +41,7 @@ def _axis_rest_direction(axis: AxisDefinition) -> NDArray[np.float64]:
     return np.eye(3, dtype=np.float64)[idx]
 
 
-def _default_perpendicular(direction: NDArray[np.float64]) -> NDArray[np.float64]:
+def _default_perpendicular(direction: FloatArray) -> FloatArray:
     """A deterministic unit direction orthogonal to *direction*."""
     ref = np.array([1.0, 0.0, 0.0], dtype=np.float64)
     if abs(float(np.dot(direction, ref))) > 0.9:
@@ -54,7 +54,7 @@ def _default_perpendicular(direction: NDArray[np.float64]) -> NDArray[np.float64
     return perp / norm
 
 
-def _build_rest_basis(segment: RigidBodySegment) -> NDArray[np.float64]:
+def _build_rest_basis(segment: RigidBodySegment) -> FloatArray:
     """The segment's rest orthonormal frame (rows [x-hat, y-hat, z-hat]).
 
     The FIRST axis is the primary direction (hard seed); the SECOND (if present)
@@ -130,8 +130,8 @@ def build_standard_human_tpose(
 
     def build(
         segment: RigidBodySegment,
-        parent_origin: NDArray[np.float64],
-        parent_basis: NDArray[np.float64],
+        parent_origin: FloatArray,
+        parent_basis: FloatArray,
     ) -> None:
         if segment.parent is None:
             origin = np.zeros(3, dtype=np.float64)
@@ -150,7 +150,7 @@ def build_standard_human_tpose(
     for root in roots:
         build(root, np.zeros(3, dtype=np.float64), np.eye(3, dtype=np.float64))
 
-    landmarks: dict[str, NDArray[np.float64]] = {}
+    landmarks: dict[str, FloatArray] = {}
     for segment in skeleton.segments:
         for lm in segment.landmarks:
             if lm.name in landmarks:

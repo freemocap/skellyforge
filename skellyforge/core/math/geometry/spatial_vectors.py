@@ -41,14 +41,15 @@ short "unit" vector.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, Self, overload
+from typing import Self, overload
 
 import numpy as np
 
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_VECTOR_NORM,
+    UNIT_LENGTH_TOLERANCE,
+)
 from skellyforge.type_overloads import FloatArray
-
-MINIMUM_VECTOR_NORM: Final[float] = 1e-9
-UNIT_LENGTH_TOLERANCE: Final[float] = 1e-8
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -132,6 +133,15 @@ class Vector3Array:
         """The `(...,)` z components."""
         return _as_float_array(values=self.array[..., 2])
 
+    def dot(self, *, other: Vector3Array) -> FloatArray:
+        """Row-wise dot product with another `(..., 3)` quantity, returning shape `(...,)`.
+
+        Defined here because projecting one spatial quantity onto another is the same
+        arithmetic whatever the two are - it is the units of the result that differ, and
+        those live in the caller.
+        """
+        return _row_wise_dot(first=self.array, second=other.array)
+
     @property
     def batch_shape(self) -> tuple[int, ...]:
         """The leading dimensions, i.e. everything but the trailing 3."""
@@ -212,10 +222,6 @@ class Displacement(Vector3Array):
             array=self.array * _as_broadcastable_factors(factors=factors)
         )
 
-    def dot(self, *, other: Displacement | UnitVector) -> FloatArray:
-        """Row-wise dot product, returning shape `(...,)`."""
-        return _row_wise_dot(first=self.array, second=other.array)
-
     def norm(self) -> FloatArray:
         """Row-wise length, returning shape `(...,)`."""
         return _as_float_array(values=np.linalg.norm(self.array, axis=-1))
@@ -264,10 +270,6 @@ class UnitVector(Vector3Array):
         """The opposite direction, which is still unit length."""
         return UnitVector.from_prevalidated_array(array=-self.array)
 
-    def dot(self, *, other: Displacement | UnitVector) -> FloatArray:
-        """Row-wise dot product, returning shape `(...,)`."""
-        return _row_wise_dot(first=self.array, second=other.array)
-
     def cross(self, *, other: UnitVector) -> UnitVector:
         """Cross product of two PERPENDICULAR unit vectors.
 
@@ -280,9 +282,7 @@ class UnitVector(Vector3Array):
 
     def scaled_by(self, *, factors: float | FloatArray) -> Displacement:
         """Give this direction a magnitude, producing a `Displacement`."""
-        return Displacement.from_prevalidated_array(
-            array=self.array * _as_broadcastable_factors(factors=factors)
-        )
+        return self.as_displacement().scaled_by(factors=factors)
 
     def as_displacement(self) -> Displacement:
         """This direction as a plain unit-length `Displacement`."""

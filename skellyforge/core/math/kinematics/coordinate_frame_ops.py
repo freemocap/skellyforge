@@ -34,7 +34,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
+from skellyforge.type_overloads import FloatArray
 
 from skellyforge.kinematics.quaternion_math import (
     RotationQuaternion,
@@ -42,7 +42,6 @@ from skellyforge.kinematics.quaternion_math import (
 )
 
 if TYPE_CHECKING:
-    from numpy import float64
     from skellyforge.skellymodels.standard_human.segment_definition import (
         AxisDefinition,
         AxisKind,
@@ -54,11 +53,11 @@ if TYPE_CHECKING:
 
 def build_segment_frame(
     axes: tuple["AxisDefinition", ...],
-    positions: dict[str, NDArray[float64]],
+    positions: dict[str, FloatArray],
     origin_landmark: str,
     *,
     collinearity_threshold: float = 0.9998,
-) -> tuple[NDArray[float64] | None, bool]:
+) -> tuple[FloatArray | None, bool]:
     """Build a segment's local frame from its tagged axis declarations + positions.
 
     The ONE builder used to construct a segment frame from declared axes. The
@@ -142,7 +141,7 @@ def build_segment_frame(
         return None, False
     origin = np.asarray(origin, dtype=np.float64)
 
-    def _direction(target: str) -> NDArray[float64] | None:
+    def _direction(target: str) -> FloatArray | None:
         """origin → target, normalized; ``None`` if absent or degenerate."""
         to = positions.get(target)
         if to is None:
@@ -155,7 +154,7 @@ def build_segment_frame(
 
     # Resolve every declared direction first (so names — not order — decide
     # which hard/soft directions land on which basis vector).
-    dirs: dict[str, NDArray[float64]] = {}
+    dirs: dict[str, FloatArray] = {}
     for name, decl in by_row.items():
         d = _direction(decl.target_landmark)
         if d is None:
@@ -172,10 +171,10 @@ def build_segment_frame(
     # declared on an earlier basis name (approximate-x + exact-y, the hips and
     # toes). Building approximate-first would let a soft direction become the
     # hard first vector and the exact would never orthogonalize against it.
-    built: dict[str, NDArray[float64]] = {}
-    sign_hint: tuple[str, NDArray[float64]] | None = None
+    built: dict[str, FloatArray] = {}
+    sign_hint: tuple[str, FloatArray] | None = None
 
-    def _project(vec: NDArray[float64], against: list[NDArray[float64]]) -> NDArray[float64] | None:
+    def _project(vec: FloatArray, against: list[FloatArray]) -> FloatArray | None:
         """Gram-Schmidt-project vec against already-built vectors; None if it
         collapses below a numerical floor."""
         for v in against:
@@ -257,7 +256,7 @@ def axis_index_and_sign(axis: str) -> tuple[int, float]:
     return _AXIS_TO_INDEX[axis.lstrip("-")], sign
 
 
-def assemble_named_basis(named: dict[int, NDArray[float64]]) -> NDArray[float64]:
+def assemble_named_basis(named: dict[int, FloatArray]) -> FloatArray:
     """Build a right-handed (3,3) basis from two named unit rows + one cross.
 
     Two of the three rows (indexed [x̂, ŷ, ẑ] = 0,1,2) are supplied as already
@@ -285,11 +284,11 @@ def assemble_named_basis(named: dict[int, NDArray[float64]]) -> NDArray[float64]
 
 
 def gram_schmidt_basis(
-    seed_direction: NDArray[float64],
+    seed_direction: FloatArray,
     seed_row: int,
-    hint_direction: NDArray[float64],
+    hint_direction: FloatArray,
     hint_row: int,
-) -> NDArray[float64]:
+) -> FloatArray:
     """Build a right-handed (3,3) basis from a hard seed + a soft hint direction.
 
     The seed is placed hard on its named row; the hint is Gram-Schmidt-projected
@@ -308,8 +307,8 @@ def gram_schmidt_basis(
 
 
 def rotation_between_vectors(
-    from_vector: NDArray[float64],
-    to_vector: NDArray[float64],
+    from_vector: FloatArray,
+    to_vector: FloatArray,
 ) -> RotationQuaternion:
     """Compute the shortest rotation that aligns *from_vector* onto *to_vector*.
 
@@ -380,11 +379,11 @@ def rotation_between_vectors(
 
 
 def align_point_sets_kabsch(
-    reference_points: NDArray[float64],
-    live_points: NDArray[float64],
+    reference_points: FloatArray,
+    live_points: FloatArray,
     *,
     degeneracy_tolerance: float = 1e-4,
-) -> NDArray[float64]:
+) -> FloatArray:
     """Find the optimal rotation aligning two corresponding point sets.
 
     Kabsch algorithm with Umeyama's reflection correction: computes the
@@ -488,8 +487,8 @@ def align_point_sets_kabsch(
 
 
 def compute_rotation_from_live_basis(
-    live_basis: NDArray[float64],
-    reference_basis: NDArray[float64],
+    live_basis: FloatArray,
+    reference_basis: FloatArray,
 ) -> RotationQuaternion:
     """Compute the rotation quaternion from a live basis to a reference basis.
 
@@ -544,7 +543,7 @@ def compute_rotation_from_live_basis(
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
-def _check_unit_vector(vec: NDArray[float64], name: str) -> None:
+def _check_unit_vector(vec: FloatArray, name: str) -> None:
     """Raise ValueError if *vec* is not a unit (3,) vector."""
     if vec.shape != (3,):
         raise ValueError(

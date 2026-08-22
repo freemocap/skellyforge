@@ -9,15 +9,6 @@ import numpy as np
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 
-# `Translation` is the name a transform's displacement goes by in rigid-body language.
-# It is the same object as `Displacement` - the difference between two points - and it
-# exists as a separate name only because `core/skeleton_parts/anatomical_landmark.py`
-# imports it and is outside the scope of this refactor. Once that module moves to `Point`
-# (which is what its `local_position` and `world_position` fields actually are), delete
-# this line and let `Transform.translation` be typed as a plain `Displacement`.
-Translation = Displacement
-
-
 @dataclass(frozen=True, slots=True, eq=False)
 class Transform:
     """A rigid transform: rotate about the origin, then translate.
