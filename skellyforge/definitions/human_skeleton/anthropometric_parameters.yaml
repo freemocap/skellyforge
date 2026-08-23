@@ -1,0 +1,105 @@
+# de Leva (1996) adjusted segment inertial parameters (J. Biomech. 29(9):1223-1230,
+# "Adjustments to Zatsiorsky-Seluyanov's segment inertia parameters").
+#
+# Mass fractions are fractions of TOTAL body mass. Bilateral segments (the limbs) are
+# listed once here, flagged bilateral: true; each side carries the listed fraction. The
+# loader enforces that the fractions, counting bilateral segments twice, sum to 1.0.
+#
+# center_of_mass_fraction is the distance of the segment COM from the PROXIMAL end, as a
+# fraction of segment length. radii_of_gyration are fractions of segment length, about
+# the segment's principal axes through its COM:
+#   sagittal      - the anterior-posterior axis
+#   transverse    - the medio-lateral axis
+#   longitudinal  - along the bone (proximal -> distal)
+#
+# Sourced from de Leva (1996); these are the widely-reproduced adjusted values. The 3D
+# position of each segment's COM (which for the trunk is anterior to the spine because of
+# soft tissue) is authored separately in center_of_mass.yaml, not taken from the 1D
+# center_of_mass_fraction here.
+
+segments:
+  head_neck:
+    mass_fraction: 0.0694
+    center_of_mass_fraction: 0.5002
+    radii_of_gyration:
+      sagittal: 0.303
+      transverse: 0.315
+      longitudinal: 0.261
+
+  upper_trunk:
+    mass_fraction: 0.1596
+    center_of_mass_fraction: 0.5066
+    radii_of_gyration:
+      sagittal: 0.387
+      transverse: 0.340
+      longitudinal: 0.412
+
+  middle_trunk:
+    mass_fraction: 0.1633
+    center_of_mass_fraction: 0.4506
+    radii_of_gyration:
+      sagittal: 0.352
+      transverse: 0.356
+      longitudinal: 0.354
+
+  lower_trunk:
+    mass_fraction: 0.1117
+    center_of_mass_fraction: 0.4458
+    radii_of_gyration:
+      sagittal: 0.338
+      transverse: 0.369
+      longitudinal: 0.251
+
+  upper_arm:
+    bilateral: true
+    mass_fraction: 0.0271
+    center_of_mass_fraction: 0.5772
+    radii_of_gyration:
+      sagittal: 0.285
+      transverse: 0.269
+      longitudinal: 0.158
+
+  forearm:
+    bilateral: true
+    mass_fraction: 0.0162
+    center_of_mass_fraction: 0.4574
+    radii_of_gyration:
+      sagittal: 0.276
+      transverse: 0.265
+      longitudinal: 0.121
+
+  hand:
+    bilateral: true
+    mass_fraction: 0.0061
+    center_of_mass_fraction: 0.7900
+    radii_of_gyration:
+      sagittal: 0.628
+      transverse: 0.513
+      longitudinal: 0.232
+
+  thigh:
+    bilateral: true
+    mass_fraction: 0.1416
+    center_of_mass_fraction: 0.4095
+    radii_of_gyration:
+      sagittal: 0.329
+      transverse: 0.329
+      longitudinal: 0.149
+
+  shank:
+    bilateral: true
+    mass_fraction: 0.0433
+    center_of_mass_fraction: 0.4459
+    radii_of_gyration:
+      sagittal: 0.255
+      transverse: 0.249
+      longitudinal: 0.103
+
+  foot:
+    bilateral: true
+    mass_fraction: 0.0137
+    center_of_mass_fraction: 0.4415
+    radii_of_gyration:
+      sagittal: 0.257
+      transverse: 0.245
+      longitudinal: 0.124

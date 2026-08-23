@@ -1,0 +1,87 @@
+# Center-of-mass definitions per anatomical segment, as weighted sums of skeleton
+# landmarks. A segment's COM is sum(weight * landmark_world_position), with weights
+# normalized to sum to 1.0 (enforced at load).
+#
+# The COM is authored here rather than taken from de Leva's 1D center_of_mass_fraction
+# because the trunk's mass is soft tissue ANTERIOR to the spine: the abdomen COM is
+# placed by anterior landmarks (xiphoid_process, pubic_symphysis), not by the spine
+# landmarks it sits in front of. The limb COM positions, whose mass really is the bone,
+# reproduce de Leva's fractions as two-landmark weighted sums.
+#
+# proximal / distal name the landmarks that define each segment's LONG AXIS and length,
+# which the inertia tensor (segment_inertia.py) is oriented and scaled by. sided: true
+# means the segment exists as a left_/right_ pair, and every landmark name below is
+# written unsided and prefixed left_/right_ at load.
+
+segments:
+  head_neck:
+    proximal: cervicothoracic_junction
+    distal: head_vertex
+    landmarks: [head_center]
+
+  upper_trunk:
+    proximal: cervicothoracic_junction
+    distal: thoracolumbar_junction
+    landmarks:
+      - { landmark: sternoclavicular_notch, weight: 0.5 }
+      - { landmark: xiphoid_process, weight: 0.5 }
+
+  middle_trunk:
+    proximal: thoracolumbar_junction
+    distal: sacrum_top
+    landmarks:
+      - { landmark: xiphoid_process, weight: 0.5 }
+      - { landmark: pubic_symphysis, weight: 0.5 }
+
+  lower_trunk:
+    proximal: sacrum_top
+    distal: pelvis_origin
+    landmarks:
+      - { landmark: sacrum, weight: 0.5 }
+      - { landmark: pubic_symphysis, weight: 0.5 }
+
+  upper_arm:
+    sided: true
+    proximal: shoulder
+    distal: elbow
+    landmarks:
+      - { landmark: shoulder, weight: 0.4228 }
+      - { landmark: elbow, weight: 0.5772 }
+
+  forearm:
+    sided: true
+    proximal: elbow
+    distal: wrist
+    landmarks:
+      - { landmark: elbow, weight: 0.5426 }
+      - { landmark: wrist, weight: 0.4574 }
+
+  hand:
+    sided: true
+    proximal: carpal_origin
+    distal: middle_tip
+    landmarks: [carpal_origin, thumb_mcp, index_mcp, middle_mcp, ring_mcp, pinky_mcp]
+
+  thigh:
+    sided: true
+    proximal: hip_joint
+    distal: knee
+    landmarks:
+      - { landmark: hip_joint, weight: 0.5905 }
+      - { landmark: knee, weight: 0.4095 }
+
+  shank:
+    sided: true
+    proximal: knee
+    distal: ankle
+    landmarks:
+      - { landmark: knee, weight: 0.5541 }
+      - { landmark: ankle, weight: 0.4459 }
+
+  foot:
+    sided: true
+    proximal: calcaneus
+    distal: toe_tip
+    landmarks:
+      - { landmark: calcaneus, weight: 0.5585 }
+      - { landmark: toe_tip, weight: 0.4415 }
