@@ -1,0 +1,66 @@
+# Coordinate-system conventions.
+#
+# A convention names the anatomical direction that each of its three positive axes
+# (+X, +Y, +Z) points along, using the six subject-relative directions:
+#
+#     right, left, up, down, forward, backward
+#
+# The canonical frame everything else is measured against is the Blender frame:
+#
+#     +X right, +Y forward, +Z up   (right-handed)
+#
+# Each direction token maps to a unit vector in that canonical frame, so every
+# convention is defined relative to the same reference and any two of them can be
+# converted through it.
+#
+# Handedness is DERIVED from the axes. The "handedness" key is documentation that is
+# CHECKED on load: if it contradicts the axes, loading fails loudly.
+#
+# "default" names the convention the rest of the codebase is authored in. Everything
+# internal speaks this one frame; another frame is only ever entered or left at an I/O
+# boundary (reading or writing a VRM/glTF file, exporting to a game engine, etc.).
+
+default: blender
+
+conventions:
+  blender:
+    description: "Canonical frame: +X right, +Y forward, +Z up (Blender)."
+    handedness: right
+    x_axis: right
+    y_axis: forward
+    z_axis: up
+
+  vrm:
+    description: "VRM 1.0 / glTF asset frame: +X left, +Y up, +Z forward."
+    handedness: right
+    x_axis: left
+    y_axis: up
+    z_axis: forward
+
+  ros:
+    description: "ROS REP-103: +X forward, +Y left, +Z up."
+    handedness: right
+    x_axis: forward
+    y_axis: left
+    z_axis: up
+
+  isb:
+    description: "ISB global gait frame (Wu & Cavanagh 1995): +X forward, +Y up, +Z right."
+    handedness: right
+    x_axis: forward
+    y_axis: up
+    z_axis: right
+
+  unreal:
+    description: "Unreal Engine: +X forward, +Y right, +Z up. LEFT-handed."
+    handedness: left
+    x_axis: forward
+    y_axis: right
+    z_axis: up
+
+  unity:
+    description: "Unity: +X right, +Y up, +Z forward. LEFT-handed."
+    handedness: left
+    x_axis: right
+    y_axis: up
+    z_axis: forward
