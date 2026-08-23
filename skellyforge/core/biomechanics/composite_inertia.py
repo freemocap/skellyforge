@@ -9,6 +9,7 @@ sum of each segment's tensor about the body center, by the parallel-axis theorem
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -102,15 +103,29 @@ def body_inertial_properties(
 
 
 def whole_body_center_of_mass(
-    *, segment_coms: dict[str, FloatArray], segment_masses: dict[str, float]
-) -> FloatArray:
-    """The mass-weighted mean of the segment centers of mass."""
+    *,
+    segment_coms: Mapping[str, FloatArray | None],
+    segment_masses: Mapping[str, float],
+) -> FloatArray | None:
+    """The mass-weighted mean of the segment centers of mass.
+
+    Segments absent from ``segment_coms`` (or whose COM is ``None`` — fully
+    occluded) are skipped and the remaining masses re-normalized, so the
+    whole-body CoM rolls up over the visible segments. Returns ``None`` when no
+    segment COM is available.
+    """
     total_mass = 0.0
     weighted_sum = np.zeros(3, dtype=np.float64)
     for name, com in segment_coms.items():
-        mass = segment_masses[name]
+        if com is None:
+            continue
+        mass = segment_masses.get(name)
+        if mass is None:
+            continue
         total_mass += mass
         weighted_sum = weighted_sum + mass * com
+    if total_mass <= 0.0:
+        return None
     return weighted_sum / total_mass
 
 

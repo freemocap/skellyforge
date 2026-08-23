@@ -279,11 +279,15 @@ def landmark_world_positions(
     """Every landmark's world position at this pose, keyed by canonical name.
 
     A landmark's world position is its local position rotated by its segment's
-    orientation and translated to that segment's world origin.
+    orientation and translated to that segment's world origin. Segments absent
+    from a partial pose (occluded) are omitted, so their landmarks are absent
+    too — downstream consumers roll up over the visible ones.
     """
     positions: dict[str, FloatArray] = {}
     for segment_name, segment in skeleton.segments.items():
-        segment_pose = pose.segment_poses[segment_name]
+        segment_pose = pose.segment_poses.get(segment_name)
+        if segment_pose is None:
+            continue
         origin = segment_pose.origin.array
         for landmark_name, landmark in segment.landmarks.items():
             positions[landmark_name] = origin + segment_pose.orientation.rotate_vector(
@@ -294,31 +298,41 @@ def landmark_world_positions(
 
 def segment_com(
     *, definition: SegmentComDefinition, side: str | None, world: Mapping[str, FloatArray]
-) -> FloatArray:
-    """One segment's world COM as the weighted sum of its defining landmarks."""
+) -> FloatArray | None:
+    """One segment's world COM as the weighted sum of its defining landmarks.
+
+    Occluded landmarks (absent from ``world``) are skipped and the remaining
+    weights re-normalized, so the COM is the weighted mean of the VISIBLE
+    landmarks. Returns ``None`` when every defining landmark is occluded.
+    """
     total = np.zeros(3, dtype=np.float64)
+    total_weight = 0.0
     for entry in definition.weights:
         resolved = definition.resolve_landmark(side=side, landmark=entry.landmark)
-        try:
-            position = world[resolved]
-        except KeyError as error:
-            raise KeyError(
-                f"COM definition for {definition.name!r} references landmark "
-                f"{resolved!r}, which has no world position"
-            ) from error
+        position = world.get(resolved)
+        if position is None:
+            continue
         total = total + entry.weight * position
-    return total
+        total_weight += entry.weight
+    if total_weight <= 0.0:
+        return None
+    return total / total_weight
 
 
 def compute_segment_coms(
     *, definitions: CenterOfMassDefinitions, world: Mapping[str, FloatArray]
 ) -> dict[str, FloatArray]:
-    """Every segment's world COM, keyed by its full (sided) segment name."""
-    return {
-        full_name: segment_com(definition=definition, side=side, world=world)
-        for definition in definitions.definitions.values()
-        for full_name, side in definition.side_entries
-    }
+    """Every segment's world COM, keyed by its full (sided) segment name.
+
+    Segments whose defining landmarks are all occluded are omitted.
+    """
+    result: dict[str, FloatArray] = {}
+    for definition in definitions.definitions.values():
+        for full_name, side in definition.side_entries:
+            com = segment_com(definition=definition, side=side, world=world)
+            if com is not None:
+                result[full_name] = com
+    return result
 
 
 def segment_anchors(
