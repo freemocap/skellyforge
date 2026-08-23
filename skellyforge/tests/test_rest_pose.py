@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import yaml
 
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.type_overloads import FloatArray
 
 SKELETON_YAML_PATH: Path = (

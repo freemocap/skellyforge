@@ -24,7 +24,7 @@ import yaml
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
 SEGMENT_ENTRY_KEYS = frozenset({"parent", "connect_at", "orientation"})

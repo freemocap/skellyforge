@@ -1,4 +1,5 @@
 name: human
+coordinate_system: blender
 
 components:
   pelvis: { $include: components/pelvis.yaml }

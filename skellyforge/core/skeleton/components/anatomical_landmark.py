@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.naming import raise_unless_aliases_are_valid
+from skellyforge.core.skeleton.components.naming import raise_unless_aliases_are_valid
 from skellyforge.type_overloads import (
     LandmarkDefinitionString,
     LandmarkNameString,

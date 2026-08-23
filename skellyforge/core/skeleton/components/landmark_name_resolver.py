@@ -16,7 +16,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
 from skellyforge.type_overloads import LandmarkNameString
 
 

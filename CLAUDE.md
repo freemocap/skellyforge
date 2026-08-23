@@ -27,24 +27,42 @@ skellyforge/
 │   │   └── kinematics/                   closed-form solvers on observed positions
 │   │       ├── rigid_point_set.py        #   Kabsch fit + RigidPointSet
 │   │       └── coordinate_frame_ops.py   #   shortest-arc rotation, default perpendicular
-│   └── skeleton_parts/                   the typed model
-│       ├── anatomical_landmark.py        #   AnatomicalLandmark
-│       ├── rigid_body_segment.py         #   RigidBodySegment + calculate_bases_for_segments
-│       ├── skeleton_definition.py        #   SkeletonDefinition.from_yaml, global checks
-│       ├── skeleton_yaml_loader.py       #   $include → lowercase → sided → reference frames
-│       ├── rest_pose.py                  #   RestPose.from_yaml + forward kinematics
-│       ├── skeleton_hydration.py         #   hydrate_segment / hydrate_skeleton
-│       ├── skeleton_pose.py              #   SegmentPose / SkeletonPose / PoseSolution
-│       ├── roll_resolution.py            #   ContinuousRollResolver (parallel transport)
-│       ├── segment_length_estimation.py  #   per-subject length calibration
-│       ├── landmark_name_resolver.py     #   alias → canonical, resolved once at load
-│       ├── face_blendshapes.py           #   FaceBlendShapes (52 ARKit, NOT a component)
-│       ├── segment_linkage.py            #   SegmentLinkage (placeholder, layer pending)
-│       ├── kinematic_chain.py            #   KinematicChain (placeholder, layer pending)
-│       └── naming.py
+│   ├── skeleton/                         the typed model
+│   │   ├── skeleton_definition.py        #   SkeletonDefinition.from_yaml, global checks
+│   │   ├── skeleton_pose.py              #   SegmentPose / SkeletonPose / PoseSolution
+│   │   ├── components/                   #   the leaf model types + naming/resolver helpers
+│   │   │   ├── anatomical_landmark.py    #   AnatomicalLandmark
+│   │   │   ├── rigid_body_segment.py     #   RigidBodySegment + calculate_bases_for_segments
+│   │   │   ├── segment_basis_solver.py   #   per-segment basis solver
+│   │   │   ├── landmark_name_resolver.py #   alias → canonical, resolved once at load
+│   │   │   ├── face_blendshapes.py       #   FaceBlendShapes (52 ARKit, NOT a component)
+│   │   │   ├── segment_linkage.py        #   SegmentLinkage (placeholder, layer pending)
+│   │   │   ├── kinematic_chain.py        #   KinematicChain (placeholder, layer pending)
+│   │   │   └── naming.py                 #   snake_case + alias rules
+│   │   ├── loading/                      #   the YAML loader pipeline
+│   │   │   ├── component_building.py     #   $include → lowercase → sided → reference frames → objects
+│   │   │   ├── include_resolution.py     #   $include
+│   │   │   ├── name_lowercasing.py       #   lowercase
+│   │   │   ├── sided_expansion.py        #   left_/right_ prefixing
+│   │   │   └── reference_frame_building.py  #   reference frames
+│   │   └── pose/                         #   pose + hydration
+│   │       ├── rest_pose.py              #   RestPose.from_yaml + forward kinematics
+│   │       ├── hydration.py              #   hydrate_segment / hydrate_skeleton
+│   │       ├── roll_resolution.py        #   ContinuousRollResolver (parallel transport)
+│   │       └── segment_length_estimation.py  # per-subject length calibration
+│   └── biomechanics/                     the derived layer (mass, CoM, inertia)
+│       ├── anthropometric_parameters.py  #   de Leva (1996) masses + radii of gyration
+│       ├── center_of_mass.py             #   per-segment COM = weighted landmark sums
+│       ├── segment_mapping.py            #   61 skeleton segments → 16 anatomical segments
+│       ├── segment_inertia.py            #   per-segment inertia tensor
+│       ├── composite_inertia.py          #   whole-body CoM + inertia (parallel axis)
+│       ├── ground_reference.py           #   CoP / XCoM / CMP
+│       └── derived_kinematics.py         #   CoM velocity / acceleration
 ├── definitions/human_skeleton/           authored YAML (the static source of truth)
 │   ├── human_skeleton.yaml               #   components: pelvis, spine, skull, arm, hand, leg, foot
 │   ├── rest_pose.yaml                    #   the T-pose: parent tree + relative orientations
+│   ├── anthropometric_parameters.yaml    #   de Leva (1996) masses + radii of gyration
+│   ├── center_of_mass.yaml               #   per-segment COM = weighted landmark sums
 │   ├── face.yaml                         #   52 blendshapes (FaceBlendShapes, not the skeleton)
 │   ├── default-vrm.gltf.json5            #   the VRM humanoid the rest pose was derived against
 │   └── components/                       #   one .yaml per component
@@ -86,8 +104,10 @@ installed in the default env either (no lint gate here yet).
 - The authored data carries **provenance comments** (sourced vs. estimated-with-said-so).
 - Boundary rule: skellyforge **never imports** skellytracker or freemocap — it must have a
   standalone existence and expose functionality that `freemocap` consumes.
-- Layering: `core/math/` knows nothing about `core/skeleton_parts/`. Anything needing a
-  skeleton or a pose belongs in `skeleton_parts`, however mathematical it is.
+- Layering: `core/math/` (pure algebra) → `core/skeleton/` (the typed model) →
+  `core/biomechanics/` (the derived layer). Each layer reads the ones below it and is
+  never imported by them; the skeleton never imports biomechanics, and math never
+  imports either.
 - **Canonical coordinate system: Blender's** — right-handed, `+x` right, `+y` forward,
   `+z` up, ground plane at `z = 0`. All definitions and world-space quantities are
   authored in it. Every other convention (VRM/glTF, ROS, ISB, Unreal, Unity, and any a

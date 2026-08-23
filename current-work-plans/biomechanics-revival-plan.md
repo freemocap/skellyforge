@@ -1,8 +1,17 @@
 # Biomechanics Revival Plan
 
+> **Implemented.** This plan is done. The module lives in `core/biomechanics/` with its
+> definitions in `definitions/human_skeleton/`, and its tests are
+> `skellyforge/tests/test_anthropometric_parameters.py`, `test_center_of_mass.py` and
+> `test_biomechanics.py`. Two things diverged from the proposals below: the full de Leva
+> 16-segment table (trunk split into upper/middle/lower) was used rather than the Gen-2
+> 8-segment collapse, and everything lives in one derived `core/biomechanics/` layer rather
+> than the proposed split across two packages (pure math vs model-aware). Kept here as the
+> record of what was swept away and why.
+
 **Goal.** Restore the Center of Mass, inertial, and ground-reference functionality that
 the refactors swept away, rebuilt on the current system (typed geometry, YAML-defined
-skeleton, `SkeletonPose` hydration, VRM y-up coordinates).
+skeleton, `SkeletonPose` hydration, Blender z-up coordinates).
 
 ---
 
@@ -62,8 +71,9 @@ Git history shows three generations of biomechanics code, all deleted:
 | `segment_lengths.py`, `segment_length_estimation.py` | `segment_length_estimation.py` |
 | `quaternion_math.py` | `rotation_quaternion.py` (incl. `compute_angular_velocity`) |
 
-So the **angular-velocity half** of `rigid_body_kinematics` already exists; the
-**linear velocity / acceleration / angular-acceleration** half does not.
+So the **angular-velocity half** of `rigid_body_kinematics` already exists in
+`rotation_quaternion.py`; the **linear velocity / acceleration** half now lives in
+`derived_kinematics.py`.
 
 ---
 
@@ -104,10 +114,10 @@ So the **angular-velocity half** of `rigid_body_kinematics` already exists; the
    primary names now come from `frame_definition.origin_point_name` /
    `frame_definition.primary_point_name` instead of `origin_landmark.name` /
    `primary_axis.target_landmark`.
-6. **Layering.** Pure, skeleton-agnostic math (inertia summation, ground-reference points,
-   finite-difference derivatives) → `core/math/kinematics/`. Anything that needs a skeleton
-   or pose (the BSIP table, the de Leva→segment mapping, per-segment inertia construction) →
-   `core/skeleton_parts/`. (This is the rule `roll_resolution.py` already follows.)
+6. **Layering.** The biomechanics code is a derived layer of its own: `core/biomechanics/`
+   sits above `core/skeleton/`, which sits above the skeleton-agnostic `core/math/`. The
+   BSIP table, the de Leva→segment mapping, per-segment inertia, composite inertia,
+   ground-reference points and the finite-difference derivatives all live there.
 7. **Tolerances** come from `numeric_tolerances.py`. `GRAVITY_MM_S2 = 9810.0` is a physical
    constant, not a tolerance, but should be a named module constant.
 8. **Provenance.** The de Leva table is *sourced* (not estimated) — carry the citation
@@ -115,36 +125,38 @@ So the **angular-velocity half** of `rigid_body_kinematics` already exists; the
 
 ---
 
-## 5. Proposed module layout
+## 5. Implemented module layout
+
+The pure-math-vs-model-aware split proposed above was simplified into a single derived
+layer, `core/biomechanics/`, sitting above `core/skeleton/`:
 
 ```
-core/math/kinematics/
-  rigid_body_kinematics.py     # linear/angular velocity & acceleration (finite differences)
-  composite_inertia.py         # CCRBI sum, principal axes, equimomental ellipsoid (pure math)
-  ground_reference.py          # CoP / XCoM / CMP (pure math, y-up)
-core/skeleton_parts/
-  anthropometric_parameters.py # de Leva 1996 BSIP (frozen dataclass + tables, sourced comments)
-  center_of_mass.py            # de Leva → standard-human mapping + whole-body CoM + redistribution
-  segment_inertia.py           # per-segment world-frame inertia from BSIP + pose ('Phase 2')
+core/biomechanics/
+  anthropometric_parameters.py # de Leva 1996 BSIP (frozen dataclass + YAML, sourced comments)
+  center_of_mass.py            # per-segment CoM = weighted landmark sums (+ YAML)
+  segment_mapping.py           # 61 skeleton segments -> 16 anatomical segments, mass proportional to length cubed
+  segment_inertia.py           # per-segment world-frame inertia from BSIP + pose
+  composite_inertia.py         # whole-body CoM + inertia via the parallel-axis theorem
+  ground_reference.py          # CoP / XCoM / CMP (pure functions, z-up)
+  derived_kinematics.py        # CoM velocity / acceleration (finite differences)
 ```
 
-`composite_inertia` and `ground_reference` take plain arrays (no skeleton dependency), so
-they belong in `core/math/kinematics`; `center_of_mass`, `anthropometric_parameters`, and
-`segment_inertia` are model-aware and belong in `skeleton_parts`.
+The data lives in `definitions/human_skeleton/`: `anthropometric_parameters.yaml` (the de
+Leva table) and `center_of_mass.yaml` (per-segment COM as weighted landmark sums).
 
 ---
 
 ## 6. Order of work (each step lands with its own tests)
 
-1. **`anthropometric_parameters.py`** — pure data, no deps. Tests: the 8 mass fractions
-   sum to 1 (both sexes); every `com_fraction` ∈ (0,1); every radius of gyration > 0;
-   `mean_with` averages correctly.
+1. **`anthropometric_parameters.py`** — pure data, no deps. Tests: the 16 mass
+   fractions sum to 1 (counting bilateral segments twice); every `com_fraction` ∈ (0,1);
+   every radius of gyration > 0.
 2. **`center_of_mass.py`** — the hard part is the mapping table. Test against the rest pose
    (T-pose): whole-body CoM lands near the sagittal midline and near the pelvis height; mass
    sums to 1; the thigh CoM sits at the de Leva fraction along `hip_joint→knee`; occluding
    `left_ball` rolls the foot's mass up the leg and drops `directly_observed_mass`. Port
    and extend the three swept tests.
-3. **`rigid_body_kinematics.py`** — reuse the finite-difference scheme already in
+3. **`derived_kinematics.py`** — reuse the finite-difference scheme already in
    `compute_angular_velocity`; add `compute_linear_velocity`, `compute_linear_acceleration`,
    `compute_angular_acceleration` (global + local). Tests: a constant-velocity trajectory
    gives constant velocity / zero acceleration; a constant-acceleration trajectory gives
@@ -157,7 +169,7 @@ they belong in `core/math/kinematics`; `center_of_mass`, `anthropometric_paramet
 5. **`composite_inertia.py`** — sum + principal axes + ellipsoid (mostly ported, typed).
    Tests: a two-point-mass dumbbell has the analytic `m d²` about the perpendicular axis;
    the ellipsoid semi-axes invert the moments; triangle-inequality violation raises.
-6. **`ground_reference.py`** — CoP/XCoM/CMP re-expressed y-up. Tests: quiet stance → CoP
+6. **`ground_reference.py`** — CoP/XCoM/CMP re-expressed z-up. Tests: quiet stance → CoP
    directly under CoM; a forward CoM velocity puts XCoM ahead of CoM; non-positive vertical
    reaction force raises for CMP; a non-positive CoM height raises for XCoM.
 
@@ -170,16 +182,16 @@ the T-pose (CoM on the midline, inertia symmetric, CoP under CoM).
 
 ## 7. Decisions to make (flagging, not guessing)
 
-- **de Leva is an 8-segment approximation of a 61-segment skeleton.** The hand→`carpals`+
+- **de Leva is a 16-segment approximation of a 61-segment skeleton.** The hand→`carpals`+
   digits and head/trunk composite spans need explicit, hand-authored landmark choices. The
   Gen-2 mapping is the starting point; the new landmark names are in §4.
 - **Mass redistribution chains** must be re-keyed to the new names (`foot→lower_leg→
   upper_leg`, `hand→lower_arm→upper_arm`).
 - **CoP honesty.** With no force plate this is always 'estimated' — keep that flag explicit
   in the API rather than burying it.
-- **de Leva table: Python vs YAML.** Recommend Python (`frozen` dataclass + module constants)
-  for the lowest-friction revival; it is a fixed published table, not authored geometry. Can
-  move to YAML later if the 'static source of truth' convention demands it.
+- **de Leva table: Python vs YAML.** Resolved: it lives in
+  `definitions/human_skeleton/anthropometric_parameters.yaml`, loaded by a frozen dataclass,
+  matching the authored-YAML-is-the-static-source-of-truth convention.
 
 ---
 

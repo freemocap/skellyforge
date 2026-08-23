@@ -4,7 +4,7 @@ Phase 3 (hydration) turns observed landmark positions into per-segment poses. Th
 holds the pure math: the rigid fit (Kabsch) that recovers a segment's rotation and
 translation from landmarks whose pairwise distances are fixed, and the shortest-arc rotation
 that turns a two-landmark direction into an orientation. The parallel-transport convention
-that resolves the roll that orientation leaves free lives in `skeleton_parts`, because it
+that resolves the roll that orientation leaves free lives in `skeleton`, because it
 needs a skeleton and a pose rather than only vectors.
 """
 

@@ -10,9 +10,9 @@ from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition
 )
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.pose.segment_length_estimation import (
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.pose.segment_length_estimation import (
     estimate_segment_lengths,
     measurable_segments,
 )

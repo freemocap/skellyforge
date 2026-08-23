@@ -26,9 +26,9 @@ from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
     RigidPointSet,
 )
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_pose import (
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.skeleton_pose import (
     PoseSolution,
     SegmentPose,
     SkeletonPose,

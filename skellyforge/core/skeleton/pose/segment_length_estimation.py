@@ -19,7 +19,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
 

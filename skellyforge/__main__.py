@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from skellyforge.core.skeleton_parts.face_blendshapes import FaceBlendShapes
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.components.face_blendshapes import FaceBlendShapes
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 
 DEFINITIONS_DIRECTORY: Path = (
     Path(__file__).resolve().parent / "definitions" / "human_skeleton"

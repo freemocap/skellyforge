@@ -20,10 +20,13 @@ from pathlib import Path
 
 import yaml
 
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.loading import (
+from skellyforge.core.math.geometry.coordinate_systems.coordinate_system_registry import (
+    CoordinateSystemRegistry,
+)
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.loading import (
     build_component,
     load_component,
     resolve_includes,
@@ -43,11 +46,15 @@ class SkeletonDefinition:
         name: what this skeleton is called.
         landmarks: every landmark, keyed by its canonical lowercase name.
         segments: every segment, keyed by its canonical lowercase name.
+        coordinate_system: the coordinate-system convention (from the registry) the
+            authored positions and local frames are expressed in - "blender" for the
+            shipped human.
     """
 
     name: SkeletonNameString
     landmarks: Mapping[LandmarkNameString, AnatomicalLandmark]
     segments: Mapping[RigidBodySegmentName, RigidBodySegment]
+    coordinate_system: str = "blender"
     _landmark_name_resolver: LandmarkNameResolver = field(init=False, repr=False)
     _canonical_segment_name_by_known_name: Mapping[
         RigidBodySegmentName, RigidBodySegmentName
@@ -56,6 +63,10 @@ class SkeletonDefinition:
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("skeleton name must be non-empty")
+        if not self.coordinate_system:
+            raise ValueError(
+                f"skeleton {self.name!r}: coordinate system name must be non-empty"
+            )
         if not self.segments:
             raise ValueError(f"skeleton {self.name!r} has no segments")
 
@@ -196,6 +207,19 @@ class SkeletonDefinition:
         if not isinstance(components, Mapping) or not components:
             raise ValueError(f"{path} needs a non-empty `components` mapping")
 
+        coordinate_system = document.get("coordinate_system", "blender")
+        if not isinstance(coordinate_system, str) or not coordinate_system:
+            raise ValueError(
+                f"{path}: 'coordinate_system' must be a non-empty string naming a "
+                f"convention in the coordinate-system registry"
+            )
+        registry = CoordinateSystemRegistry.from_default_yaml()
+        if coordinate_system not in registry.conventions:
+            raise ValueError(
+                f"{path}: unknown coordinate system {coordinate_system!r} - known "
+                f"conventions are {sorted(registry.conventions)}"
+            )
+
         landmarks: dict[LandmarkNameString, AnatomicalLandmark] = {}
         segments: dict[RigidBodySegmentName, RigidBodySegment] = {}
         for component_name, component_node in components.items():
@@ -229,6 +253,7 @@ class SkeletonDefinition:
             name=str(document.get("name", path.stem)),
             landmarks=landmarks,
             segments=segments,
+            coordinate_system=coordinate_system,
         )
 
     @classmethod

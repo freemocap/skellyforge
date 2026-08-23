@@ -37,11 +37,11 @@ from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition
     ReferenceFrameDefinition,
 )
 from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
 )
-from skellyforge.core.skeleton_parts.naming import (
+from skellyforge.core.skeleton.components.naming import (
     raise_unless_aliases_are_valid,
     raise_unless_snake_case_segment_name,
 )

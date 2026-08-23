@@ -16,13 +16,13 @@ from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.point_ring_buffer import PointRingBuffer
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.segment_basis_solver import (
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.components.segment_basis_solver import (
     calculate_bases_for_segments,
 )
-from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver
-from skellyforge.core.skeleton_parts.face_blendshapes import FaceBlendShapes
+from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
+from skellyforge.core.skeleton.components.face_blendshapes import FaceBlendShapes
 
 
 def _landmark(

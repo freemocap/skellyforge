@@ -16,14 +16,14 @@ import pytest
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
-from skellyforge.core.skeleton_parts.pose.roll_resolution import (
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.pose.roll_resolution import (
     ContinuousRollResolver,
     SegmentRollReference,
 )
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
-from skellyforge.core.skeleton_parts.skeleton_pose import PoseSolution
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
+from skellyforge.core.skeleton.skeleton_pose import PoseSolution
 
 SKELETON_YAML_PATH: Path = (
     Path(__file__).resolve().parents[1]

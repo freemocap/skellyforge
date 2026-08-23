@@ -19,7 +19,7 @@ A resolver is stateful and therefore per-take. Call `reset()` between recordings
 build a new one; feeding two takes through one resolver would transport roll across the
 cut.
 
-This lives in `skeleton_parts` rather than in `math/kinematics` because it needs a
+This lives in `skeleton` rather than in `math/kinematics` because it needs a
 skeleton and a pose, not just vectors - the math packages stay free of model types so the
 dependency only ever points one way.
 """
@@ -33,8 +33,8 @@ import numpy as np
 from skellyforge.core.math.geometry.numeric_tolerances import MINIMUM_VECTOR_NORM
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.kinematics.coordinate_frame_ops import default_perpendicular
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_pose import (
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.skeleton_pose import (
     PoseSolution,
     SegmentPose,
     SkeletonPose,

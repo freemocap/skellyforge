@@ -36,10 +36,17 @@ import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose, build_rest_pose
-from skellyforge.core.skeleton_parts.pose.roll_resolution import ContinuousRollResolver
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
+from skellyforge.core.skeleton.pose.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton.pose.roll_resolution import ContinuousRollResolver
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
+from skellyforge.core.biomechanics.anthropometric_parameters import AnthropometricParameters
+from skellyforge.core.biomechanics.center_of_mass import (
+    CenterOfMassDefinitions,
+    compute_segment_coms,
+    landmark_world_positions,
+)
+from skellyforge.core.biomechanics.composite_inertia import whole_body_center_of_mass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFINITIONS = REPO_ROOT / "skellyforge" / "definitions" / "human_skeleton"
@@ -100,6 +107,17 @@ def _build_data() -> dict:
     rest_pose = RestPose.from_yaml(
         path=DEFINITIONS / "rest_pose.yaml", skeleton=skeleton
     )
+    anthropometric = AnthropometricParameters.from_default_yaml()
+    com_definitions = CenterOfMassDefinitions.from_default_yaml()
+    com_definitions.validate_against(skeleton=skeleton)
+    com_names = list(com_definitions.all_segment_names)
+    # Any positive body mass gives the same COM position (it cancels in the weighted
+    # mean); 70 kg is the convention used across the biomechanics tests.
+    segment_masses: dict[str, float] = {}
+    for definition in com_definitions.definitions.values():
+        mass = anthropometric.get(name=definition.name).mass_fraction * 70.0
+        for full_name, _side in definition.side_entries:
+            segment_masses[full_name] = mass
     parents = rest_pose.parents
     connect_ats = rest_pose.connect_ats
     rest_world = rest_pose.segment_orientations
@@ -220,6 +238,14 @@ def _build_data() -> dict:
             pose=hydrate_skeleton(skeleton=skeleton, observed=observed)
         )
 
+        world_positions = landmark_world_positions(skeleton=skeleton, pose=hydrated)
+        segment_coms = compute_segment_coms(
+            definitions=com_definitions, world=world_positions
+        )
+        body_com = whole_body_center_of_mass(
+            segment_coms=segment_coms, segment_masses=segment_masses
+        )
+
         frame_segments = []
         dirs_rec = {}
         dirs_true = {}
@@ -283,6 +309,8 @@ def _build_data() -> dict:
             {
                 "segments": frame_segments,
                 "landmarks": [_vec(observed[name].array) for name in landmark_order],
+                "segment_coms": [_vec(segment_coms[name]) for name in com_names],
+                "body_com": _vec(body_com),
             }
         )
         all_true_positions.extend(point.array for point in true_landmarks.values())
@@ -345,6 +373,7 @@ def _build_data() -> dict:
         "fps": FPS,
         "segments_meta": segments_meta,
         "landmarks_meta": list(landmark_order),
+        "com_names": com_names,
         "frames": frames,
         "timeseries": timeseries,
         "counts": {
@@ -430,12 +459,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <label><input type="checkbox" id="toggleGt" checked> ground truth</label>
       <label><input type="checkbox" id="toggleAxes" checked> orientation axes</label>
       <label><input type="checkbox" id="toggleLandmarks" checked> landmarks</label>
+      <label><input type="checkbox" id="toggleCom" checked> center of mass</label>
     </p>
     <p>
       <span class="dot" style="background:#e74c3c"></span> left bone
       <span class="dot" style="background:#3498db"></span> right bone
       <span class="dot" style="background:#95a5a6"></span> midline bone
       <span class="dot" style="background:#f1c40f"></span> landmark (observed)
+      <span class="dot" style="background:#e67e22"></span> segment COM
+      <span class="dot" style="background:#00e5ff"></span> whole-body COM
     </p>
     <p style="opacity:.85">
       <span class="dot" style="background:#ff6b6b"></span> local x
@@ -464,6 +496,10 @@ var GT_COLOR = 0xffffff;
 var BONE_RADIUS = 5;
 var GT_RADIUS = 3;
 var LANDMARK_RADIUS = 9;
+var COM_COLOR = 0xe67e22;
+var BODY_COM_COLOR = 0x00e5ff;
+var COM_RADIUS = 11;
+var BODY_COM_RADIUS = 20;
 var GIZMO_LENGTH = 30;
 var GIZMO_RADIUS = 1.5;
 var GT_OPACITY = 0.25;
@@ -553,10 +589,31 @@ DATA.landmarks_meta.forEach(function (name) {
   lmGroup.add(sph);
 });
 
+var comGroup = new THREE.Group();
+var segmentComMeshes = [];
+DATA.com_names.forEach(function (name) {
+  var sph = new THREE.Mesh(
+    new THREE.SphereGeometry(COM_RADIUS, 12, 12),
+    new THREE.MeshLambertMaterial({ color: COM_COLOR })
+  );
+  sph.userData = { name: name, kind: "com" };
+  hoverables.push(sph);
+  segmentComMeshes.push(sph);
+  comGroup.add(sph);
+});
+var bodyComMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(BODY_COM_RADIUS, 16, 16),
+  new THREE.MeshLambertMaterial({ color: BODY_COM_COLOR })
+);
+bodyComMesh.userData = { name: "whole-body center of mass", kind: "body_com" };
+hoverables.push(bodyComMesh);
+comGroup.add(bodyComMesh);
+
 scene.add(gtGroup);
 scene.add(segGroup);
 scene.add(axisGroup);
 scene.add(lmGroup);
+scene.add(comGroup);
 
 function applyFrame(t) {
   var F = DATA.frames[t];
@@ -574,6 +631,12 @@ function applyFrame(t) {
     var p = F.landmarks[k];
     landmarkMeshes[k].position.set(p[0], p[1], p[2]);
   }
+  for (var c = 0; c < F.segment_coms.length; c++) {
+    var cp = F.segment_coms[c];
+    segmentComMeshes[c].position.set(cp[0], cp[1], cp[2]);
+  }
+  var bc = F.body_com;
+  bodyComMesh.position.set(bc[0], bc[1], bc[2]);
 }
 
 document.getElementById("counts").textContent =
@@ -595,6 +658,7 @@ document.getElementById("togglePlay").addEventListener("click", function (e) {
 document.getElementById("toggleGt").addEventListener("change", function (e) { gtGroup.visible = e.target.checked; });
 document.getElementById("toggleAxes").addEventListener("change", function (e) { axisGroup.visible = e.target.checked; });
 document.getElementById("toggleLandmarks").addEventListener("change", function (e) { lmGroup.visible = e.target.checked; });
+document.getElementById("toggleCom").addEventListener("change", function (e) { comGroup.visible = e.target.checked; });
 
 var raycaster = new THREE.Raycaster();
 var mouse = new THREE.Vector2();
@@ -619,7 +683,11 @@ renderer.domElement.addEventListener("mousemove", function (event) {
     tooltip.style.top = (event.clientY - rect.top + 14) + "px";
     tooltip.textContent = obj.userData.kind === "segment"
       ? obj.userData.name + " (" + obj.userData.fit + ", " + obj.userData.landmarks + " landmarks)"
-      : obj.userData.name;
+      : obj.userData.kind === "com"
+        ? obj.userData.name + " (segment COM)"
+        : obj.userData.kind === "body_com"
+          ? "whole-body center of mass"
+          : obj.userData.name;
     renderer.domElement.style.cursor = "pointer";
   } else {
     if (hovered) {

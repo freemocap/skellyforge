@@ -14,14 +14,14 @@ from typing import Final
 import yaml
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.loading.include_resolution import resolve_includes
-from skellyforge.core.skeleton_parts.loading.name_lowercasing import _as_list, lowercase_names
-from skellyforge.core.skeleton_parts.loading.reference_frame_building import (
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.loading.include_resolution import resolve_includes
+from skellyforge.core.skeleton.loading.name_lowercasing import _as_list, lowercase_names
+from skellyforge.core.skeleton.loading.reference_frame_building import (
     build_reference_frame_definition,
 )
-from skellyforge.core.skeleton_parts.loading.sided_expansion import expand_sided_entries
+from skellyforge.core.skeleton.loading.sided_expansion import expand_sided_entries
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
 LANDMARK_KEYS: Final[frozenset[str]] = frozenset(

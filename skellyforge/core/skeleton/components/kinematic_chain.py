@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from skellyforge.core.skeleton_parts.segment_linkage import SegmentLinkage
+from skellyforge.core.skeleton.components.segment_linkage import SegmentLinkage
 from skellyforge.type_overloads import ChainNameString
 
 

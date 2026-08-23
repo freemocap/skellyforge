@@ -18,10 +18,10 @@ import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose, build_rest_pose
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
-from skellyforge.core.skeleton_parts.skeleton_pose import PoseSolution, SkeletonPose
+from skellyforge.core.skeleton.pose.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
+from skellyforge.core.skeleton.skeleton_pose import PoseSolution, SkeletonPose
 from skellyforge.type_overloads import FloatArray
 
 SKELETON_YAML_PATH: Path = (

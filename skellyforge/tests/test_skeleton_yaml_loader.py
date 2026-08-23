@@ -11,10 +11,10 @@ import yaml
 from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedness
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
-from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.loading import (
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.loading import (
     build_component,
     build_reference_frame_definition,
     expand_sided_entries,

@@ -35,7 +35,8 @@ skellyforge/
 │   ├── math/
 │   │   ├── geometry/            the affine algebra and reference frames
 │   │   └── kinematics/          closed-form solvers: Kabsch, shortest-arc rotation
-│   └── skeleton_parts/          the typed model: landmarks, segments, skeleton, pose
+│   ├── skeleton/                the typed model: landmarks, segments, skeleton, pose
+│   └── biomechanics/            the derived layer: mass, center of mass, inertia
 ├── definitions/human_skeleton/  the authored YAML — the static source of truth
 └── tests/
 ```
