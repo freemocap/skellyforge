@@ -2,7 +2,7 @@
 #
 # `sided: true` at the file level: authored for the LEFT foot; the loader emits
 # left_* / right_* (right is mirrored across the sagittal plane).
-# Each segment's local +y runs proximal -> distal along the bone. The foot is simplified
+# Each segment's local +z runs proximal -> distal along the bone. The foot is simplified
 # to a midline ball and toe tip (the scaffold's single TOES segment), so the authored
 # landmarks sit at x = 0 and left/right are mirror images. The ankle (talocrural) joint
 # is the shared origin of the heel and foot; the ball is shared by the foot and toes.
@@ -14,21 +14,21 @@ segments:
   HEEL:
     reference_geometry:
       origin: ankle_origin
-      y_axis:
+      z_axis:
         landmark: calcaneus
         type: exact
 
   FOOT:
     reference_geometry:
       origin: ankle_origin
-      y_axis:
+      z_axis:
         landmark: ball
         type: exact
 
   TOES:
     reference_geometry:
       origin: ball
-      y_axis:
+      z_axis:
         landmark: toe_tip
         type: exact
 
@@ -46,14 +46,14 @@ landmarks:
     # estimate, which left the heel unable to reach the floor the ball stands on.
     definition: "Posterior tip of the calcaneus (heel bone), the calcaneal tuberosity"
     reference_frame: heel
-    local_position: [0, 80, 0]
+    local_position: [0, 0, 80]
 
   BALL:
     definition: "Geometric center of the ball of the foot, across the metatarsal heads"
     reference_frame: foot
-    local_position: [0, 155, 0]
+    local_position: [0, 0, 155]
 
   TOE_TIP:
     definition: "Tip of the longest toe (second toe), apex of the distal phalanx"
     reference_frame: toes
-    local_position: [0, 45, 0]
+    local_position: [0, 0, 45]

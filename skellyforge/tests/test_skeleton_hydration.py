@@ -16,7 +16,7 @@ from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 from skellyforge.core.math.geometry.transform_math import Transform
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.skeleton_hydration import (
+from skellyforge.core.skeleton_parts.pose.hydration import (
     hydrate_segment,
     hydrate_skeleton,
 )
@@ -125,7 +125,7 @@ def test_hydrate_segment_raises_without_enough_landmarks() -> None:
 
 
 def test_hydrate_skeleton_recovers_the_rest_pose() -> None:
-    from skellyforge.core.skeleton_parts.rest_pose import RestPose
+    from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
     from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
 
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)

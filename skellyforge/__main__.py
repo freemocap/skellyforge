@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from skellyforge.core.skeleton_parts.face_blendshapes import FaceBlendShapes
-from skellyforge.core.skeleton_parts.rest_pose import RestPose
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
 
 DEFINITIONS_DIRECTORY: Path = (

@@ -12,9 +12,9 @@ from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedne
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.rest_pose import RestPose
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_yaml_loader import (
+from skellyforge.core.skeleton_parts.loading import (
     build_component,
     build_reference_frame_definition,
     expand_sided_entries,
@@ -353,13 +353,13 @@ def test_the_pelvis_segment_is_fully_specified() -> None:
     pelvis = _pelvis().segments["pelvis"]
     assert pelvis.is_fully_specified
     assert pelvis.frame_definition.origin_point_name == "pelvis_origin"
-    assert pelvis.frame_definition.primary_axis is SpatialAxis.X
+    assert pelvis.frame_definition.primary_axis is SpatialAxis.NEGATIVE_X
 
 
 def test_the_hip_sockets_mirror_each_other() -> None:
     landmarks = _pelvis().landmarks
-    np.testing.assert_allclose(landmarks["left_hip_socket"].local_position.array, [88, 0, 0])
-    np.testing.assert_allclose(landmarks["right_hip_socket"].local_position.array, [-88, 0, 0])
+    np.testing.assert_allclose(landmarks["left_hip_socket"].local_position.array, [-88, 0, 0])
+    np.testing.assert_allclose(landmarks["right_hip_socket"].local_position.array, [88, 0, 0])
 
 
 def test_every_sided_pelvis_landmark_has_a_mirrored_partner() -> None:
@@ -512,9 +512,9 @@ def test_the_shipped_hand_yaml_loads() -> None:
     assert len(hand.landmarks) == 66
     # The CMC joint is owned by the carpals and shared as the metacarpal's origin.
     assert hand.segments["left_index_metacarpal"].frame_definition.origin_point_name == "left_index_cmc"
-    # The pinky sits on the ulnar side: negative x is legitimate for a fan-shaped hand.
-    assert hand.landmarks["left_pinky_cmc"].local_position.array[0] < 0.0
-    assert hand.landmarks["right_pinky_cmc"].local_position.array[0] > 0.0
+    # The pinky sits on the ulnar side: positive x is legitimate for a fan-shaped hand.
+    assert hand.landmarks["left_pinky_cmc"].local_position.array[0] > 0.0
+    assert hand.landmarks["right_pinky_cmc"].local_position.array[0] < 0.0
 
 def test_the_shipped_leg_yaml_loads() -> None:
     leg = SkeletonDefinition.from_component_yaml(path=LEG_YAML_PATH, name="leg")
@@ -677,13 +677,13 @@ def _bilateral_component() -> dict[str, object]:
 
 
 def test_left_and_right_local_frames_agree_on_up_forward_and_distal() -> None:
-    """The two sides' frames must mean the same thing, which is the VRM convention.
+    """The two sides' frames must mean the same thing, which is the Blender convention.
 
     Mirroring the coordinates alone left the right side's frame as the left side's rotated
-    a half turn about y, so local +z was anterior on the left and posterior on the right -
+    a half turn about y, so local +y was anterior on the left and posterior on the right -
     the same joint angle would have carried opposite signs on the two sides. Negating
-    x-axis declarations on the right makes +y distal and +z anterior on both, at the cost
-    of +x being lateral on the left and medial on the right, which a right-handed triad
+    x-axis declarations on the right makes +z distal and +y anterior on both, at the cost
+    of +x being medial on the left and lateral on the right, which a right-handed triad
     cannot avoid.
     """
     landmarks, segments = build_component(component=_bilateral_component(), name="limb")
@@ -738,24 +738,29 @@ def test_the_shipped_clavicles_share_one_local_x_direction() -> None:
     """The clavicle is the only shipped sided segment with an x-axis declaration."""
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     assert (
-        skeleton.segments["left_clavicle"].frame_definition.primary_axis is SpatialAxis.X
+        skeleton.segments["left_clavicle"].frame_definition.primary_axis is SpatialAxis.NEGATIVE_X
     )
     assert (
         skeleton.segments["right_clavicle"].frame_definition.primary_axis
-        is SpatialAxis.NEGATIVE_X
+        is SpatialAxis.X
     )
     # World positions, not local ones: this segment's origin is a landmark of the chest,
     # so its local position lives in the chest's frame and the two cannot be subtracted.
     world_positions = RestPose.from_yaml(
         path=REST_POSE_YAML_PATH, skeleton=skeleton
     ).landmark_positions
+    expected_x = 140.0 / float(np.hypot(140.0, 75.0))
+    expected_y = 75.0 / float(np.hypot(140.0, 75.0))
     for side in ("left", "right"):
         direction = skeleton.segments[f"{side}_clavicle"].calculate_direction(
             points=world_positions
         )
+        # The clavicle angles posteriorly: its primary direction runs toward the subject's
+        # right with an anterior component on the left, mirrored to a posterior component
+        # on the right (the acromion sits behind the sternoclavicular joint).
         np.testing.assert_allclose(
             direction.array,
-            [1.0, 0.0, 0.0],
-            atol=1e-12,
-            err_msg=f"the {side} clavicle's local +x should run toward the subject's left",
+            [expected_x, expected_y if side == "left" else -expected_y, 0.0],
+            atol=1e-9,
+            err_msg=f"the {side} clavicle's local +x should run toward the subject's right and back",
         )

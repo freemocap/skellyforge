@@ -12,7 +12,7 @@ from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import Spatia
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.segment_length_estimation import (
+from skellyforge.core.skeleton_parts.pose.segment_length_estimation import (
     estimate_segment_lengths,
     measurable_segments,
 )

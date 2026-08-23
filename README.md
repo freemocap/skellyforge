@@ -44,13 +44,17 @@ skellyforge/
 
 A **keypoint** is tracker-side: a point measured by a detector and triangulated to 3D. A
 **landmark** is model-side: a named point in a segment's local frame, with a static rest
-definition and a per-frame world position. A **segment** is a VRM-aligned rigid body —
+definition and a per-frame world position. A **segment** is a rigid body —
 origin, orientation, length — whose landmarks are declared explicitly.
 
 ### Coordinate system
 
-VRM convention, right-handed, millimetres, 50th-percentile adult:
-`+x` is the subject's **left**, `+y` is **up**, `+z` is **forward**.
+Blender convention, right-handed, millimetres, 50th-percentile adult:
+`+x` is the subject's **right**, `+y` is **forward**, `+z` is **up** (ground plane at `z = 0`).
+
+Other conventions (VRM/glTF, ROS, ISB, Unreal, Unity) are declared in
+`definitions/coordinate_systems/coordinate_systems.yaml`; `CoordinateSystemTransform`
+converts between them at I/O boundaries.
 
 Sided structures are authored once for the left side; the loader emits `left_*` and
 `right_*`, mirrors x, and negates x-axis declarations on the right so both sides' local

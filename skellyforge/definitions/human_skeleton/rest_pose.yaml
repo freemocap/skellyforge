@@ -1,223 +1,122 @@
 # Rest pose (T-pose) for the standard human, matching the VRM default humanoid.
-# `default-vrm.gltf.json5` in this directory is that humanoid as exported from the
+# default-vrm.gltf.json5 in this directory is that humanoid as exported from the
 # Blender VRM extension - the reference the orientations below were derived against,
 # and what to check a change here against.
 #
-# Each segment names its `parent`, an optional `connect_at` (the PARENT-owned landmark its
-# origin sits on - defaulting to the segment's own origin landmark, which is exactly right
-# for a shared joint), and an optional `orientation`: a PARENT-RELATIVE [w, x, y, z]
-# quaternion, defaulting to identity. Walking the tree composes these into world
-# transforms. `RestPose.from_yaml` requires an entry for every segment of the skeleton and
-# exactly one root, and refuses a `connect_at` the parent does not own.
+# The coordinate system is Blender's: right-handed, +x right, +y forward, +z up, with the
+# feet standing on the z = 0 ground plane. Each segment names its parent, an optional
+# connect_at (the PARENT-owned landmark its origin sits on - defaulting to the segment's
+# own origin landmark, which is exactly right for a shared joint), and an optional
+# orientation: a PARENT-RELATIVE [w, x, y, z] quaternion, defaulting to identity. Walking
+# the tree composes these into world transforms. RestPose.from_yaml requires an entry for
+# every segment of the skeleton and exactly one root, and refuses a connect_at the parent
+# does not own.
 #
-# Every segment's local +y runs proximal -> distal, so an identity orientation means "this
+# Every segment's local +z runs proximal -> distal, so an identity orientation means "this
 # segment continues straight on from its parent". Only the following need to say more, and
 # each is derived rather than dialled in:
 #
-#   upper_arm   [0.5, -0.5, -+0.5, -+0.5]   maps local +y onto world -+x, so the arms reach
-#                                           out to the sides. The right side is the left
-#                                           mirrored across the sagittal plane, which for a
-#                                           quaternion is (w, x, -y, -z).
-#   upper_leg   [0, 1, 0, 0]                a half turn about x: local +y (toward the knee)
-#                                           becomes world -y, so the legs point down. Its
-#                                           own mirror image, so both sides are identical.
-#   foot        [0.849, -0.529, 0, 0]       -63.86 deg about x. Composed with the leg's
-#                                           half turn this puts the ankle 68.3 mm above the
-#                                           ball, which is the ankle joint centre's height.
-#   heel        [0.96276, 0.270359, 0, 0]      +31.34 deg about x. Composed with the leg's
-#                                           half turn it aims the 80 mm calcaneus at the
-#                                           SAME height as the ball, so the foot has a flat
-#                                           ground plane rather than a heel in the air.
-#   toes        [0, 0, 0.974, -0.226]       a half turn about (0, 0.974, -0.226), which
-#                                           lands the toes flat and forward from the ball.
-#                                           Self-mirroring, so both sides are identical.
+#   upper_arm   maps local +z onto world -+x, so the arms reach out to the sides. The
+#               right side is the left mirrored across the sagittal plane, which for a
+#               quaternion is (w, x, -y, -z).
+#   upper_leg   a half turn about x: local +z (toward the knee) becomes world -z, so the
+#               legs point down. Its own mirror image, so both sides are identical.
+#   foot        -63.86 deg about x. Composed with the leg's half turn this puts the ankle
+#               68.3 mm above the ball, which is the ankle joint centre's height.
+#   heel        +31.34 deg about x. Composed with the leg's half turn it aims the 80 mm
+#               calcaneus at the SAME height as the ball, so the foot has a flat ground
+#               plane rather than a heel in the air.
+#   toes        a half turn that lands the toes flat and forward from the ball.
+#               Self-mirroring, so both sides are identical.
 #
 name: human
 segments:
   pelvis: {}
-  lumbar_spine:
-    parent: pelvis
-    connect_at: sacrum_top
-  chest:
-    parent: lumbar_spine
-    connect_at: thoracolumbar_junction
-  cervical_spine:
-    parent: chest
-    connect_at: cervicothoracic_junction
-  skull:
-    parent: cervical_spine
-    connect_at: craniocervical_junction
-  left_clavicle:
-    parent: chest
-    connect_at: left_sternoclavicular
+  lumbar_spine: {parent: pelvis, connect_at: sacrum_top}
+  chest: {parent: lumbar_spine, connect_at: thoracolumbar_junction}
+  cervical_spine: {parent: chest, connect_at: cervicothoracic_junction}
+  skull: {parent: cervical_spine, connect_at: craniocervical_junction}
+  left_clavicle: {parent: chest, connect_at: left_sternoclavicular}
   left_upper_arm:
     parent: left_clavicle
     connect_at: left_acromion
-    orientation:
-    - 0.5
-    - -0.5
-    - -0.5
-    - -0.5
-  left_lower_arm:
-    parent: left_upper_arm
-  left_carpals:
-    parent: left_lower_arm
-    connect_at: left_wrist
-  left_thumb_metacarpal:
-    parent: left_carpals
-  left_thumb_proximal_phalanx:
-    parent: left_thumb_metacarpal
-  left_thumb_distal_phalanx:
-    parent: left_thumb_proximal_phalanx
-  left_index_metacarpal:
-    parent: left_carpals
-  left_index_proximal_phalanx:
-    parent: left_index_metacarpal
-  left_index_middle_phalanx:
-    parent: left_index_proximal_phalanx
-  left_index_distal_phalanx:
-    parent: left_index_middle_phalanx
-  left_middle_metacarpal:
-    parent: left_carpals
-  left_middle_proximal_phalanx:
-    parent: left_middle_metacarpal
-  left_middle_middle_phalanx:
-    parent: left_middle_proximal_phalanx
-  left_middle_distal_phalanx:
-    parent: left_middle_middle_phalanx
-  left_ring_metacarpal:
-    parent: left_carpals
-  left_ring_proximal_phalanx:
-    parent: left_ring_metacarpal
-  left_ring_middle_phalanx:
-    parent: left_ring_proximal_phalanx
-  left_ring_distal_phalanx:
-    parent: left_ring_middle_phalanx
-  left_pinky_metacarpal:
-    parent: left_carpals
-  left_pinky_proximal_phalanx:
-    parent: left_pinky_metacarpal
-  left_pinky_middle_phalanx:
-    parent: left_pinky_proximal_phalanx
-  left_pinky_distal_phalanx:
-    parent: left_pinky_middle_phalanx
+    orientation: [-0.5, -0.5, 0.5, 0.5]
+  left_lower_arm: {parent: left_upper_arm}
+  left_carpals: {parent: left_lower_arm, connect_at: left_wrist}
+  left_thumb_metacarpal: {parent: left_carpals}
+  left_thumb_proximal_phalanx: {parent: left_thumb_metacarpal}
+  left_thumb_distal_phalanx: {parent: left_thumb_proximal_phalanx}
+  left_index_metacarpal: {parent: left_carpals}
+  left_index_proximal_phalanx: {parent: left_index_metacarpal}
+  left_index_middle_phalanx: {parent: left_index_proximal_phalanx}
+  left_index_distal_phalanx: {parent: left_index_middle_phalanx}
+  left_middle_metacarpal: {parent: left_carpals}
+  left_middle_proximal_phalanx: {parent: left_middle_metacarpal}
+  left_middle_middle_phalanx: {parent: left_middle_proximal_phalanx}
+  left_middle_distal_phalanx: {parent: left_middle_middle_phalanx}
+  left_ring_metacarpal: {parent: left_carpals}
+  left_ring_proximal_phalanx: {parent: left_ring_metacarpal}
+  left_ring_middle_phalanx: {parent: left_ring_proximal_phalanx}
+  left_ring_distal_phalanx: {parent: left_ring_middle_phalanx}
+  left_pinky_metacarpal: {parent: left_carpals}
+  left_pinky_proximal_phalanx: {parent: left_pinky_metacarpal}
+  left_pinky_middle_phalanx: {parent: left_pinky_proximal_phalanx}
+  left_pinky_distal_phalanx: {parent: left_pinky_middle_phalanx}
   left_upper_leg:
     parent: pelvis
     connect_at: left_hip_socket
-    orientation:
-    - 0
-    - 1
-    - 0
-    - 0
-  left_lower_leg:
-    parent: left_upper_leg
+    orientation: [0, 1, 0, 0]
+  left_lower_leg: {parent: left_upper_leg}
   left_foot:
     parent: left_lower_leg
     connect_at: left_ankle
-    orientation:
-    - 0.849
-    - -0.529
-    - 0
-    - 0
+    orientation: [0.848728, 0.52883, 0, 0]
   left_toes:
     parent: left_foot
-    orientation:
-    - 0
-    - 0
-    - 0.974
-    - -0.226
+    orientation: [0, 0, -0.226028, 0.974121]
   left_heel:
     parent: left_lower_leg
     connect_at: left_ankle
-    orientation:  # +31.34 deg about x; heel runs down and back onto the ball's plane
-    - 0.96276
-    - 0.270359
-    - 0
-    - 0
-  right_clavicle:
-    parent: chest
-    connect_at: right_sternoclavicular
+    orientation: [0.96276, -0.270359, 0, 0]
+  right_clavicle: {parent: chest, connect_at: right_sternoclavicular}
   right_upper_arm:
     parent: right_clavicle
     connect_at: right_acromion
-    orientation:
-    - 0.5
-    - -0.5
-    - 0.5
-    - 0.5
-  right_lower_arm:
-    parent: right_upper_arm
-  right_carpals:
-    parent: right_lower_arm
-    connect_at: right_wrist
-  right_thumb_metacarpal:
-    parent: right_carpals
-  right_thumb_proximal_phalanx:
-    parent: right_thumb_metacarpal
-  right_thumb_distal_phalanx:
-    parent: right_thumb_proximal_phalanx
-  right_index_metacarpal:
-    parent: right_carpals
-  right_index_proximal_phalanx:
-    parent: right_index_metacarpal
-  right_index_middle_phalanx:
-    parent: right_index_proximal_phalanx
-  right_index_distal_phalanx:
-    parent: right_index_middle_phalanx
-  right_middle_metacarpal:
-    parent: right_carpals
-  right_middle_proximal_phalanx:
-    parent: right_middle_metacarpal
-  right_middle_middle_phalanx:
-    parent: right_middle_proximal_phalanx
-  right_middle_distal_phalanx:
-    parent: right_middle_middle_phalanx
-  right_ring_metacarpal:
-    parent: right_carpals
-  right_ring_proximal_phalanx:
-    parent: right_ring_metacarpal
-  right_ring_middle_phalanx:
-    parent: right_ring_proximal_phalanx
-  right_ring_distal_phalanx:
-    parent: right_ring_middle_phalanx
-  right_pinky_metacarpal:
-    parent: right_carpals
-  right_pinky_proximal_phalanx:
-    parent: right_pinky_metacarpal
-  right_pinky_middle_phalanx:
-    parent: right_pinky_proximal_phalanx
-  right_pinky_distal_phalanx:
-    parent: right_pinky_middle_phalanx
+    orientation: [0.5, 0.5, 0.5, 0.5]
+  right_lower_arm: {parent: right_upper_arm}
+  right_carpals: {parent: right_lower_arm, connect_at: right_wrist}
+  right_thumb_metacarpal: {parent: right_carpals}
+  right_thumb_proximal_phalanx: {parent: right_thumb_metacarpal}
+  right_thumb_distal_phalanx: {parent: right_thumb_proximal_phalanx}
+  right_index_metacarpal: {parent: right_carpals}
+  right_index_proximal_phalanx: {parent: right_index_metacarpal}
+  right_index_middle_phalanx: {parent: right_index_proximal_phalanx}
+  right_index_distal_phalanx: {parent: right_index_middle_phalanx}
+  right_middle_metacarpal: {parent: right_carpals}
+  right_middle_proximal_phalanx: {parent: right_middle_metacarpal}
+  right_middle_middle_phalanx: {parent: right_middle_proximal_phalanx}
+  right_middle_distal_phalanx: {parent: right_middle_middle_phalanx}
+  right_ring_metacarpal: {parent: right_carpals}
+  right_ring_proximal_phalanx: {parent: right_ring_metacarpal}
+  right_ring_middle_phalanx: {parent: right_ring_proximal_phalanx}
+  right_ring_distal_phalanx: {parent: right_ring_middle_phalanx}
+  right_pinky_metacarpal: {parent: right_carpals}
+  right_pinky_proximal_phalanx: {parent: right_pinky_metacarpal}
+  right_pinky_middle_phalanx: {parent: right_pinky_proximal_phalanx}
+  right_pinky_distal_phalanx: {parent: right_pinky_middle_phalanx}
   right_upper_leg:
     parent: pelvis
     connect_at: right_hip_socket
-    orientation:
-    - 0
-    - 1
-    - 0
-    - 0
-  right_lower_leg:
-    parent: right_upper_leg
+    orientation: [0, 1, 0, 0]
+  right_lower_leg: {parent: right_upper_leg}
   right_foot:
     parent: right_lower_leg
     connect_at: right_ankle
-    orientation:
-    - 0.849
-    - -0.529
-    - 0
-    - 0
+    orientation: [0.848728, 0.52883, 0, 0]
   right_toes:
     parent: right_foot
-    orientation:
-    - 0
-    - 0
-    - 0.974
-    - -0.226
+    orientation: [0, 0, -0.226028, 0.974121]
   right_heel:
     parent: right_lower_leg
     connect_at: right_ankle
-    orientation:  # +31.34 deg about x; heel runs down and back onto the ball's plane
-    - 0.96276
-    - 0.270359
-    - 0
-    - 0
+    orientation: [0.96276, -0.270359, 0, 0]

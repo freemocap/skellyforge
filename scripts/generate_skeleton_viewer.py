@@ -36,10 +36,10 @@ import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.rest_pose import RestPose, build_rest_pose
-from skellyforge.core.skeleton_parts.roll_resolution import ContinuousRollResolver
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton_parts.pose.roll_resolution import ContinuousRollResolver
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_hydration import hydrate_skeleton
+from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFINITIONS = REPO_ROOT / "skellyforge" / "definitions" / "human_skeleton"
@@ -167,17 +167,17 @@ def _build_data() -> dict:
         horizontal_angle = SHOULDER_HORIZONTAL_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT)
         elbow_angle = ELBOW_FLEX_AMP * (1.0 - np.cos(4.0 * np.pi * t / FRAME_COUNT)) / 2.0
 
-        shoulder_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, -horizontal_angle, vertical_angle])
+        shoulder_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, vertical_angle, -horizontal_angle])
         )
-        shoulder_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, horizontal_angle, -vertical_angle])
+        shoulder_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, -vertical_angle, horizontal_angle])
         )
-        elbow_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, 0.0, elbow_angle]))
-        elbow_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, 0.0, -elbow_angle]))
+        elbow_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, elbow_angle, 0.0]))
+        elbow_right = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, -elbow_angle, 0.0]))
 
         # A little head nod (pitch) + turn (yaw), skull only, so its landmarks move with it.
         head_nod = HEAD_NOD_AMP * np.sin(2.0 * np.pi * t / FRAME_COUNT + 1.2)
         head_turn = HEAD_TURN_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT + 0.6)
-        head_rotation = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([head_nod, head_turn, 0.0]))
+        head_rotation = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([-head_nod, 0.0, head_turn]))
 
         world = {}
         for name in segment_order:
@@ -475,6 +475,7 @@ var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a2e);
 
 var camera = new THREE.PerspectiveCamera(50, 1, 10, 20000);
+camera.up.set(0, 0, 1);
 
 var renderer = new THREE.WebGLRenderer({ antialias: true });
 leftEl.appendChild(renderer.domElement);
@@ -507,7 +508,7 @@ function placeCylinder(cyl, a, b) {
 
 var CENTER = vec3(DATA.center);
 controls.target.copy(CENTER);
-camera.position.set(CENTER.x + 1000, CENTER.y + 600, CENTER.z + 1500);
+camera.position.set(CENTER.x + 1000, CENTER.y + 1500, CENTER.z + 600);
 controls.update();
 
 var hoverables = [];

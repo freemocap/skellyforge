@@ -82,12 +82,13 @@ So the **angular-velocity half** of `rigid_body_kinematics` already exists; the
 
 ## 4. Key adaptations for the new system
 
-1. **Axis convention: z-up → y-up.** This is the single biggest correctness trap. The old
-   `ground_reference.py` said 'z is vertical, ground plane z = 0'. The current system is
-   VRM: **+x left, +y up, +z forward**; the ground plane is horizontal (`y = 0`) and
-   vertical is **y**. `test_both_feet_stand_on_one_flat_ground_plane` already asserts foot
-   contacts share a `y` height. CoP/XCoM/CMP must use `y` as the vertical axis and
-   `g = (0, -g, 0)`.
+1. **Axis convention: already z-up.** Since this plan was written, the whole package was
+   re-authored into Blender's convention (**+x right, +y forward, +z up**, ground plane at
+   `z = 0`). The old `ground_reference.py` already used 'z is vertical, ground plane
+   z = 0', so its vertical axis now MATCHES the canonical frame - no z/y flip is needed.
+   `test_both_feet_stand_on_one_flat_ground_plane` now asserts foot contacts share a `z`
+   height. CoP/XCoM/CMP keep `z` as the vertical axis with `g = (0, 0, -g)`, and any
+   residual horizontal-convention mismatch goes through `CoordinateSystemTransform`.
 2. **Naming: `.L`/`.R` suffix → `left_`/`right_` prefix.** And segment renames:
    `forearm` → `lower_arm`, `thigh` → `upper_leg`, `shank` → `lower_leg`,
    `hand` → `carpals`+digits, `foot` → `foot` (origin `ankle_origin`, primary `ball`).

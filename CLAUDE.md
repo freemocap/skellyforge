@@ -88,6 +88,11 @@ installed in the default env either (no lint gate here yet).
   standalone existence and expose functionality that `freemocap` consumes.
 - Layering: `core/math/` knows nothing about `core/skeleton_parts/`. Anything needing a
   skeleton or a pose belongs in `skeleton_parts`, however mathematical it is.
+- **Canonical coordinate system: Blender's** — right-handed, `+x` right, `+y` forward,
+  `+z` up, ground plane at `z = 0`. All definitions and world-space quantities are
+  authored in it. Every other convention (VRM/glTF, ROS, ISB, Unreal, Unity, and any a
+  user defines) lives in `definitions/coordinate_systems/coordinate_systems.yaml` and is
+  entered or left only at an I/O boundary, through `CoordinateSystemTransform`.
 
 ## Vocabulary
 
@@ -107,9 +112,9 @@ definition and a per-frame world hydration. A **segment** is a VRM-1.0-aligned r
   is what keeps `reference_geometry` (Gram-Schmidt) and `local_position` (Kabsch, forward
   kinematics) from being two different answers to "which way does this segment face".
 - **Left and right local frames mean the same thing.** The loader negates x-axis
-  declarations on the right side, so both sides get local `+x` toward the subject's left,
-  `+y` up, `+z` forward — VRM's convention, right-handed on both. A right-handed triad
-  cannot mirror all three axes, so `+x` is lateral on the left and medial on the right.
+  declarations on the right side, so both sides get local `+x` toward the subject's right,
+  `+y` forward, `+z` up — Blender's convention, right-handed on both. A right-handed triad
+  cannot mirror all three axes, so `+x` is medial on the left and lateral on the right.
 - **The rest pose has exactly one root, and every segment has an entry.** A `connect_at`
   must be owned by the parent, whether it was named or defaulted.
 - **The feet stand on one flat ground plane.** Enforced by

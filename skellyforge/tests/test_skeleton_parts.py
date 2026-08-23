@@ -17,8 +17,8 @@ from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import Spatia
 from skellyforge.core.math.geometry.point_ring_buffer import PointRingBuffer
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton_parts.rigid_body_segment import (
-    RigidBodySegment,
+from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton_parts.segment_basis_solver import (
     calculate_bases_for_segments,
 )
 from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver

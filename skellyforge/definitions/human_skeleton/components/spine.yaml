@@ -7,7 +7,7 @@
 # added complexity without contributing anything the closed-form hydration can
 # use, and the tracker cannot see individual vertebrae anyway.
 #
-# Local frame (right-handed, VRM convention): +x LEFT, +y UP, +z FORWARD.
+# Local frame (right-handed, Blender convention): +x RIGHT, +y FORWARD, +z UP.
 # Units are millimetres, sized for a 50th-percentile adult. Junction heights are
 # vertebral-column estimates; reconciling them with the segment frames is the
 # rest-pose pass.
@@ -16,7 +16,7 @@ segments:
   LUMBAR_SPINE:
     reference_geometry:
       origin: sacrum_top
-      y_axis:
+      z_axis:
         landmark: thoracolumbar_junction
         type: exact
 
@@ -28,17 +28,17 @@ segments:
       - ribcage
     reference_geometry:
       origin: thoracolumbar_junction
-      y_axis:
+      z_axis:
         landmark: cervicothoracic_junction
         type: exact
-      z_axis:
+      y_axis:
         landmark: xiphoid_process
         type: approximate
 
   CERVICAL_SPINE:
     reference_geometry:
       origin: cervicothoracic_junction
-      y_axis:
+      z_axis:
         landmark: craniocervical_junction
         type: exact
 
@@ -51,6 +51,7 @@ segments:
       x_axis:
         landmark: acromion
         type: exact
+        negate: true
 
 
 landmarks:
@@ -63,7 +64,7 @@ landmarks:
       - chest_center
     definition: "Geometric center of the thoracolumbar junction (T12/L1), the boundary between the lumbar and thoracic spine"
     reference_frame: lumbar_spine
-    local_position: [0, 165, 0]
+    local_position: [0, 0, 165]
 
   CERVICOTHORACIC_JUNCTION:
     aliases:
@@ -72,7 +73,7 @@ landmarks:
       - neck_center
     definition: "Geometric center of the cervicothoracic junction (C7/T1), the boundary between the thoracic and cervical spine"
     reference_frame: chest
-    local_position: [0, 328, 0]
+    local_position: [0, 0, 328]
 
   CRANIOCERVICAL_JUNCTION:
     aliases:
@@ -80,7 +81,7 @@ landmarks:
       - c1_skull_junction
     definition: "Geometric center of the craniocervical junction (C1/skull), the boundary between the cervical spine and the skull"
     reference_frame: cervical_spine
-    local_position: [0, 128, 0]
+    local_position: [0, 0, 128]
 
 # ---- Sternum + clavicle ----
 
@@ -90,7 +91,7 @@ landmarks:
       - jugular_notch
     definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum between the two clavicles"
     reference_frame: chest
-    local_position: [0, 210, 110]
+    local_position: [0, 110, 210]
 
   STERNOCLAVICULAR:
     sided: true
@@ -98,7 +99,7 @@ landmarks:
       - sc_joint
     definition: "Geometric center of the sternoclavicular joint, where the clavicle meets the manubrium of the sternum"
     reference_frame: chest
-    local_position: [20, 210, 110]
+    local_position: [-20, 110, 210]
 
   ACROMION:
     sided: true
@@ -106,7 +107,10 @@ landmarks:
       - shoulder_tip
     definition: "Geometric center of the acromion process of the scapula, the lateral tip of the shoulder"
     reference_frame: clavicle
-    local_position: [140, 0, 0]
+    # The acromion sits posterior to the sternoclavicular joint (the clavicle angles
+    # back), so the shoulder lands in the coronal plane of the hip joints rather than
+    # in the same plane as the front of the chest.
+    local_position: [-140, -75, 0]
 
   XIPHOID_PROCESS:
     aliases:
@@ -114,4 +118,4 @@ landmarks:
       - xiphisternum
     definition: "Distal tip of the xiphoid process, the cartilaginous inferior end of the sternum"
     reference_frame: chest
-    local_position: [0, 55, 130]
+    local_position: [0, 130, 55]

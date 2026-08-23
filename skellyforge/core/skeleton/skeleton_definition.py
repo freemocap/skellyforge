@@ -23,7 +23,7 @@ import yaml
 from skellyforge.core.skeleton_parts.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.skeleton_parts.landmark_name_resolver import LandmarkNameResolver
 from skellyforge.core.skeleton_parts.rigid_body_segment import RigidBodySegment
-from skellyforge.core.skeleton_parts.skeleton_yaml_loader import (
+from skellyforge.core.skeleton_parts.loading import (
     build_component,
     load_component,
     resolve_includes,

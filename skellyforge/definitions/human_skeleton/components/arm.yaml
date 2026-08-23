@@ -2,7 +2,7 @@
 #
 # `sided: true` at the file level: every entry is authored for the LEFT side and the
 # loader emits left_* / right_* (right is mirrored across the sagittal plane).
-# Each segment's local +y runs proximal -> distal along the bone. The elbow is a SHARED
+# Each segment's local +z runs proximal -> distal along the bone. The elbow is a SHARED
 # landmark: owned by the upper arm (its distal joint), and used as the lower arm's
 # origin. Millimetres, 50th-percentile adult; positions are estimates.
 
@@ -14,7 +14,7 @@ segments:
       - humerus
     reference_geometry:
       origin: shoulder
-      y_axis:
+      z_axis:
         landmark: elbow
         type: exact
 
@@ -23,7 +23,7 @@ segments:
       - forearm
     reference_geometry:
       origin: elbow
-      y_axis:
+      z_axis:
         landmark: wrist
         type: exact
 
@@ -41,11 +41,11 @@ landmarks:
       - humeroulnar_joint
     definition: "Geometric center of the elbow joint, near the trochlea of the humerus"
     reference_frame: upper_arm
-    local_position: [0, 300, 0]
+    local_position: [0, 0, 300]
 
   WRIST:
     aliases:
       - radiocarpal_joint
     definition: "Geometric center of the radiocarpal joint (wrist joint)"
     reference_frame: lower_arm
-    local_position: [0, 260, 0]
+    local_position: [0, 0, 260]

@@ -18,10 +18,9 @@ import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.math.kinematics.coordinate_frame_ops import primary_axis_unit
-from skellyforge.core.skeleton_parts.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose, build_rest_pose
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_hydration import hydrate_skeleton
+from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
 from skellyforge.core.skeleton_parts.skeleton_pose import PoseSolution, SkeletonPose
 from skellyforge.type_overloads import FloatArray
 
@@ -89,6 +88,23 @@ def _direction_error(
     return float(np.arccos(dot))
 
 
+def _primary_direction(*, skeleton: SkeletonDefinition, name: str) -> FloatArray:
+    """The segment's primary direction in its own frame, signed by the declared axis.
+
+    This is the direction hydration actually pins, and it is not the bare unit axis: a
+    segment whose primary landmark is off the coordinate axis - the clavicle, whose
+    acromion is posterior rather than straight lateral - has a primary direction with more
+    than one nonzero component, and checking the bare axis would measure its free roll
+    instead of its direction.
+    """
+    segment = skeleton.segments[name]
+    primary_position = skeleton.landmarks[
+        segment.frame_definition.primary_point_name
+    ].local_position.array
+    norm = float(np.linalg.norm(primary_position))
+    return float(segment.frame_definition.primary_axis.sign) * primary_position / norm
+
+
 def _direction_errors(
     *,
     skeleton: SkeletonDefinition,
@@ -100,9 +116,7 @@ def _direction_errors(
         name: _direction_error(
             recovered=hydrated.segment_poses[name].orientation,
             synthesized=world_orientations[name],
-            primary=primary_axis_unit(
-                axis=skeleton.segments[name].frame_definition.primary_axis
-            ),
+            primary=_primary_direction(skeleton=skeleton, name=name),
         )
         for name in world_orientations
     }

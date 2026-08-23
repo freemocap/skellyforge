@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import yaml
 
-from skellyforge.core.skeleton_parts.rest_pose import RestPose
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
 from skellyforge.type_overloads import FloatArray
 
@@ -38,10 +38,10 @@ def _pose() -> RestPose:
     return RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=_skeleton())
 
 
-def _y_direction(*, pose: RestPose, name: str) -> FloatArray:
-    """The world direction a segment's local +y (distal) points in the T-pose."""
+def _distal_direction(*, pose: RestPose, name: str) -> FloatArray:
+    """The world direction a segment's local +z (distal) points in the T-pose."""
     return pose.segment_orientations[name].rotate_vector(
-        vector=np.array([0.0, 1.0, 0.0])
+        vector=np.array([0.0, 0.0, 1.0])
     )
 
 
@@ -68,40 +68,40 @@ def test_the_trunk_runs_straight_up() -> None:
     pose = _pose()
     for name in ("pelvis", "lumbar_spine", "chest", "cervical_spine", "skull"):
         np.testing.assert_allclose(
-            _y_direction(pose=pose, name=name), [0.0, 1.0, 0.0], atol=1e-6
+            _distal_direction(pose=pose, name=name), [0.0, 0.0, 1.0], atol=1e-6
         )
 
 
 def test_the_arms_point_out_to_the_sides() -> None:
     pose = _pose()
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_upper_arm"), [1.0, 0.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="left_upper_arm"), [-1.0, 0.0, 0.0], atol=1e-6
     )
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="right_upper_arm"), [-1.0, 0.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="right_upper_arm"), [1.0, 0.0, 0.0], atol=1e-6
     )
     # The lower arm and hand inherit the arm's orientation.
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_lower_arm"), [1.0, 0.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="left_lower_arm"), [-1.0, 0.0, 0.0], atol=1e-6
     )
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_carpals"), [1.0, 0.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="left_carpals"), [-1.0, 0.0, 0.0], atol=1e-6
     )
 
 
 def test_the_legs_point_down_and_the_feet_forward() -> None:
     pose = _pose()
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_upper_leg"), [0.0, -1.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="left_upper_leg"), [0.0, 0.0, -1.0], atol=1e-6
     )
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_lower_leg"), [0.0, -1.0, 0.0], atol=1e-6
+        _distal_direction(pose=pose, name="left_lower_leg"), [0.0, 0.0, -1.0], atol=1e-6
     )
     # The foot slopes forward and down: the ankle sits above the ground, the ball reaches it.
-    foot = _y_direction(pose=pose, name="left_foot")
-    assert foot[2] > 0.8 and foot[1] < -0.3
+    foot = _distal_direction(pose=pose, name="left_foot")
+    assert foot[1] > 0.8 and foot[2] < -0.3
     np.testing.assert_allclose(
-        _y_direction(pose=pose, name="left_toes"), [0.0, 0.0, 1.0], atol=1e-3
+        _distal_direction(pose=pose, name="left_toes"), [0.0, 1.0, 0.0], atol=1e-3
     )
 
 
@@ -113,9 +113,9 @@ def test_the_heel_points_back_and_down() -> None:
     """
     pose = _pose()
     for side in ("left", "right"):
-        heel = _y_direction(pose=pose, name=f"{side}_heel")
-        assert heel[2] < -0.4, f"{side} heel must point backwards, got z={heel[2]:.3f}"
-        assert heel[1] < -0.6, f"{side} heel must point downwards, got y={heel[1]:.3f}"
+        heel = _distal_direction(pose=pose, name=f"{side}_heel")
+        assert heel[1] < -0.4, f"{side} heel must point backwards, got y={heel[1]:.3f}"
+        assert heel[2] < -0.6, f"{side} heel must point downwards, got z={heel[2]:.3f}"
 
 
 def test_both_feet_stand_on_one_flat_ground_plane() -> None:
@@ -131,14 +131,14 @@ def test_both_feet_stand_on_one_flat_ground_plane() -> None:
         for side in ("left", "right")
         for name in ("calcaneus", "ball", "toe_tip")
     ]
-    heights = np.array([positions[name].array[1] for name in ground_landmarks])
+    heights = np.array([positions[name].array[2] for name in ground_landmarks])
     spread = float(heights.max() - heights.min())
     assert spread < GROUND_PLANE_TOLERANCE_MILLIMETRES, (
         f"the foot's ground contacts span {spread:.2f} mm: "
         f"{dict(zip(ground_landmarks, np.round(heights, 2)))}"
     )
     lowest_landmark_height = min(
-        point.array[1] for point in positions.values()
+        point.array[2] for point in positions.values()
     )
     assert heights.min() == pytest.approx(lowest_landmark_height, abs=1e-6), (
         "nothing should hang below the plane the feet stand on"
@@ -152,11 +152,11 @@ def test_the_pelvis_sits_at_the_origin_and_the_lumbar_on_the_sacrum() -> None:
     )
     # lumbar_spine's origin is the pelvis's sacrum_top local position.
     np.testing.assert_allclose(
-        pose.segment_origins["lumbar_spine"].array, [0.0, 95.0, -35.0], atol=1e-9
+        pose.segment_origins["lumbar_spine"].array, [0.0, -35.0, 95.0], atol=1e-9
     )
     # upper_leg's origin is the pelvis's left hip socket.
     np.testing.assert_allclose(
-        pose.segment_origins["left_upper_leg"].array, [88.0, 0.0, 0.0], atol=1e-9
+        pose.segment_origins["left_upper_leg"].array, [-88.0, 0.0, 0.0], atol=1e-9
     )
 
 

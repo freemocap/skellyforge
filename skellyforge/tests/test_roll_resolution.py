@@ -16,13 +16,13 @@ import pytest
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton_parts.rest_pose import RestPose
-from skellyforge.core.skeleton_parts.roll_resolution import (
+from skellyforge.core.skeleton_parts.pose.rest_pose import RestPose
+from skellyforge.core.skeleton_parts.pose.roll_resolution import (
     ContinuousRollResolver,
     SegmentRollReference,
 )
 from skellyforge.core.skeleton_parts.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton_parts.skeleton_hydration import hydrate_skeleton
+from skellyforge.core.skeleton_parts.pose.hydration import hydrate_skeleton
 from skellyforge.core.skeleton_parts.skeleton_pose import PoseSolution
 
 SKELETON_YAML_PATH: Path = (
@@ -47,9 +47,9 @@ def _skeleton() -> SkeletonDefinition:
 
 
 def _swept_poses(*, skeleton: SkeletonDefinition):
-    """Hydrated poses for an arm swept a full turn through straight overhead.
+    """Hydrated poses for an arm swept a full turn through straight overhead and straight down.
 
-    Straight up is the pole of the shortest arc from the arm's authored rest direction, so
+    Straight down is the pole of the shortest arc from the arm's authored distal direction, so
     a stateless per-frame roll flips there. Sweeping through it is the point.
     """
     rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
@@ -58,7 +58,7 @@ def _swept_poses(*, skeleton: SkeletonDefinition):
 
     for frame in range(FRAME_COUNT):
         angle = 2.0 * np.pi * frame / FRAME_COUNT
-        direction = np.array([np.cos(angle), np.sin(angle), 0.0])
+        direction = np.array([np.cos(angle), 0.0, np.sin(angle)])
         observed = dict(rest_pose.landmark_positions)
         observed["left_elbow"] = Point.from_prevalidated_array(
             array=shoulder.array + length * direction

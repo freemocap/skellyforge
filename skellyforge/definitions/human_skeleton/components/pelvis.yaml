@@ -1,14 +1,14 @@
 # Pelvis component.
 #
-# Local frame (right-handed, VRM convention):
+# Local frame (right-handed, Blender convention):
 #   origin  - midpoint between the two hip sockets
-#   +x      - subject's LEFT
-#   +y      - UP (superior)
-#   +z      - FORWARD (anterior)
+#   +x      - subject's RIGHT
+#   +y      - FORWARD (anterior)
+#   +z      - UP (superior)
 # Units are millimetres, sized for a 50th-percentile adult.
 #
-# `sided: true` entries are written for the LEFT side only; the loader emits
-# `left_*` and `right_*`, mirroring x for the right.
+# `sided: true` entries are written for the LEFT side only (which sits on -x); the loader emits
+# `left_*` and `right_*`, mirroring x so the right side lands on +x.
 
 segments:
   PELVIS:
@@ -17,13 +17,14 @@ segments:
       x_axis:
         landmark: left_hip_socket
         type: exact
+        negate: true
       # The superior direction is taken from the iliac crest, not the sacrum. Both are
       # anatomically defensible choices for "up", but the crest is the one that lands
-      # on +y: it sits directly above the hip-socket midpoint, so the y axis Gram-Schmidt
-      # produces from it is exactly the +y the coordinates below are authored in. The
+      # on +z: it sits directly above the hip-socket midpoint, so the z axis Gram-Schmidt
+      # produces from it is exactly the +z the coordinates below are authored in. The
       # sacrum sits up AND back, and using it tilted the whole pelvis frame 20 degrees
       # posteriorly away from its own authoring frame.
-      y_axis:
+      z_axis:
         landmark: left_iliac_crest
         type: approximate
 
@@ -36,7 +37,7 @@ landmarks:
       - hip_center
     definition: "Mean of the two hip sockets"
     reference_frame: pelvis
-    local_position: [ 0, 0, 0 ]
+    local_position: [0, 0, 0]
 
   # Aliases exist to absorb the names other systems use for a point, not to collect
   # synonyms for their own sake: every one of them enlarges the space in which landmark
@@ -49,22 +50,22 @@ landmarks:
       - lumbosacral_junction
     definition: "Geometric center of the lumbosacral junction (L5/S1), the top of the sacrum"
     reference_frame: pelvis
-    local_position: [ 0, 95, -35 ]
+    local_position: [0, -35, 95]
 
   SACRUM:
     definition: "Geometric center of the sacral body, around the S2 level"
     reference_frame: pelvis
-    local_position: [ 0, 40, -55 ]
+    local_position: [0, -55, 40]
 
   COCCYX_TIP:
     definition: "Distal tip of the coccyx (tailbone apex)"
     reference_frame: pelvis
-    local_position: [ 0, -30, -40 ]
+    local_position: [0, -40, -30]
 
   PUBIC_SYMPHYSIS:
     definition: "Geometric center of the pubic symphysis"
     reference_frame: pelvis
-    local_position: [ 0, -10, 60 ]
+    local_position: [0, 60, -10]
 
   # sided stuff
   HIP_SOCKET:
@@ -72,7 +73,7 @@ landmarks:
       - hip
     definition: "Geometric center of the proximal surface of the hip socket (acetabulum)"
     reference_frame: pelvis
-    local_position: [ 88, 0, 0 ]
+    local_position: [-88, 0, 0]
     sided: true
 
   ILIAC_CREST:
@@ -80,7 +81,7 @@ landmarks:
       - iliocristale
     definition: "Most superior point of the iliac crest"
     reference_frame: pelvis
-    local_position: [ 145, 100, 0 ]
+    local_position: [-145, 0, 100]
     sided: true
 
   ANTERIOR_SUPERIOR_ILIAC_SPINE:
@@ -88,7 +89,7 @@ landmarks:
       - ASIS
     definition: "Anterior superior iliac spine (ASIS), the anterior bony prominence of the iliac crest"
     reference_frame: pelvis
-    local_position: [ 125, 70, 50 ]
+    local_position: [-125, 50, 70]
     sided: true
 
   POSTERIOR_SUPERIOR_ILIAC_SPINE:
@@ -96,7 +97,7 @@ landmarks:
       - PSIS
     definition: "Posterior superior iliac spine (PSIS), the posterior bony prominence of the iliac crest"
     reference_frame: pelvis
-    local_position: [ 42, 85, -55 ]
+    local_position: [-42, -55, 85]
     sided: true
 
   SACROILIAC_JOINT:
@@ -104,5 +105,5 @@ landmarks:
       - SI_JOINT
     definition: "Geometric center of the sacroiliac joint, where the sacrum meets the ilium"
     reference_frame: pelvis
-    local_position: [ 25, 80, -45 ]
+    local_position: [-25, -45, 80]
     sided: true
