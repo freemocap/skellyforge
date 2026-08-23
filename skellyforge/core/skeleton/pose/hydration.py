@@ -36,6 +36,16 @@ from skellyforge.core.skeleton.skeleton_pose import (
 from skellyforge.type_overloads import LandmarkNameString
 
 
+class MissingLandmarkObservations(ValueError):
+    """A segment cannot hydrate because too few of its landmarks are observed.
+
+    Distinct from a degenerate-observation error: a segment whose landmarks ARE
+    observed but collinear (so a rigid fit or direction is undefined) still fails
+    loudly, while a segment whose landmarks are simply not tracked is a missing
+    observation and may be skipped by a streaming caller.
+    """
+
+
 def hydrate_segment(
     *, segment: RigidBodySegment, observed: Mapping[LandmarkNameString, Point]
 ) -> SegmentPose:
@@ -88,7 +98,7 @@ def hydrate_segment(
             solved_by=PoseSolution.DIRECTION,
         )
 
-    raise ValueError(
+    raise MissingLandmarkObservations(
         f"segment {segment.name!r}: cannot hydrate - it needs either at least "
         f"{MINIMUM_POINTS_FOR_RIGID_FIT} observed landmarks (it supports a rigid fit: "
         f"{segment.supports_rigid_fit}) or both its origin {origin_name!r} and its "
@@ -124,20 +134,34 @@ def _local_primary_direction(*, segment: RigidBodySegment) -> UnitVector:
 
 
 def hydrate_skeleton(
-    *, skeleton: SkeletonDefinition, observed: Mapping[LandmarkNameString, Point]
+    *,
+    skeleton: SkeletonDefinition,
+    observed: Mapping[LandmarkNameString, Point],
+    require_all: bool = True,
 ) -> SkeletonPose:
     """Recover every segment's pose from observed landmark positions.
 
     Args:
         skeleton: the skeleton whose segments to hydrate.
         observed: observed landmark positions, keyed by landmark name.
+        require_all: when True (default) a segment whose landmarks are not observed
+            raises :class:`MissingLandmarkObservations`; when False such segments are
+            omitted from the returned pose, so a streaming tracker with partial
+            observations (an occluded hand, a face out of frame) hydrates the segments
+            it can and drops the rest. Degenerate observations on a segment that IS
+            observed still raise in either mode.
 
     Returns:
-        The skeleton's pose, keyed by segment name.
+        The skeleton's pose, keyed by segment name. Every segment is present when
+        ``require_all``; otherwise only the hydratable ones.
     """
-    return SkeletonPose(
-        segment_poses={
-            segment.name: hydrate_segment(segment=segment, observed=observed)
-            for segment in skeleton.segments.values()
-        }
-    )
+    segment_poses = {}
+    for segment in skeleton.segments.values():
+        try:
+            segment_poses[segment.name] = hydrate_segment(
+                segment=segment, observed=observed
+            )
+        except MissingLandmarkObservations:
+            if require_all:
+                raise
+    return SkeletonPose(segment_poses=segment_poses)

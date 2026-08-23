@@ -143,3 +143,25 @@ def test_hydrate_skeleton_recovers_the_rest_pose() -> None:
     skull_orientation = hydrated.segment_poses["skull"].orientation
     expected = rest_pose.segment_orientations["skull"]
     assert abs(skull_orientation.dot(other=expected)) > 0.999
+
+
+def test_hydrate_skeleton_require_all_false_skips_missing_segments() -> None:
+    from skellyforge.core.skeleton.pose.hydration import MissingLandmarkObservations
+    from skellyforge.core.skeleton.pose.rest_pose import RestPose
+    from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+
+    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+
+    # Observe only the pelvis's own landmarks, so most of the skeleton has nothing.
+    pelvis_names = tuple(skeleton.segments["pelvis"].landmarks)
+    partial = {name: rest_pose.landmark_positions[name] for name in pelvis_names}
+
+    with pytest.raises(MissingLandmarkObservations):
+        hydrate_skeleton(skeleton=skeleton, observed=partial)
+
+    partial_pose = hydrate_skeleton(
+        skeleton=skeleton, observed=partial, require_all=False
+    )
+    assert len(partial_pose.segment_poses) < len(skeleton.segments)
+    assert "pelvis" in partial_pose.segment_poses

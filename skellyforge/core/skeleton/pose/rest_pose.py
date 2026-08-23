@@ -168,6 +168,17 @@ class RestPose:
             landmark_positions=landmark_positions,
         )
 
+    @classmethod
+    def from_default_yaml(cls, *, skeleton: SkeletonDefinition) -> RestPose:
+        """Load the shipped standard-human rest (T) pose, resolved against a skeleton."""
+        path = (
+            Path(__file__).resolve().parents[3]
+            / "definitions"
+            / "human_skeleton"
+            / "rest_pose.yaml"
+        )
+        return cls.from_yaml(path=path, skeleton=skeleton)
+
 
 def _read_segment_entries(
     *,

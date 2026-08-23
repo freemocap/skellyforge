@@ -257,6 +257,17 @@ class SkeletonDefinition:
         )
 
     @classmethod
+    def from_default_yaml(cls) -> SkeletonDefinition:
+        """Load the shipped standard-human skeleton (the canonical 61-segment human)."""
+        path = (
+            Path(__file__).resolve().parents[2]
+            / "definitions"
+            / "human_skeleton"
+            / "human_skeleton.yaml"
+        )
+        return cls.from_yaml(path=path)
+
+    @classmethod
     def from_component_yaml(cls, *, path: Path, name: SkeletonNameString) -> SkeletonDefinition:
         """Load a single component file as a skeleton in its own right.
 
