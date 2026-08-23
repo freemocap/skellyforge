@@ -34,11 +34,19 @@ requires-python = ">=3.11,<3.13"
 
 dynamic = ["version"]
 
-[project.optional-dependencies]
-dev = ["pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools"]
+# Dev-only tooling + the sibling repo for boundary tests. `[dependency-groups]` is used
+# (not extras) so this is NEVER published: `pip install skellyforge` from PyPI cannot
+# resolve skellytracker, and the runtime boundary (skellyforge never imports
+# skellytracker) is preserved by construction.
+[dependency-groups]
+dev = ["pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools", "skellytracker"]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [tool.uv.sources]
 skellylogs = { git = "https://github.com/freemocap/skellylogs", branch = "main" }
+skellytracker = { git = "https://github.com/freemocap/skellytracker", branch = "development-streaming" }
 
 [tool.pytest.ini_options]
 # The suite runs on numpy and pyyaml alone - no heavy optional dependencies - so it stays
