@@ -91,7 +91,7 @@ landmarks:
       - jugular_notch
     definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum between the two clavicles"
     reference_frame: chest
-    local_position: [0, 110, 210]
+    local_position: [0, 80, 210]
 
   STERNOCLAVICULAR:
     sided: true
@@ -99,7 +99,7 @@ landmarks:
       - sc_joint
     definition: "Geometric center of the sternoclavicular joint, where the clavicle meets the manubrium of the sternum"
     reference_frame: chest
-    local_position: [-20, 110, 210]
+    local_position: [-20, 80, 210]
 
   ACROMION:
     sided: true

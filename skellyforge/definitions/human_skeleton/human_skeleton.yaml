@@ -9,6 +9,4 @@ components:
   hand: { $include: components/hand.yaml }
   leg: { $include: components/leg.yaml }
   foot: { $include: components/foot.yaml }
-
-# The face is NOT a skeleton component: it is the 52 ARKit blendshapes, loaded separately
-# by FaceBlendShapes.from_yaml from definitions/human_skeleton/face.yaml.
+#  face: { $include: components/face.yaml } #TODO - implement this
