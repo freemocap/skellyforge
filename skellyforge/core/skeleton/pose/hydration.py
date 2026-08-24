@@ -46,6 +46,15 @@ class MissingLandmarkObservations(ValueError):
     """
 
 
+class DegenerateObservations(ValueError):
+    """A segment's observed landmarks are degenerate, so no full rotation is recoverable.
+
+    Distinct from a missing-observation error: the landmarks ARE tracked, but they
+    collapse onto a line (e.g. a hand seen edge-on), so a rigid fit is undefined. A
+    streaming caller may skip this segment the same way it skips a missing one.
+    """
+
+
 def hydrate_segment(
     *, segment: RigidBodySegment, observed: Mapping[LandmarkNameString, Point]
 ) -> SegmentPose:
@@ -77,7 +86,13 @@ def hydrate_segment(
         point_set = RigidPointSet(
             point_names=owned_names, reference_positions=reference_positions
         )
-        transform = point_set.fit_pose(observed=observed)
+        try:
+            transform = point_set.fit_pose(observed=observed)
+        except ValueError as error:
+            raise DegenerateObservations(
+                f"segment {segment.name!r}: observed landmarks are degenerate "
+                f"(collinear/coplanar) - {error}"
+            ) from error
         return SegmentPose(
             segment_name=segment.name,
             origin=transform.apply(points=Point.from_xyz(x=0.0, y=0.0, z=0.0)),
@@ -144,12 +159,12 @@ def hydrate_skeleton(
     Args:
         skeleton: the skeleton whose segments to hydrate.
         observed: observed landmark positions, keyed by landmark name.
-        require_all: when True (default) a segment whose landmarks are not observed
-            raises :class:`MissingLandmarkObservations`; when False such segments are
-            omitted from the returned pose, so a streaming tracker with partial
-            observations (an occluded hand, a face out of frame) hydrates the segments
-            it can and drops the rest. Degenerate observations on a segment that IS
-            observed still raise in either mode.
+        require_all: when True (default) a segment whose landmarks are missing or
+            degenerate raises :class:`MissingLandmarkObservations` /\
+            :class:`DegenerateObservations`; when False such segments are omitted from
+            the returned pose, so a streaming tracker with partial or degenerate
+            observations (an occluded hand, a face out of frame, a hand seen edge-on)
+            hydrates the segments it can and drops the rest.
 
     Returns:
         The skeleton's pose, keyed by segment name. Every segment is present when
@@ -161,7 +176,7 @@ def hydrate_skeleton(
             segment_poses[segment.name] = hydrate_segment(
                 segment=segment, observed=observed
             )
-        except MissingLandmarkObservations:
+        except (MissingLandmarkObservations, DegenerateObservations):
             if require_all:
                 raise
     return SkeletonPose(segment_poses=segment_poses)

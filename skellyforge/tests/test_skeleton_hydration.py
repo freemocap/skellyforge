@@ -165,3 +165,29 @@ def test_hydrate_skeleton_require_all_false_skips_missing_segments() -> None:
     )
     assert len(partial_pose.segment_poses) < len(skeleton.segments)
     assert "pelvis" in partial_pose.segment_poses
+
+
+def test_hydrate_skeleton_require_all_false_skips_degenerate_segments() -> None:
+    from skellyforge.core.skeleton.pose.hydration import DegenerateObservations
+    from skellyforge.core.skeleton.pose.rest_pose import RestPose
+    from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+
+    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+
+    # Collapse the pelvis (a fully-specified rigid-fit segment) onto a line, so its
+    # observed landmarks are degenerate and the Kabsch fit cannot recover a rotation.
+    observed = {name: point for name, point in rest_pose.landmark_positions.items()}
+    pelvis = skeleton.segments["pelvis"]
+    for name in pelvis.landmarks:
+        position = observed[name].array
+        observed[name] = Point.from_xyz(x=position[0], y=0.0, z=0.0)
+
+    with pytest.raises(DegenerateObservations):
+        hydrate_skeleton(skeleton=skeleton, observed=observed)
+
+    partial_pose = hydrate_skeleton(
+        skeleton=skeleton, observed=observed, require_all=False
+    )
+    assert "pelvis" not in partial_pose.segment_poses
+    assert len(partial_pose.segment_poses) == len(skeleton.segments) - 1
