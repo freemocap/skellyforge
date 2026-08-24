@@ -641,6 +641,7 @@ def test_the_shipped_face_yaml_holds_52_blendshapes() -> None:
         Path(__file__).resolve().parents[1]
         / "definitions"
         / "human_skeleton"
+        / "components"
         / "face.yaml"
     )
     face = FaceBlendShapes.from_yaml(path=face_path)

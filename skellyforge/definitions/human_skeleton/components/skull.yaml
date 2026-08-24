@@ -85,7 +85,10 @@ landmarks:
       - acoustic_meatus
     definition: "Entrance to the ear canal (acoustic meatus), just behind the tragus"
     reference_frame: skull
-    local_position: [-70, -10, -5]
+    # Symmetric about the origin: the mapped head_center is the EAR MEAN, and the
+    # authored head_center is this segment's origin - asymmetric ears would make
+    # the two disagree by a centimetre and bias every skull fit.
+    local_position: [-70, 0, 0]
 
   CANINE_TOOTH_TIP:
     sided: true
