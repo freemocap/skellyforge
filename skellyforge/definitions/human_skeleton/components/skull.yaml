@@ -12,13 +12,16 @@ segments:
   SKULL:
     aliases:
       - head
+    # Primary axis is the nose (forward), so the skull bone points toward the face
+    # rather than straight up; head_vertex (up) becomes the secondary axis and still
+    # pins the skull's roll via Gram-Schmidt.
     reference_geometry:
       origin: head_center
-      z_axis:
-        landmark: head_vertex
-        type: exact
       y_axis:
         landmark: nose
+        type: exact
+      z_axis:
+        landmark: head_vertex
         type: approximate
 
 landmarks:

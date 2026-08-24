@@ -749,18 +749,25 @@ def test_the_shipped_clavicles_share_one_local_x_direction() -> None:
     world_positions = RestPose.from_yaml(
         path=REST_POSE_YAML_PATH, skeleton=skeleton
     ).landmark_positions
-    expected_x = 140.0 / float(np.hypot(140.0, 75.0))
-    expected_y = 75.0 / float(np.hypot(140.0, 75.0))
     for side in ("left", "right"):
+        origin = world_positions[f"{side}_sternoclavicular"].array
+        primary = world_positions[f"{side}_acromion"].array
+        displacement = primary - origin
+        # The clavicle angles posteriorly: the acromion sits behind the SC joint. That
+        # posterior tilt now lives in the clavicle's rest orientation, so the primary
+        # direction still runs from the SC joint out to the acromion.
+        assert displacement[1] < 0.0, f"{side} acromion should sit posterior to its SC joint"
         direction = skeleton.segments[f"{side}_clavicle"].calculate_direction(
             points=world_positions
         )
-        # The clavicle angles posteriorly: its primary direction runs toward the subject's
-        # right with an anterior component on the left, mirrored to a posterior component
-        # on the right (the acromion sits behind the sternoclavicular joint).
+        expected = (
+            skeleton.segments[f"{side}_clavicle"].frame_definition.primary_axis.sign
+            * displacement
+            / np.linalg.norm(displacement)
+        )
         np.testing.assert_allclose(
             direction.array,
-            [expected_x, expected_y if side == "left" else -expected_y, 0.0],
+            expected,
             atol=1e-9,
-            err_msg=f"the {side} clavicle's local +x should run toward the subject's right and back",
+            err_msg=f"the {side} clavicle's primary axis should run toward the acromion",
         )

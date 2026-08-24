@@ -107,10 +107,11 @@ landmarks:
       - shoulder_tip
     definition: "Geometric center of the acromion process of the scapula, the lateral tip of the shoulder"
     reference_frame: clavicle
-    # The acromion sits posterior to the sternoclavicular joint (the clavicle angles
-    # back), so the shoulder lands in the coronal plane of the hip joints rather than
-    # in the same plane as the front of the chest.
-    local_position: [-140, -75, 0]
+    # The acromion lies along the clavicle's primary axis (-x on the left). The
+    # clavicle's rest orientation (rest_pose.yaml) angles that axis back so the
+    # shoulder lands posterior to the sternoclavicular joint, in the coronal plane of
+    # the hip joints rather than in the plane of the front of the chest.
+    local_position: [-158.824, 0, 0]
 
   XIPHOID_PROCESS:
     aliases:

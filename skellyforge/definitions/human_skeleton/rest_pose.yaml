@@ -16,6 +16,9 @@
 # segment continues straight on from its parent". Only the following need to say more, and
 # each is derived rather than dialled in:
 #
+#   clavicle    rotates its local x primary axis ~28 deg posteriorly, so the bone runs
+#               from the sternoclavicular joint out and back to the acromion. Its child
+#               compensates so the arm still reaches straight out.
 #   upper_arm   maps local +z onto world -+x, so the arms reach out to the sides. The
 #               right side is the left mirrored across the sagittal plane, which for a
 #               quaternion is (w, x, -y, -z).
@@ -36,11 +39,14 @@ segments:
   chest: {parent: lumbar_spine, connect_at: thoracolumbar_junction}
   cervical_spine: {parent: chest, connect_at: cervicothoracic_junction}
   skull: {parent: cervical_spine, connect_at: craniocervical_junction}
-  left_clavicle: {parent: chest, connect_at: left_sternoclavicular}
+  left_clavicle:
+    parent: chest
+    connect_at: left_sternoclavicular
+    orientation: [0.969918, 0, 0, 0.243434]
   left_upper_arm:
     parent: left_clavicle
     connect_at: left_acromion
-    orientation: [-0.5, -0.5, 0.5, 0.5]
+    orientation: [-0.363242, -0.363242, 0.606676, 0.606676]
   left_lower_arm: {parent: left_upper_arm}
   left_carpals: {parent: left_lower_arm, connect_at: left_wrist}
   left_thumb_metacarpal: {parent: left_carpals}
@@ -78,11 +84,14 @@ segments:
     parent: left_lower_leg
     connect_at: left_ankle
     orientation: [0.96276, -0.270359, 0, 0]
-  right_clavicle: {parent: chest, connect_at: right_sternoclavicular}
+  right_clavicle:
+    parent: chest
+    connect_at: right_sternoclavicular
+    orientation: [0.969918, 0, 0, -0.243434]
   right_upper_arm:
     parent: right_clavicle
     connect_at: right_acromion
-    orientation: [0.5, 0.5, 0.5, 0.5]
+    orientation: [0.363242, 0.363242, 0.606676, 0.606676]
   right_lower_arm: {parent: right_upper_arm}
   right_carpals: {parent: right_lower_arm, connect_at: right_wrist}
   right_thumb_metacarpal: {parent: right_carpals}
