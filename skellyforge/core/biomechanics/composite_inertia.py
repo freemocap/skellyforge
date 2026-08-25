@@ -18,7 +18,6 @@ from skellyforge.core.biomechanics.anthropometric_parameters import Anthropometr
 from skellyforge.core.biomechanics.center_of_mass import (
     CenterOfMassDefinitions,
     landmark_world_positions,
-    segment_anchors,
     segment_com,
 )
 from skellyforge.core.biomechanics.segment_inertia import segment_inertia_tensor
@@ -74,10 +73,22 @@ def body_inertial_properties(
         parameters = anthropometric.get(name=definition.name)
         mass = parameters.mass_fraction * body_mass
         for full_name, side in definition.side_entries:
-            com = segment_com(definition=definition, side=side, world=world)
-            proximal, distal = segment_anchors(
-                definition=definition, side=side, world=world
+            proximal_name = definition.resolve_landmark(
+                side=side, landmark=definition.proximal
             )
+            distal_name = definition.resolve_landmark(
+                side=side, landmark=definition.distal
+            )
+            if proximal_name not in world or distal_name not in world:
+                # An occluded anchor leaves the long axis unmeasurable, so this
+                # segment contributes neither a COM nor an inertia - it is skipped
+                # exactly like a segment whose whole pose is missing.
+                continue
+            com = segment_com(definition=definition, side=side, world=world)
+            if com is None:
+                # Every COM-defining landmark is occluded; the mass is invisible.
+                continue
+            proximal, distal = world[proximal_name], world[distal_name]
             inertia = segment_inertia_tensor(
                 mass=mass,
                 radii=parameters.radii_of_gyration,
@@ -136,10 +147,27 @@ def whole_body_inertia_tensor(
     segment_masses: dict[str, float],
     body_center_of_mass: FloatArray,
 ) -> FloatArray:
-    """Sum the segment inertia tensors, translated to the body center of mass."""
+    """Sum the segment inertia tensors, translated to the body center of mass.
+
+    Every entry of `segment_inertias` must have matching entries in `segment_coms`
+    and `segment_masses` - an inertia without the COM it is being translated about
+    is a caller bug and raises rather than guessing.
+    """
     total = np.zeros((3, 3), dtype=np.float64)
     for name, inertia in segment_inertias.items():
-        offset = segment_coms[name] - np.asarray(body_center_of_mass, dtype=np.float64)
+        segment_com = segment_coms.get(name)
+        if name not in segment_coms or name not in segment_masses:
+            raise KeyError(
+                f"segment {name!r} has an inertia tensor but no matching COM/mass "
+                "entry - build the three maps together (see "
+                "`body_inertial_properties`)"
+            )
+        if segment_com is None:
+            raise ValueError(
+                f"segment {name!r} has a None COM - occluded segments must be left "
+                "out of all three maps entirely, not carried as None"
+            )
+        offset = segment_com - np.asarray(body_center_of_mass, dtype=np.float64)
         total = total + inertia + segment_masses[name] * _parallel_axis_term(offset=offset)
     return total
 

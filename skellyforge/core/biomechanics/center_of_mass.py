@@ -333,18 +333,3 @@ def compute_segment_coms(
             if com is not None:
                 result[full_name] = com
     return result
-
-
-def segment_anchors(
-    *, definition: SegmentComDefinition, side: str | None, world: Mapping[str, FloatArray]
-) -> tuple[FloatArray, FloatArray]:
-    """The proximal and distal world positions that define a segment's long axis."""
-    proximal = definition.resolve_landmark(side=side, landmark=definition.proximal)
-    distal = definition.resolve_landmark(side=side, landmark=definition.distal)
-    try:
-        return world[proximal], world[distal]
-    except KeyError as error:
-        raise KeyError(
-            f"COM definition for {definition.name!r} references an anchor landmark with "
-            f"no world position"
-        ) from error

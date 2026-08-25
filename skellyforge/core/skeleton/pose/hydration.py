@@ -24,7 +24,6 @@ from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
 from skellyforge.core.math.kinematics.coordinate_frame_ops import rotation_between_vectors
 from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
-    RigidPointSet,
 )
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
@@ -77,17 +76,8 @@ def hydrate_segment(
     observed_owned = tuple(name for name in owned_names if name in observed)
 
     if segment.supports_rigid_fit and len(observed_owned) >= MINIMUM_POINTS_FOR_RIGID_FIT:
-        reference_positions = Point.from_prevalidated_array(
-            array=np.stack(
-                [segment.landmarks[name].local_position.array for name in owned_names],
-                axis=0,
-            )
-        )
-        point_set = RigidPointSet(
-            point_names=owned_names, reference_positions=reference_positions
-        )
         try:
-            transform = point_set.fit_pose(observed=observed)
+            transform = segment.rigid_point_set.fit_pose(observed=observed)
         except ValueError as error:
             raise DegenerateObservations(
                 f"segment {segment.name!r}: observed landmarks are degenerate "

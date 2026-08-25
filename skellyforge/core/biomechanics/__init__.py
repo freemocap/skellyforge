@@ -35,7 +35,6 @@ from skellyforge.core.biomechanics.center_of_mass import (
     SegmentComDefinition,
     compute_segment_coms,
     landmark_world_positions,
-    segment_anchors,
     segment_com,
 )
 from skellyforge.core.biomechanics.composite_inertia import (
@@ -82,7 +81,6 @@ __all__ = [
     "extrapolated_center_of_mass",
     "landmark_world_positions",
     "map_skeleton_segments",
-    "segment_anchors",
     "segment_com",
     "segment_inertia_tensor",
     "whole_body_center_of_mass",

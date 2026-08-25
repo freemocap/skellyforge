@@ -20,7 +20,7 @@ separate calls - see that function's docstring for measured numbers.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -40,6 +40,7 @@ from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
+    RigidPointSet,
 )
 from skellyforge.core.skeleton.components.naming import (
     raise_unless_aliases_are_valid,
@@ -72,6 +73,15 @@ class RigidBodySegment:
     landmarks: Mapping[LandmarkNameString, AnatomicalLandmark]
     frame_definition: ReferenceFrameDefinition
     aliases: tuple[RigidBodySegmentName, ...] = ()
+    # Both answers below are STATIC properties of the authored geometry, so they are
+    # computed once here at construction - the per-frame hydration path reads them
+    # without ever re-deriving an SVD or re-stacking local positions.
+    _supports_rigid_fit: bool = field(
+        init=False, repr=False, compare=False, default=False
+    )
+    _rigid_point_set: RigidPointSet | None = field(
+        init=False, repr=False, compare=False, default=None
+    )
 
     def __post_init__(self) -> None:
         raise_unless_snake_case_segment_name(name=self.name)
@@ -123,6 +133,28 @@ class RigidBodySegment:
                     "origin a landmark owned by this segment's parent."
                 )
 
+        object.__setattr__(
+            self, "_supports_rigid_fit", self._compute_supports_rigid_fit()
+        )
+        if self._supports_rigid_fit:
+            reference_positions = Point.from_prevalidated_array(
+                array=np.stack(
+                    [
+                        landmark.local_position.array
+                        for landmark in self.landmarks.values()
+                    ],
+                    axis=0,
+                )
+            )
+            object.__setattr__(
+                self,
+                "_rigid_point_set",
+                RigidPointSet(
+                    point_names=tuple(self.landmarks.keys()),
+                    reference_positions=reference_positions,
+                ),
+            )
+
     @property
     def all_names(self) -> tuple[RigidBodySegmentName, ...]:
         """Every name this segment answers to, canonical name first."""
@@ -146,10 +178,30 @@ class RigidBodySegment:
         closed form hydrates the segment. A segment whose landmarks are collinear - a
         two-landmark limb, or a straight spine link - can never yield a full orientation
         from a rigid fit, however many frames are observed, because the roll about the
-        line they share is not in the data. Deciding the branch here, once, keeps the
-        decision out of a per-frame `try`/`except` and stops a genuine runtime failure
-        from being mistaken for a collinear segment.
+        line they share is not in the data. Deciding it here, once at construction,
+        keeps the decision out of a per-frame `try`/`except` and stops a genuine runtime
+        failure from being mistaken for a collinear segment.
         """
+        return self._supports_rigid_fit
+
+    @property
+    def rigid_point_set(self) -> RigidPointSet:
+        """The precomputed rigid point set for hydration, built once at construction.
+
+        Raises:
+            ValueError: this segment does not support a rigid fit (its landmarks are
+                collinear or fewer than three), so there is no point set to hand out.
+        """
+        if self._rigid_point_set is None:
+            raise ValueError(
+                f"segment {self.name!r} does not support a rigid fit "
+                f"(supports_rigid_fit={self.supports_rigid_fit}), so it has no "
+                "precomputed rigid point set - hydrate it by direction instead"
+            )
+        return self._rigid_point_set
+
+    def _compute_supports_rigid_fit(self) -> bool:
+        """Whether the segment's local landmark positions span more than a line."""
         if len(self.landmarks) < MINIMUM_POINTS_FOR_RIGID_FIT:
             return False
         local_positions = np.stack(

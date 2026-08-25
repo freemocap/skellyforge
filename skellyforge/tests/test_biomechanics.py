@@ -8,8 +8,15 @@ import numpy as np
 import pytest
 
 from skellyforge.core.biomechanics.anthropometric_parameters import AnthropometricParameters
-from skellyforge.core.biomechanics.center_of_mass import CenterOfMassDefinitions
-from skellyforge.core.biomechanics.composite_inertia import body_inertial_properties
+from skellyforge.core.biomechanics.center_of_mass import (
+    CenterOfMassDefinitions,
+    compute_segment_coms,
+)
+from skellyforge.core.biomechanics.composite_inertia import (
+    body_inertial_properties,
+    whole_body_center_of_mass,
+    whole_body_inertia_tensor,
+)
 from skellyforge.core.biomechanics.derived_kinematics import (
     center_of_mass_acceleration,
     center_of_mass_velocity,
@@ -163,3 +170,68 @@ def test_kinematics_rejects_non_increasing_timestamps() -> None:
     positions = np.zeros((4, 3))
     with pytest.raises(ValueError):
         center_of_mass_velocity(positions=positions, timestamps=timestamps)
+
+
+def test_partial_pose_rolls_up_over_the_visible_segments() -> None:
+    skeleton = _skeleton()
+    dropped_name = sorted(skeleton.segments)[len(skeleton.segments) // 2]
+    full_pose = _pose()
+    partial_pose = SkeletonPose(
+        segment_poses={
+            name: segment_pose
+            for name, segment_pose in full_pose.segment_poses.items()
+            if name != dropped_name
+        }
+    )
+    body = body_inertial_properties(
+        skeleton=skeleton,
+        pose=partial_pose,
+        body_mass=BODY_MASS,
+        anthropometric=_anthropometric(),
+        com_definitions=_com_definitions(),
+    )
+    assert np.all(np.isfinite(body.center_of_mass))
+    assert np.all(np.isfinite(body.inertia_tensor))
+
+
+def test_occluded_com_landmarks_skip_their_segment_instead_of_crashing() -> None:
+    skeleton = _skeleton()
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+    world = {
+        name: position.array.copy()
+        for name, position in rest_pose.landmark_positions.items()
+    }
+    definitions = _com_definitions()
+
+    # Remove every COM-defining landmark of one midline segment while leaving its
+    # anchors (and everything else) in place - the exact shape of occlusion that
+    # used to crash the inertia roll-up with a TypeError on a None COM.
+    target = next(
+        definition
+        for definition in definitions.definitions.values()
+        if not definition.sided
+        and {entry.landmark for entry in definition.weights}.isdisjoint(
+            {definition.proximal, definition.distal}
+        )
+    )
+    for entry in target.weights:
+        del world[entry.landmark]
+
+    segment_coms = compute_segment_coms(definitions=definitions, world=world)
+    assert target.name not in segment_coms
+    assert whole_body_center_of_mass(
+        segment_coms=segment_coms,
+        segment_masses={
+            name: BODY_MASS * 0.01 for name in definitions.all_segment_names
+        },
+    ) is not None
+
+
+def test_whole_body_inertia_tensor_refuses_an_inertia_without_a_com() -> None:
+    with pytest.raises(KeyError, match="no matching COM/mass"):
+        whole_body_inertia_tensor(
+            segment_inertias={"orphan_segment": np.eye(3)},
+            segment_coms={},
+            segment_masses={},
+            body_center_of_mass=np.zeros(3),
+        )
