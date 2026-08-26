@@ -13,9 +13,9 @@
 # rest-pose pass.
 
 segments:
-  SACROLUMBAR_SPINE:
+  LUMBAR_SPINE:
     reference_geometry:
-      origin: pelvis_origin
+      origin: sacrum_top
       z_axis:
         landmark: thoracolumbar_junction
         type: exact

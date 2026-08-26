@@ -30,7 +30,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from skellyforge.core.math.geometry.numeric_tolerances import MINIMUM_VECTOR_NORM
+from skellyforge.core.math.geometry.numeric_tolerances import (
+    MINIMUM_SINE_BETWEEN_DEFINING_VECTORS,
+    MINIMUM_VECTOR_NORM,
+)
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.kinematics.coordinate_frame_ops import default_perpendicular
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
@@ -95,20 +98,50 @@ class SegmentRollReference:
 
 @dataclass(slots=True, eq=False)
 class ContinuousRollResolver:
-    """Gives every direction-only segment a roll that is continuous across frames.
+    """Gives every direction-only segment a roll that is deterministic per frame.
 
-    Build one per take, feed it each frame's `SkeletonPose` in order, and use what it
-    returns. Rigid-fit poses pass through untouched - their roll is measured, and a
-    convention has no business overwriting a measurement.
+    Two resolution tiers, by call level:
 
-    This is mutable by necessity: carrying the previous frame's roll forward is the whole
-    mechanism. The poses it hands back are frozen as ever.
+    - ``resolve_pose`` (skeleton level, what production uses): whenever a
+      direction-only segment's PARENT pose exists this frame, the roll is
+      ANCHORED - the secondary axis is projected from the direction pointing
+      back up the chain toward the parent segment's origin (its own proximal
+      joint), which is roll-free measured geometry. Same motion therefore
+      yields the same roll regardless of history. When no anchor is usable
+      (parent unhydrated, or hint collinear with the segment's long axis -
+      straight chains carry no roll reference at all), it falls back to
+      parallel transport against the carried roll.
+
+    - ``resolve_segment_pose`` (segment level): pure parallel transport, the
+      historical primitive. Available without context; nothing here pretends
+      an anchor exists when the caller could not supply one.
+
+    Rigid-fit poses pass through untouched in both tiers - their roll is
+    measured, and a convention has no business overwriting a measurement.
+
+    This is mutable by necessity: carrying the previous frame's roll forward is
+    the fallback's mechanism (and keeps anchored frames' neighbors continuous).
+    The poses it hands back are frozen as ever.
     """
 
     references_by_segment_name: dict[RigidBodySegmentName, SegmentRollReference]
+    skeleton: SkeletonDefinition
     _carried_secondary_by_segment_name: dict[RigidBodySegmentName, FloatArray] = field(
         init=False, repr=False, default_factory=dict
     )
+    _parent_of: dict[RigidBodySegmentName, RigidBodySegmentName] = field(
+        init=False, repr=False, default_factory=dict
+    )
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "_parent_of",
+            {
+                joint.child.name: joint.parent.name
+                for joint in self.skeleton.joints.values()
+            },
+        )
 
     @classmethod
     def for_skeleton(cls, *, skeleton: SkeletonDefinition) -> ContinuousRollResolver:
@@ -119,7 +152,8 @@ class ContinuousRollResolver:
                     skeleton=skeleton, segment_name=name
                 )
                 for name in skeleton.segments
-            }
+            },
+            skeleton=skeleton,
         )
 
     def reset(self) -> None:
@@ -127,16 +161,45 @@ class ContinuousRollResolver:
         self._carried_secondary_by_segment_name.clear()
 
     def resolve_pose(self, *, pose: SkeletonPose) -> SkeletonPose:
-        """One frame's poses with every direction-only roll made continuous."""
-        return SkeletonPose(
-            segment_poses={
-                name: self.resolve_segment_pose(pose=segment_pose)
-                for name, segment_pose in pose.segment_poses.items()
-            }
-        )
+        """One frame's poses with every direction-only roll made continuous.
+
+        Anchored where the parent's origin provides a reference this frame;
+        transported otherwise.
+        """
+        resolved: dict[RigidBodySegmentName, SegmentPose] = {}
+        for name, segment_pose in pose.segment_poses.items():
+            anchor_hint: FloatArray | None = None
+            if segment_pose.solved_by is PoseSolution.DIRECTION:
+                parent_name = self._parent_of.get(name)
+                parent_pose = (
+                    pose.segment_poses.get(parent_name) if parent_name else None
+                )
+                if parent_pose is not None:
+                    anchor_hint = (
+                        parent_pose.origin.array - segment_pose.origin.array
+                    )
+            resolved[name] = self._resolve_segment_pose_with_optional_anchor(
+                pose=segment_pose, anchor_hint=anchor_hint
+            )
+        return SkeletonPose(segment_poses=resolved)
 
     def resolve_segment_pose(self, *, pose: SegmentPose) -> SegmentPose:
-        """One segment's pose with its free roll resolved, if it has one."""
+        """One segment's pose with its free roll resolved by parallel transport."""
+        return self._resolve_segment_pose_with_optional_anchor(
+            pose=pose, anchor_hint=None
+        )
+
+
+    def _resolve_segment_pose_with_optional_anchor(
+        self, *, pose: SegmentPose, anchor_hint: FloatArray | None
+    ) -> SegmentPose:
+        """Resolve one direction-only segment's roll.
+
+        With a usable `anchor_hint` (parent origin minus this origin), the
+        secondary axis is projected from it - deterministic per frame. Without
+        one, the previous frame's roll is transported forward. Either way the
+        measured long axis is untouched and the carry is updated.
+        """
         if pose.solved_by is not PoseSolution.DIRECTION:
             return pose
         reference = self.references_by_segment_name[pose.segment_name]
@@ -144,25 +207,45 @@ class ContinuousRollResolver:
         world_primary = pose.orientation.rotate_vector(vector=reference.primary_local)
         first_axis = world_primary / np.linalg.norm(world_primary)
 
-        carried = self._carried_secondary_by_segment_name.get(pose.segment_name)
-        roll_reference = (
-            pose.orientation.rotate_vector(vector=reference.secondary_local)
-            if carried is None
-            else carried
-        )
+        anchored_second: FloatArray | None = None
+        if anchor_hint is not None:
+            hint_norm = float(np.linalg.norm(anchor_hint))
+            if hint_norm >= MINIMUM_VECTOR_NORM:
+                hint = anchor_hint / hint_norm
+                projected = hint - float(np.dot(hint, first_axis)) * first_axis
+                projected_norm = float(np.linalg.norm(projected))
+                if projected_norm >= MINIMUM_SINE_BETWEEN_DEFINING_VECTORS:
+                    # A live anchor: the direction back up the chain, kept
+                    # perpendicular to the long axis. Deterministic - no history.
+                    anchored_second = projected / projected_norm
 
-        second_axis = roll_reference - float(np.dot(roll_reference, first_axis)) * first_axis
-        residual_norm = float(np.linalg.norm(second_axis))
-        if residual_norm < MINIMUM_VECTOR_NORM:
-            # The carried axis has swung onto the new direction, so there is no roll left
-            # in it to preserve. Restart from the deterministic perpendicular rather than
-            # normalizing rounding error.
-            second_axis = default_perpendicular(direction=first_axis)
+        carried = self._carried_secondary_by_segment_name.get(pose.segment_name)
+        if anchored_second is not None:
+            second_axis = anchored_second
         else:
-            second_axis = second_axis / residual_norm
+            roll_reference = (
+                pose.orientation.rotate_vector(vector=reference.secondary_local)
+                if carried is None
+                else carried
+            )
+            second_axis = (
+                roll_reference
+                - float(np.dot(roll_reference, first_axis)) * first_axis
+            )
+            residual_norm = float(np.linalg.norm(second_axis))
+            if residual_norm < MINIMUM_VECTOR_NORM:
+                # The carried axis has swung onto the new direction, so there is no
+                # roll left in it to preserve. Restart from the deterministic
+                # perpendicular rather than normalizing rounding error.
+                second_axis = default_perpendicular(direction=first_axis)
+            else:
+                second_axis = second_axis / residual_norm
+
         third_axis = np.cross(first_axis, second_axis)
 
         world_basis = np.column_stack([first_axis, second_axis, third_axis])
+        # The carry updates on BOTH paths, so a frame that loses its anchor
+        # falls back from the last anchored state rather than an ancient one.
         self._carried_secondary_by_segment_name[pose.segment_name] = second_axis
 
         return pose.with_orientation(

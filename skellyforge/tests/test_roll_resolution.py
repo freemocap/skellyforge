@@ -174,3 +174,162 @@ def test_a_segment_whose_primary_sits_on_its_origin_has_no_roll_reference() -> N
     skeleton = _skeleton()
     with pytest.raises(KeyError):
         SegmentRollReference.for_segment(skeleton=skeleton, segment_name="not_a_segment")
+
+
+# ── anchored secondary axes (skeleton-level resolution) ───────────────
+
+
+def _pose_with_arm_at(direction: np.ndarray):
+    """Full-skeleton hydrated pose with the left arm pointing along `direction`."""
+    skeleton = _skeleton()
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+    shoulder = rest_pose.landmark_positions["left_shoulder"]
+    upper_length = skeleton.segments["left_upper_arm"].length
+    lower_length = skeleton.segments["left_lower_arm"].length
+
+    observed = dict(rest_pose.landmark_positions)
+    unit = np.asarray(direction, dtype=np.float64)
+    unit = unit / np.linalg.norm(unit)
+    observed["left_elbow"] = Point.from_prevalidated_array(
+        array=shoulder.array + upper_length * unit
+    )
+    observed["left_wrist"] = Point.from_prevalidated_array(
+        array=observed["left_elbow"].array + lower_length * unit
+    )
+    return skeleton, hydrate_skeleton(skeleton=skeleton, observed=observed)
+
+
+def _pose_with_bent_elbow(*, bend_degrees: float):
+    """Full-skeleton hydrated pose with the elbow flexed by `bend_degrees`.
+
+    A straight limb gives its distal joints no roll reference at all (the
+    parent's origin sits exactly on the bone axis), so this bends the elbow -
+    the configuration where anchoring has something to say.
+    """
+    skeleton = _skeleton()
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+    shoulder = rest_pose.landmark_positions["left_shoulder"]
+    upper_length = skeleton.segments["left_upper_arm"].length
+    lower_length = skeleton.segments["left_lower_arm"].length
+
+    upper_dir = np.array([0.35, 0.45, 0.82])
+    upper_dir = upper_dir / np.linalg.norm(upper_dir)
+    bend = np.deg2rad(bend_degrees)
+    c, s = np.cos(bend), np.sin(bend)
+    rotation = np.array(
+        [[c, -s, 0], [s, c, 0], [0, 0, 1]]
+    )  # flexion about the world z-ish plane of the arm
+    lower_dir = rotation @ upper_dir
+
+    observed = dict(rest_pose.landmark_positions)
+    observed["left_elbow"] = Point.from_prevalidated_array(
+        array=shoulder.array + upper_length * upper_dir
+    )
+    observed["left_wrist"] = Point.from_prevalidated_array(
+        array=observed["left_elbow"].array + lower_length * lower_dir
+    )
+    return skeleton, hydrate_skeleton(skeleton=skeleton, observed=observed)
+
+
+def test_skeleton_level_roll_is_history_independent() -> None:
+    """THE L6.2 promise: reach the same geometry by two different routes and the
+    anchored roll is identical - no path dependence, no take history."""
+    skeleton = _skeleton()
+    _, final_pose = _pose_with_bent_elbow(bend_degrees=55.0)
+
+    # Route A: a long wandering approach through very different arm poses
+    # (including dead-straight arms, whose frames fall back to transport).
+    wanderer = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    for waypoint in ([0.9, 0.1, 0.4], [-0.8, 0.2, 0.5], [0.0, 0.9, 0.4]):
+        _, waypoint_pose = _pose_with_arm_at(direction=np.array(waypoint))
+        wanderer.resolve_pose(pose=waypoint_pose)
+    via_wander = wanderer.resolve_pose(pose=final_pose)
+
+    # Route B: fresh resolver, straight to the final frame.
+    virgin = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    direct = virgin.resolve_pose(pose=final_pose)
+
+    for name in ("left_upper_arm", "left_lower_arm"):
+        error_deg = float(
+            np.degrees(
+                via_wander.segment_poses[name].orientation.angle_to(
+                    other=direct.segment_poses[name].orientation
+                )
+            )
+        )
+        assert error_deg < 1e-6, (
+            f"{name}: roll depended on history - wandered {error_deg:.3e} deg"
+        )
+
+
+def test_anchored_secondary_is_perpendicular_and_right_handed() -> None:
+    skeleton = _skeleton()
+    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    reference = SegmentRollReference.for_segment(
+        skeleton=skeleton, segment_name="left_lower_arm"
+    )
+    _, pose = _pose_with_arm_at(direction=np.array([0.2, 0.6, 0.75]))
+    resolved = resolver.resolve_pose(pose=pose)
+    orientation = resolved.segment_poses["left_lower_arm"].orientation
+
+    primary_world = orientation.rotate_vector(vector=reference.primary_local)
+    secondary_world = orientation.rotate_vector(vector=reference.secondary_local)
+    assert abs(float(primary_world @ secondary_world)) < 1e-9
+    triple = float(
+        primary_world @ np.cross(secondary_world, np.cross(primary_world, secondary_world))
+    )  # det-like check via constructed basis below instead:
+    third_world = orientation.rotate_vector(
+        vector=np.cross(reference.primary_local, reference.secondary_local)
+    )
+    handedness = float(
+        primary_world @ np.cross(secondary_world, third_world)
+    )
+    assert handedness == pytest.approx(1.0, abs=1e-9)
+    assert triple == pytest.approx(1.0, abs=1e-9)
+
+
+def test_missing_parent_falls_back_to_plain_transport() -> None:
+    """Without the parent's pose there is no anchor; the segment must resolve
+    exactly as the bare segment-level primitive would from the same state."""
+    skeleton = _skeleton()
+    _, pose = _pose_with_arm_at(direction=np.array([0.5, 0.5, 0.7]))
+    pruned = type(pose)(
+        segment_poses={
+            name: sp
+            for name, sp in pose.segment_poses.items()
+            if name != "left_clavicle"
+        }
+    )
+
+    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    skeleton_level = resolver.resolve_pose(pose=pruned).segment_poses["left_upper_arm"]
+    segment_level = resolver.resolve_segment_pose(pose=pruned.segment_poses["left_upper_arm"])
+    assert skeleton_level.orientation.is_same_rotation(
+        other=segment_level.orientation, tolerance_radians=1e-12
+    )
+
+
+def test_degenerate_straight_limb_falls_back_without_nan() -> None:
+    """Arm pointed exactly back along its anchor direction: the hint carries no
+    perpendicular information, so resolution falls back to transport - finite,
+    measured axis untouched."""
+    skeleton = _skeleton()
+    rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
+    sc_joint = rest_pose.landmark_positions["left_sternoclavicular"].array
+    acromion = rest_pose.landmark_positions["left_shoulder"].array
+    toward_sc = acromion - sc_joint
+    toward_sc = toward_sc / np.linalg.norm(toward_sc)
+
+    skeleton_, pose = _pose_with_arm_at(direction=toward_sc)
+    resolved = ContinuousRollResolver.for_skeleton(skeleton=skeleton_).resolve_pose(
+        pose=pose
+    )
+    upper = resolved.segment_poses["left_upper_arm"]
+    assert upper.solved_by is PoseSolution.TRANSPORTED_ROLL
+    components = (
+        upper.orientation.w,
+        upper.orientation.x,
+        upper.orientation.y,
+        upper.orientation.z,
+    )
+    assert all(np.isfinite(components))

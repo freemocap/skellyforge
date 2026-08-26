@@ -41,6 +41,8 @@ skellyforge/
  │   │   │                                 #   relative_orientation, JointPose + provenance
  │   │   ├── chain/                        # the multi-segment layer: KinematicChain declarations
  │   │   │                                 #   + forward synthesis; IK / twist backfill pending
+ │   │   ├── pose/                         #   hydration + rest pose + roll resolution
+ │   │   │                                 #   (anchored secondary axes w/ transport fallback)
 │   │   ├── loading/                      #   the YAML loader pipeline
 │   │   │   ├── component_building.py     #   $include → lowercase → sided → reference frames → objects
 │   │   │   ├── include_resolution.py     #   $include
@@ -81,7 +83,9 @@ the whole path end to end. The **linkage layer is built**: `human_skeleton.yaml`
 every `JointPose` carries input provenance. The **chain layer's declarations and
 forward synthesis are built**: declared chains compile with contiguity validation, and
 `synthesize_pose` walks joint angles -> whole-body poses, gated by the FK-closure
-tests. Chain IK and twist backfill are the next pending pieces.
+tests. Roll resolution anchors to parent-origin directions at the skeleton level
+(deterministic per frame) and falls back to parallel transport when no anchor
+exists. Chain IK and twist backfill are the next pending pieces.
 
 ## Commands
 
