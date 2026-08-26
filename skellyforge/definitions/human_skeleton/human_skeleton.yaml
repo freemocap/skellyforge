@@ -25,11 +25,11 @@ components:
 # angle_names) when a named clinical decomposition matters. Refining a
 # convention is a data edit here, never a code change.
 joints:
-  lumbar_spine: {parent: pelvis, child: lumbar_spine, connect_at: sacrum_top}
-  chest: {parent: lumbar_spine, child: chest, connect_at: thoracolumbar_junction}
-  cervical_spine: {parent: chest, child: cervical_spine, connect_at: cervicothoracic_junction}
+  sacrolumbar: {parent: pelvis, child: sacrolumbar, connect_at: pelvis_origin}
+  thoracic: {parent: sacrolumbar, child: thoracic, connect_at: chest_center}
+  cervical_spine: {parent: thoracic, child: cervical_spine, connect_at: neck_center}
   skull: {parent: cervical_spine, child: skull, connect_at: craniocervical_junction}
-  left_clavicle: {parent: chest, child: left_clavicle, connect_at: left_sternoclavicular}
+  left_clavicle: {parent: thoracic, child: left_clavicle, connect_at: left_sternoclavicular}
   left_upper_arm: {parent: left_clavicle, child: left_upper_arm, connect_at: left_acromion}
   left_lower_arm: {parent: left_upper_arm, child: left_lower_arm}
   left_carpals: {parent: left_lower_arm, child: left_carpals, connect_at: left_wrist}
@@ -57,7 +57,7 @@ joints:
   left_foot: {parent: left_lower_leg, child: left_foot, connect_at: left_ankle}
   left_toes: {parent: left_foot, child: left_toes}
   left_heel: {parent: left_lower_leg, child: left_heel, connect_at: left_ankle}
-  right_clavicle: {parent: chest, child: right_clavicle, connect_at: right_sternoclavicular}
+  right_clavicle: {parent: thoracic, child: right_clavicle, connect_at: right_sternoclavicular}
   right_upper_arm: {parent: right_clavicle, child: right_upper_arm, connect_at: right_acromion}
   right_lower_arm: {parent: right_upper_arm, child: right_lower_arm}
   right_carpals: {parent: right_lower_arm, child: right_carpals, connect_at: right_wrist}
@@ -86,18 +86,11 @@ joints:
   right_toes: {parent: right_foot, child: right_toes}
   right_heel: {parent: right_lower_leg, child: right_heel, connect_at: right_ankle}
 
-# ── Chains (the ontology's chain layer) ────────────────────────────────
-#
-# Declared multi-segment paths over the joints above - the unit multi-segment
-# math (forward synthesis, inverse kinematics, twist backfill) owns. Each entry
-# lists its segments proximal -> distal; consecutive entries must be joined by
-# a joint. A chain is 3+ segments; branching fans arrive with coupled
-# constraints.
 chains:
   spine:
     - pelvis
-    - lumbar_spine
-    - chest
+    - sacrolumbar
+    - thoracic
     - cervical_spine
     - skull
   left_arm:

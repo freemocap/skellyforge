@@ -34,8 +34,8 @@
 name: human
 segments:
   pelvis: {}
-  lumbar_spine: {}
-  chest: {}
+  sacrolumbar: {}
+  thoracic: {}
   cervical_spine: {}
   skull: {}
   left_clavicle:

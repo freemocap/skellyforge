@@ -87,7 +87,7 @@ def test_default_convention_is_a_zyx_ball_with_axes_derived_names() -> None:
 
 def test_a_connect_at_owned_by_no_parent_is_rejected(tmp_path: Path) -> None:
     def steal_a_landmark(document: dict) -> None:
-        document["joints"]["lumbar_spine"]["connect_at"] = "head_vertex"
+        document["joints"]["sacrolumbar"]["connect_at"] = "head_vertex"
 
     with pytest.raises(ValueError, match="must be owned by the parent segment"):
         _load_variant(directory=tmp_path, mutate=steal_a_landmark)
@@ -95,23 +95,23 @@ def test_a_connect_at_owned_by_no_parent_is_rejected(tmp_path: Path) -> None:
 
 def test_an_unknown_connect_at_landmark_is_rejected(tmp_path: Path) -> None:
     def misspell_the_landmark(document: dict) -> None:
-        document["joints"]["lumbar_spine"]["connect_at"] = "sacrum_toppp"
+        document["joints"]["sacrolumbar"]["connect_at"] = "sacrum_toppp"
 
     with pytest.raises(ValueError, match="is not a landmark"):
         _load_variant(directory=tmp_path, mutate=misspell_the_landmark)
 
 
 def test_more_than_one_root_is_rejected(tmp_path: Path) -> None:
-    def cut_the_chest_free(document: dict) -> None:
-        document["joints"].pop("chest")
+    def cut_the_thoracic_free(document: dict) -> None:
+        document["joints"].pop("thoracic")
 
     with pytest.raises(ValueError, match="exactly one root segment"):
-        _load_variant(directory=tmp_path, mutate=cut_the_chest_free)
+        _load_variant(directory=tmp_path, mutate=cut_the_thoracic_free)
 
 
 def test_no_root_at_all_is_rejected(tmp_path: Path) -> None:
     def close_the_loop(document: dict) -> None:
-        document["joints"]["pelvis_root"] = {
+        document["joints"]["pelvis_cycle"] = {
             "parent": "cervical_spine",
             "child": "pelvis",
             "connect_at": "craniocervical_junction",
@@ -123,7 +123,7 @@ def test_no_root_at_all_is_rejected(tmp_path: Path) -> None:
 
 def test_a_segment_cannot_be_its_own_parent(tmp_path: Path) -> None:
     def self_joint(document: dict) -> None:
-        document["joints"]["chest"]["parent"] = "chest"
+        document["joints"]["thoracic"]["parent"] = "thoracic"
 
     with pytest.raises(ValueError, match="joins segment .* to itself"):
         _load_variant(directory=tmp_path, mutate=self_joint)
@@ -143,7 +143,7 @@ def test_a_child_claimed_twice_is_rejected(tmp_path: Path) -> None:
 
 def test_an_unknown_parent_segment_is_rejected(tmp_path: Path) -> None:
     def phantom_parent(document: dict) -> None:
-        document["joints"]["chest"]["parent"] = "left_uppr_arm"
+        document["joints"]["thoracic"]["parent"] = "left_uppr_arm"
 
     with pytest.raises(ValueError, match="does not have"):
         _load_variant(directory=tmp_path, mutate=phantom_parent)
@@ -151,7 +151,7 @@ def test_an_unknown_parent_segment_is_rejected(tmp_path: Path) -> None:
 
 def test_an_unknown_entry_key_is_rejected(tmp_path: Path) -> None:
     def typo_key(document: dict) -> None:
-        document["joints"]["chest"]["conect_at"] = "thoracolumbar_junction"
+        document["joints"]["thoracic"]["conect_at"] = "thoracolumbar_junction"
 
     with pytest.raises(ValueError, match="unknown keys"):
         _load_variant(directory=tmp_path, mutate=typo_key)

@@ -1,8 +1,8 @@
-"""Map the skeleton's 61 segments onto de Leva's 16 anatomical segments.
+"""Map the skeleton's segments onto de Leva's 16 anatomical segments.
 
 The de Leva table divides the body into 16 anatomical segments (head+neck, three trunk
-parts, and six bilateral limb parts). The skeleton models the same body as 61 rigid
-segments, several of which make up one anatomical segment (a hand is a carpal cluster
+parts, and six bilateral limb parts). The skeleton models the same body as more rigid
+segments than that - several of which make up one anatomical segment (a hand is a carpal cluster
 plus nineteen phalanges/metacarpals; the head+neck is the skull plus the cervical spine).
 This module states that mapping and, from it, distributes each anatomical segment's mass
 across its skeleton segments proportionally to length cubed - the equal-density
@@ -20,10 +20,10 @@ from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 _ANATOMICAL_BY_SKELETON_SEGMENT: dict[str, str] = {
     "skull": "head_neck",
     "cervical_spine": "head_neck",
-    "chest": "upper_trunk",
+    "thoracic": "upper_trunk",
     "left_clavicle": "upper_trunk",
     "right_clavicle": "upper_trunk",
-    "lumbar_spine": "middle_trunk",
+    "sacrolumbar": "middle_trunk",
     "pelvis": "lower_trunk",
     "left_upper_arm": "upper_arm",
     "right_upper_arm": "upper_arm",

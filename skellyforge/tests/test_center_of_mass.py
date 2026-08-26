@@ -64,7 +64,7 @@ def test_abdomen_com_is_anterior_to_the_spine() -> None:
     abdomen = segment_com(
         definition=_definitions().get(name="middle_trunk"), side=None, world=world
     )
-    spine = world["thoracolumbar_junction"]
+    spine = world["chest_center"]
     assert abdomen[1] > spine[1]
     assert abdomen[1] > 0.0
 

@@ -66,7 +66,7 @@ def test_the_rest_pose_resolves_every_segment_and_landmark() -> None:
 
 def test_the_trunk_runs_straight_up() -> None:
     pose = _pose()
-    for name in ("pelvis", "lumbar_spine", "chest", "cervical_spine", "skull"):
+    for name in ("pelvis", "sacrolumbar", "thoracic", "cervical_spine", "skull"):
         np.testing.assert_allclose(
             _distal_direction(pose=pose, name=name), [0.0, 0.0, 1.0], atol=1e-6
         )
@@ -150,11 +150,11 @@ def test_the_pelvis_sits_at_the_origin_and_the_lumbar_on_the_sacrum() -> None:
     np.testing.assert_allclose(
         pose.segment_origins["pelvis"].array, [0.0, 0.0, 0.0], atol=1e-9
     )
-    # lumbar_spine's origin is the pelvis's sacrum_top local position.
+    # sacrolumbar's origin IS the pelvis origin (hip center).
     np.testing.assert_allclose(
-        pose.segment_origins["lumbar_spine"].array, [0.0, -35.0, 95.0], atol=1e-9
+        pose.segment_origins["sacrolumbar"].array, [0.0, 0.0, 0.0], atol=1e-9
     )
-    # upper_leg's origin is the pelvis's left hip socket.
+    # upper_leg's origin is the left hemipelvis's hip socket.
     np.testing.assert_allclose(
         pose.segment_origins["left_upper_leg"].array, [-88.0, 0.0, 0.0], atol=1e-9
     )
@@ -204,7 +204,7 @@ def test_a_segment_with_no_entry_is_rejected(tmp_path: Path) -> None:
 
 def test_an_unknown_entry_key_is_rejected(tmp_path: Path) -> None:
     def add_a_typo_key(document: dict) -> None:
-        document["segments"]["chest"]["orientaton"] = [1, 0, 0, 0]
+        document["segments"]["thoracic"]["orientaton"] = [1, 0, 0, 0]
 
     path = _written_variant(directory=tmp_path, mutate=add_a_typo_key)
     with pytest.raises(ValueError, match="unknown keys"):
@@ -216,8 +216,8 @@ def test_topology_keys_in_the_rest_pose_are_rejected(tmp_path: Path) -> None:
     them is stale authoring and must fail loudly rather than be silently obeyed."""
 
     def leave_stale_parent_fields(document: dict) -> None:
-        document["segments"]["chest"] = {
-            "parent": "lumbar_spine",
+        document["segments"]["thoracic"] = {
+            "parent": "sacrolumbar",
             "connect_at": "thoracolumbar_junction",
             "orientation": [1.0, 0.0, 0.0, 0.0],
         }

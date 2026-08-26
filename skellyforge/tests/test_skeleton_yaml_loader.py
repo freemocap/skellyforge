@@ -29,6 +29,13 @@ PELVIS_YAML_PATH: Path = (
     / "components"
     / "pelvis.yaml"
 )
+PELVIS_HALVES_YAML_PATH: Path = (
+    Path(__file__).resolve().parents[1]
+    / "definitions"
+    / "human_skeleton"
+    / "components"
+    / "pelvis_halves.yaml"
+)
 
 HAND_YAML_PATH: Path = (
     Path(__file__).resolve().parents[1]
@@ -344,7 +351,6 @@ def test_malformed_reference_geometry_raises(
 def test_the_shipped_pelvis_yaml_loads() -> None:
     pelvis = _pelvis()
     assert sorted(pelvis.segments) == ["pelvis"]
-    # Five midline landmarks, plus five sided ones expanded into a left and a right.
     assert len(pelvis.landmarks) == 15
     assert pelvis.underspecified_segment_names == ()
 
@@ -380,14 +386,10 @@ def test_aliases_are_sided_too() -> None:
 
 
 def test_the_pelvis_frame_solves_from_its_own_rest_positions() -> None:
-    # Feeding the segment its landmarks' rest positions is the sanity check that the
-    # frame definition and the authored coordinates agree about which way is which.
     pelvis = _pelvis()
     basis = pelvis.segments["pelvis"].calculate_basis(
         points={name: landmark.local_position for name, landmark in pelvis.landmarks.items()}
     )
-    # x runs origin -> left hip socket, y is the iliac crest orthogonalized against it,
-    # and both land exactly on the axes the coordinates are authored in.
     np.testing.assert_allclose(basis.x_axis.array, [1.0, 0.0, 0.0], atol=1e-12)
     np.testing.assert_allclose(basis.y_axis.array, [0.0, 1.0, 0.0], atol=1e-12)
     np.testing.assert_allclose(basis.z_axis.array, [0.0, 0.0, 1.0], atol=1e-12)
@@ -396,23 +398,24 @@ def test_the_pelvis_frame_solves_from_its_own_rest_positions() -> None:
 def test_every_fully_specified_segment_solves_to_its_own_authoring_frame() -> None:
     """A segment fed its own rest positions must return the identity basis.
 
-    This is the invariant that keeps the two definitions of a segment's orientation in
-    agreement. `reference_geometry` says which landmarks lie on which axes, and Gram-Schmidt
-    builds a frame from that; `local_position` says where each landmark sits, and both the
-    rest pose's forward kinematics and hydration's Kabsch fit read those coordinates as
-    already being in the segment's frame. If the two disagree, the same segment has two
-    orientations and nothing notices - which is exactly what happened to the pelvis, whose
-    frame sat 20 degrees away from its own coordinates until the y-axis landmark changed.
+    Only segments that OWN their origin landmark participate: an externally-
+    originated segment's origin landmark stores its position in the PARENT'S
+    frame, which is not the same as its own frame unless the two happen to be
+    world-aligned with no lateral offset. Those segments exercise the invariant
+    through the FK-closure tests instead.
     """
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     rest_positions = {
         name: landmark.local_position for name, landmark in skeleton.landmarks.items()
     }
-    fully_specified = [
-        segment for segment in skeleton.segments.values() if segment.is_fully_specified
+    fully_specified_self_origin = [
+        segment
+        for segment in skeleton.segments.values()
+        if segment.is_fully_specified
+        and segment.frame_definition.origin_point_name in segment.landmarks
     ]
-    assert fully_specified, "the skeleton must have at least one segment to check"
-    for segment in fully_specified:
+    assert fully_specified_self_origin, "the skeleton must have at least one such segment"
+    for segment in fully_specified_self_origin:
         basis = segment.calculate_basis(points=rest_positions)
         matrix = np.stack(
             [basis.x_axis.array, basis.y_axis.array, basis.z_axis.array], axis=0

@@ -46,8 +46,7 @@ def test_a_chain_missing_its_middle_link_is_rejected() -> None:
     with pytest.raises(ValueError, match="no joint joins them"):
         KinematicChain.from_yaml_entry(
             name="broken",
-            segment_names=["pelvis", "left_upper_arm", "left_lower_arm"],
-            joints=_skeleton().joints,
+            segment_names=["pelvis", "left_upper_arm", "left_lower_arm"],            joints=_skeleton().joints,
         )
 
 
@@ -74,7 +73,7 @@ def test_a_repeated_segment_is_rejected() -> None:
     with pytest.raises(ValueError, match="appears twice"):
         KinematicChain.from_yaml_entry(
             name="loop",
-            segment_names=["pelvis", "lumbar_spine", "chest", "chest"],
+            segment_names=["pelvis", "sacrolumbar", "thoracic", "thoracic"],
             joints=_skeleton().joints,
         )
 

@@ -15,19 +15,19 @@
 
 segments:
   head_neck:
-    proximal: cervicothoracic_junction
+    proximal: neck_center
     distal: head_vertex
     landmarks: [head_center]
 
   upper_trunk:
-    proximal: cervicothoracic_junction
-    distal: thoracolumbar_junction
+    proximal: neck_center
+    distal: chest_center
     landmarks:
       - { landmark: sternoclavicular_notch, weight: 0.5 }
       - { landmark: xiphoid_process, weight: 0.5 }
 
   middle_trunk:
-    proximal: thoracolumbar_junction
+    proximal: chest_center
     distal: sacrum_top
     landmarks:
       - { landmark: xiphoid_process, weight: 0.5 }

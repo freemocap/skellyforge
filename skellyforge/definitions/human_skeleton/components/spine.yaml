@@ -1,35 +1,41 @@
-# Spine component: the three spine segments and the clavicle.
+# Spine component: the three trunk segments and the clavicle.
 #
-# Each spine segment is a straight rigid link between two vertebral-junction
-# landmarks: its origin is the junction shared with the segment BELOW (an
-# external, parent-owned landmark), and its primary is the junction shared with
-# the segment ABOVE. The individual per-vertebra landmarks were removed - they
-# added complexity without contributing anything the closed-form hydration can
-# use, and the tracker cannot see individual vertebrae anyway.
+# The trunk is partitioned at tracker-solid lines (see
+# current-work-plans/06-spine-thorax-redesign/design.md):
 #
-# Local frame (right-handed, Blender convention): +x RIGHT, +y FORWARD, +z UP.
-# Units are millimetres, sized for a 50th-percentile adult. Junction heights are
-# vertebral-column estimates; reconciling them with the segment frames is the
-# rest-pose pass.
+#   hip_center ── SACROLUMBAR ──> chest_center (~T12/L1, authored)
+#   chest_center ── THORACIC ──> neck_center (= SHOULDER MIDPOINT, ~C7/T1)
+#   neck_center ── CERVICAL_SPINE ──> head_center (= MEAN OF THE EARS)
+#
+# Every boundary is either a mean of directly tracked keypoints (hip center,
+# shoulder midpoint via the shoulder keypoints, head center via the ears) or a
+# single authored interpolation between those lines. No stacked fractions.
+# Segment origins sit ON those boundaries, so the solved spine tracks what the
+# tracker actually sees.
+#
+# Local frames (right-handed, Blender convention): +x RIGHT, +y FORWARD,
+# +z UP at the rest pose; all three trunk frames are world-aligned there.
 
 segments:
-  LUMBAR_SPINE:
+  SACROLUMBAR:
+    aliases:
+      - lumbar_spine
     reference_geometry:
-      origin: sacrum_top
+      origin: pelvis_origin
       z_axis:
-        landmark: thoracolumbar_junction
+        landmark: chest_center
         type: exact
 
-  CHEST:
+  THORACIC:
     aliases:
-      - thoracic_spine
+      - chest
       - thorax
-      - ribs
       - ribcage
+      - thoracic_spine
     reference_geometry:
-      origin: thoracolumbar_junction
+      origin: chest_center
       z_axis:
-        landmark: cervicothoracic_junction
+        landmark: neck_center
         type: exact
       y_axis:
         landmark: xiphoid_process
@@ -37,7 +43,7 @@ segments:
 
   CERVICAL_SPINE:
     reference_geometry:
-      origin: cervicothoracic_junction
+      origin: neck_center
       z_axis:
         landmark: craniocervical_junction
         type: exact
@@ -55,30 +61,29 @@ segments:
 
 
 landmarks:
-# Vertebral-junction landmarks - the boundaries between the spine segments.
 
-  THORACOLUMBAR_JUNCTION:
+  CHEST_CENTER:
     aliases:
+      - thoracolumbar_junction
       - thoracolumbar_joint
       - t12_l1_junction
-      - chest_center
-    definition: "Geometric center of the thoracolumbar junction (T12/L1), the boundary between the lumbar and thoracic spine"
-    reference_frame: lumbar_spine
-    local_position: [0, 0, 165]
+    definition: "Authored mid-torso point at the T12/L1 level, between the hip and shoulder lines"
+    reference_frame: sacrolumbar
+    local_position: [0, -35, 260]
 
-  CERVICOTHORACIC_JUNCTION:
+  NECK_CENTER:
     aliases:
+      - cervicothoracic_junction
       - cervicothoracic_joint
       - c7_t1_junction
-      - neck_center
-    definition: "Geometric center of the cervicothoracic junction (C7/T1), the boundary between the thoracic and cervical spine"
-    reference_frame: chest
+      - shoulder_midpoint
+    definition: "Midpoint of the shoulder line, at the C7/T1 level"
+    reference_frame: thoracic
     local_position: [0, 0, 328]
 
   CRANIOCERVICAL_JUNCTION:
-    aliases:
-      - craniocervical_joint
-      - c1_skull_junction
+    # World position coincides with the skull-authored head_center (the ear
+    # mean): both sit here. The skull connects at this point.
     definition: "Geometric center of the craniocervical junction (C1/skull), the boundary between the cervical spine and the skull"
     reference_frame: cervical_spine
     local_position: [0, 0, 128]
@@ -90,15 +95,15 @@ landmarks:
       - suprasternal_notch
       - jugular_notch
     definition: "Geometric center of the suprasternal notch, the dip at the top of the sternum between the two clavicles"
-    reference_frame: chest
+    reference_frame: thoracic
     local_position: [0, 80, 210]
 
   STERNOCLAVICULAR:
     sided: true
     aliases:
       - sc_joint
-    definition: "Geometric center of the sternoclavicular joint, where the clavicle meets the manubrium of the sternum"
-    reference_frame: chest
+    definition: "Geometric center of the sternoclavicular joint, where the clavicle meets the manubrium of the sternum. Authored ANTERIOR of the spine plane on purpose - the shoulder girdle hangs off the front of the ribcage."
+    reference_frame: thoracic
     local_position: [-20, 80, 210]
 
   ACROMION:
@@ -107,10 +112,7 @@ landmarks:
       - shoulder_tip
     definition: "Geometric center of the acromion process of the scapula, the lateral tip of the shoulder"
     reference_frame: clavicle
-    # The acromion lies along the clavicle's primary axis (-x on the left). The
-    # clavicle's rest orientation (rest_pose.yaml) angles that axis back so the
-    # shoulder lands posterior to the sternoclavicular joint, in the coronal plane of
-    # the hip joints rather than in the plane of the front of the chest.
+    # The acromion lies along the clavicle's primary axis (-x on the left).
     local_position: [-158.824, 0, 0]
 
   XIPHOID_PROCESS:
@@ -118,5 +120,5 @@ landmarks:
       - xiphoid
       - xiphisternum
     definition: "Distal tip of the xiphoid process, the cartilaginous inferior end of the sternum"
-    reference_frame: chest
+    reference_frame: thoracic
     local_position: [0, 130, 55]

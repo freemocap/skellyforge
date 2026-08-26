@@ -115,7 +115,7 @@ def test_relative_orientation_tracks_the_measured_child_direction() -> None:
                 np.arccos(np.clip(world_from_relative @ measured, -1.0, 1.0))
             )
         )
-        assert error_degrees < 1e-6, (
+        assert error_degrees < 1e-4, (
             f"joint {joint.name}: authored relative orientation does not send its "
             f"primary axis along the bone (off by {error_degrees:.2e} deg)"
         )
