@@ -27,6 +27,7 @@ dependency only ever points one way.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Mapping
 
 import numpy as np
 
@@ -126,6 +127,7 @@ class ContinuousRollResolver:
 
     references_by_segment_name: dict[RigidBodySegmentName, SegmentRollReference]
     skeleton: SkeletonDefinition
+    rest_relative_orientations: Mapping[RigidBodySegmentName, RotationQuaternion] | None
     _carried_secondary_by_segment_name: dict[RigidBodySegmentName, FloatArray] = field(
         init=False, repr=False, default_factory=dict
     )
@@ -144,8 +146,21 @@ class ContinuousRollResolver:
         )
 
     @classmethod
-    def for_skeleton(cls, *, skeleton: SkeletonDefinition) -> ContinuousRollResolver:
-        """Precompute a roll reference for every segment of a skeleton."""
+    def for_skeleton(
+        cls,
+        *,
+        skeleton: SkeletonDefinition,
+        rest_relative_orientations: Mapping[
+            RigidBodySegmentName, RotationQuaternion
+        ]
+        | None = None,
+    ) -> ContinuousRollResolver:
+        """Precompute a roll reference for every segment of a skeleton.
+
+        Pass `rest_relative_orientations` (the rest pose's authored
+        parent-relative rotations, keyed by child segment) to enable the
+        terminal twist-backfill pass in `resolve_pose`.
+        """
         return cls(
             references_by_segment_name={
                 name: SegmentRollReference.for_segment(
@@ -154,6 +169,7 @@ class ContinuousRollResolver:
                 for name in skeleton.segments
             },
             skeleton=skeleton,
+            rest_relative_orientations=rest_relative_orientations,
         )
 
     def reset(self) -> None:
@@ -161,10 +177,12 @@ class ContinuousRollResolver:
         self._carried_secondary_by_segment_name.clear()
 
     def resolve_pose(self, *, pose: SkeletonPose) -> SkeletonPose:
-        """One frame's poses with every direction-only roll made continuous.
+        """One frame's poses with every direction-only roll resolved.
 
         Anchored where the parent's origin provides a reference this frame;
-        transported otherwise.
+        transported otherwise; then - when rest relative orientations were
+        supplied at construction - twist-backfilled along every declared chain
+        from its measured rigid-fit terminal.
         """
         resolved: dict[RigidBodySegmentName, SegmentPose] = {}
         for name, segment_pose in pose.segment_poses.items():
@@ -181,7 +199,22 @@ class ContinuousRollResolver:
             resolved[name] = self._resolve_segment_pose_with_optional_anchor(
                 pose=segment_pose, anchor_hint=anchor_hint
             )
-        return SkeletonPose(segment_poses=resolved)
+        resolved_skeleton = SkeletonPose(segment_poses=resolved)
+
+        if self.rest_relative_orientations is not None:
+            from skellyforge.core.skeleton.chain.twist_backfill import (
+                apply_terminal_twist_backfills,
+            )
+
+            # Local import: the backfill pass is a chain-layer strategy that
+            # reads roll resolution's output; an eager import would close the
+            # skeleton_definition -> chain -> pose -> skeleton_definition cycle.
+            resolved_skeleton = apply_terminal_twist_backfills(
+                skeleton=self.skeleton,
+                pose=resolved_skeleton,
+                rest_relative_orientations=self.rest_relative_orientations,
+            )
+        return resolved_skeleton
 
     def resolve_segment_pose(self, *, pose: SegmentPose) -> SegmentPose:
         """One segment's pose with its free roll resolved by parallel transport."""

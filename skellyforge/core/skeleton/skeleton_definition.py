@@ -200,6 +200,20 @@ class SkeletonDefinition:
             )
         )
 
+    def compute_joint_poses(self, *, pose):
+        """Every joint's hydrated pose for `pose`, keyed by joint name.
+
+        Generic linkage-layer read-out: pairs each joint's parent and child
+        poses into a relative orientation plus its convention-decomposed named
+        angles with input provenance. Joints touching a segment the (possibly
+        partial) pose dropped are omitted. See ``core/skeleton/linkage/``.
+        """
+        from skellyforge.core.skeleton.linkage.joint_pose import (
+            compute_joint_poses as _compute_joint_poses,
+        )
+
+        return _compute_joint_poses(skeleton=self, pose=pose)
+
     @classmethod
     def from_yaml(cls, *, path: Path) -> SkeletonDefinition:
         """Load a skeleton from its top-level YAML file.

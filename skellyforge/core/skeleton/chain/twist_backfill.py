@@ -2,60 +2,45 @@
 
 A two-landmark segment cannot see rotation about its own long axis - the elbow
 and wrist staying collinear under pronation is the canonical case, and pure
-parallel transport freezes the forearm while the hand visibly spins.
+transport freezes the forearm while the hand visibly spins.
 
-But the CHAIN can see it. When a chain's distal end carries a MEASURED full
-orientation (a rigid-fit terminal like the carpals), its relative rotation in
-the proximal segment's frame contains exactly the twist information the
-proximal segment's own landmarks lack. Backfill decomposes that relative
-rotation by swing-twist about the proximal segment's primary axis and applies
-the twist component to it:
+But the CHAIN can see it. When a chain contains a MEASURED full orientation (a
+rigid-fit segment like the carpals), the relative rotations between it and its
+proximal neighbors contain exactly the twist information their own landmark
+pairs lack. Backfill decomposes each such pair rotation by swing-twist about
+the proximal segment's primary axis and applies the twist component:
 
-- pure pronation (hand spins about the forearm axis): the relative rotation is
-  pure twist -> the forearm absorbs all of it. Recovered.
-- pure wrist flexion (hand bends perpendicular to the axis): the relative
-  rotation is pure swing -> the forearm is untouched. Correct.
+- pure pronation (hand spins about the forearm axis): the pair's relative
+  rotation is pure twist -> the forearm absorbs all of it. Recovered.
+- pure wrist flexion (hand bends perpendicular to the axis): pure swing ->
+  the forearm is untouched. Correct.
 - combinations split by projection, attributing axial content to the segment
   and swing content to the joint between them.
 
-Honesty boundaries: this is still a CONVENTION for how the observed end
-rotation distributes between "segment rolled" and "joint deviated" - what
-makes it scientific is that the convention is stated, deterministic, and
-backed by measurement instead of path history. Multi-hop cascades up a chain
-are deliberately deferred until a validated use case exists; v1 fills the
-single segment directly proximal to the measured anchor.
+The reference each pair is measured against is the AUTHORED REST relative
+orientation, which makes backfill a pure function of the current frame -
+deterministic and history-independent, exactly like the anchored secondary
+axes it complements. The constant offset this introduces versus any prior
+transport state is a stated convention, not drift.
+
+Honesty boundaries: attributing axial content to the segment (rather than the
+joint) is a convention - what makes it scientific is that it is deterministic,
+measurement-backed, and stated. Cascading proximal from the measured terminal
+is v1 scope; weighting schemes across multiple distal measurements are future
+work.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
 
 import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
-from skellyforge.core.skeleton.chain.kinematic_chain import KinematicChain
 from skellyforge.core.skeleton.pose.roll_resolution import SegmentRollReference
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import PoseSolution, SkeletonPose
-from skellyforge.type_overloads import FloatArray, LinkageNameString
-
-
-@dataclass(frozen=True, slots=True, eq=False)
-class TwistBackfillReport:
-    """What one backfill pass did, for observability.
-
-    Attributes:
-        chain_name: which chain was processed.
-        updated_segment: the direction-only segment whose roll was filled, if any.
-        anchor_segment: the measured (rigid-fit) segment the twist came from.
-        twist_applied_degrees: signed twist about the updated segment's primary
-            axis, in degrees. Zero when nothing was updated.
-    """
-
-    chain_name: str
-    updated_segment: str | None
-    anchor_segment: str | None
-    twist_applied_degrees: float
+from skellyforge.type_overloads import FloatArray
 
 
 def twist_about_local_axis(
@@ -88,99 +73,95 @@ def twist_about_local_axis(
     )
 
 
-def backfill_twist_from_rigid_terminal(
+def apply_terminal_twist_backfills(
     *,
     skeleton: SkeletonDefinition,
-    chain: KinematicChain,
     pose: SkeletonPose,
-    baseline_pose: SkeletonPose,
-) -> tuple[SkeletonPose, TwistBackfillReport]:
-    """Fill the segment directly proximal to the chain's measured terminal.
+    rest_relative_orientations: Mapping[str, RotationQuaternion],
+) -> SkeletonPose:
+    """Backfill rolls along every declared chain that has a measured terminal.
 
-    Walks the chain distal -> proximal for the deepest segment that hydrated as
-    a RIGID_FIT (a measured full orientation). If the segment immediately
-    proximal to it carries convention roll, the pair's relative rotation is
-    compared against the SAME pair in `baseline_pose`, the change is decomposed
-    by swing-twist about that segment's primary axis, and the twist component
-    is applied - the axial content that appeared since the baseline.
+    For each chain, walk distal -> proximal from the DEEPEST rigid-fit segment.
+    While the immediately proximal segment exists, hydrates as direction-only
+    (convention-carried roll), and has an authored rest relative orientation in
+    `rest_relative_orientations`, apply the pair's rest-referenced twist delta
+    to it, then continue proximal using the updated orientation.
 
-    The baseline matters because quaternions live on a double cover and the
-    resolver's roll is a convention: an absolute twist reading conflates the
-    authored rest offsets and that convention with real motion. Only the
-    CHANGED axial content since the baseline is measurement. In streaming use
-    the baseline is the previous frame's pose; offline, the unrotated
-    reference take.
+    Args:
+        skeleton: the skeleton whose chains and segments these are.
+        pose: the resolver output (anchored + transported) being finalized.
+        rest_relative_orientations: authored rest parent-relative rotations
+            keyed by CHILD segment name - the same map the rest pose composes
+            from, used here as the fixed reference each pair's twist is
+            measured against.
 
     Returns:
-        The (possibly) updated pose and a report naming what happened. A pose
-        with no applicable pair is returned unchanged with an empty report.
+        A pose whose convention-carried rolls along measured-terminal chains
+        include the axial content their own landmarks could not see.
     """
-    anchor_index = None
-    for index in range(len(chain.segments) - 1, -1, -1):
-        segment_pose = pose.segment_poses.get(chain.segments[index].name)
-        if segment_pose is None:
-            continue
-        if segment_pose.solved_by is PoseSolution.RIGID_FIT:
-            anchor_index = index
-            break
-    empty_report = TwistBackfillReport(
-        chain_name=chain.name,
-        updated_segment=None,
-        anchor_segment=None,
-        twist_applied_degrees=0.0,
-    )
-    if anchor_index is None or anchor_index == 0:
-        return pose, empty_report
+    updated: dict[str, RotationQuaternion] = {}
+    resolved_orientation: dict[str, RotationQuaternion] = {
+        name: segment_pose.orientation
+        for name, segment_pose in pose.segment_poses.items()
+    }
 
-    anchor_segment = chain.segments[anchor_index]
-    parent_segment = chain.segments[anchor_index - 1]
-    anchor_pose = pose.segment_poses.get(anchor_segment.name)
-    parent_pose = pose.segment_poses.get(parent_segment.name)
-    baseline_anchor_pose = baseline_pose.segment_poses.get(anchor_segment.name)
-    baseline_parent_pose = baseline_pose.segment_poses.get(parent_segment.name)
-    if (
-        anchor_pose is None
-        or parent_pose is None
-        or baseline_anchor_pose is None
-        or baseline_parent_pose is None
-        or parent_pose.solved_by is PoseSolution.RIGID_FIT
-    ):
-        # A measured parent needs no backfill - and a convention has no
-        # business overwriting a measurement.
-        return pose, empty_report
+    def current_orientation(segment_name: str) -> RotationQuaternion | None:
+        return updated.get(segment_name, resolved_orientation.get(segment_name))
 
-    reference = SegmentRollReference.for_segment(
-        skeleton=skeleton, segment_name=parent_segment.name
-    )
-    current_relative = parent_pose.orientation.inverse() * anchor_pose.orientation
-    baseline_relative = (
-        baseline_parent_pose.orientation.inverse() * baseline_anchor_pose.orientation
-    )
-    # Only the CHANGE since the baseline is measurement; the absolute twist
-    # would conflate authored rest offsets and resolver convention with motion.
-    relative_change = baseline_relative.inverse() * current_relative
-    twist = twist_about_local_axis(
-        relative_rotation=relative_change, local_axis=reference.primary_local
-    )
+    for chain in skeleton.chains.values():
+        anchor_index = None
+        for index in range(len(chain.segments) - 1, -1, -1):
+            segment_name = chain.segments[index].name
+            segment_pose = pose.segment_poses.get(segment_name)
+            if segment_pose is None:
+                continue
+            if segment_pose.solved_by is PoseSolution.RIGID_FIT:
+                anchor_index = index
+                break
 
-    # Signed shortest-arc angle: positive = right-handed about the segment's
-    # declared +primary axis (to_axis_angle flips the axis for w < 0).
-    _axis, unsigned_angle = twist.to_axis_angle()
-    twist_degrees = float(np.degrees(unsigned_angle)) * (1.0 if twist.w >= 0.0 else -1.0)
+        # Cascade proximal from the measured terminal. Each pair's twist delta
+        # is measured against the authored rest relationship, so the result is
+        # a pure function of this frame's geometry.
+        for index in range(anchor_index, 0, -1) if anchor_index is not None else []:
+            parent_name = chain.segments[index - 1].name
+            child_name = chain.segments[index].name
+            parent_pose = pose.segment_poses.get(parent_name)
+            if parent_pose is None:
+                break
+            if parent_pose.solved_by is PoseSolution.RIGID_FIT:
+                break  # a measured parent needs no fill - and stays untouched
+            rest_relative = rest_relative_orientations.get(child_name)
+            child_orientation = current_orientation(child_name)
+            parent_orientation = current_orientation(parent_name)
+            if rest_relative is None or child_orientation is None or parent_orientation is None:
+                break
 
-    updated_parent = parent_pose.with_orientation(
-        orientation=parent_pose.orientation * twist,
-        solved_by=PoseSolution.TRANSPORTED_ROLL,
-    )
-    updated_poses = dict(pose.segment_poses)
-    updated_poses[parent_segment.name] = updated_parent
+            reference = SegmentRollReference.for_segment(
+                skeleton=skeleton, segment_name=parent_name
+            )
+            current_relative = (
+                parent_orientation.inverse() * child_orientation
+            )
+            relative_change = rest_relative.inverse() * current_relative
+            twist = twist_about_local_axis(
+                relative_rotation=relative_change,
+                local_axis=reference.primary_local,
+            )
 
-    return (
-        SkeletonPose(segment_poses=updated_poses),
-        TwistBackfillReport(
-            chain_name=chain.name,
-            updated_segment=parent_segment.name,
-            anchor_segment=anchor_segment.name,
-            twist_applied_degrees=twist_degrees,
-        ),
-    )
+            updated[parent_name] = (
+                current_orientation(parent_name) * twist
+            )
+
+    if not updated:
+        return pose
+
+    new_poses = {}
+    for name, segment_pose in pose.segment_poses.items():
+        if name in updated:
+            new_poses[name] = segment_pose.with_orientation(
+                orientation=updated[name],
+                solved_by=PoseSolution.TRANSPORTED_ROLL,
+            )
+        else:
+            new_poses[name] = segment_pose
+    return SkeletonPose(segment_poses=new_poses)
