@@ -56,6 +56,10 @@ VENDORED_SCRIPT_NAMES = ("three.min.js", "OrbitControls.js")
 
 FRAME_COUNT = 60
 FPS = 30.0
+# The skeleton is authored as fractions of body height, so the viewer picks a subject to
+# render: everything below is in millimetres, which is what makes a millimetre of landmark
+# noise mean a millimetre.
+SUBJECT_HEIGHT_MM = 1700.0
 LANDMARK_NOISE_MM = 1.0
 SHOULDER_VERTICAL_AMP = 0.7
 SHOULDER_HORIZONTAL_AMP = 0.55
@@ -132,9 +136,13 @@ def _build_data() -> dict:
     right_forearm = set(_descendants(parents, "right_lower_arm"))
 
     primary_locals = {
-        name: skeleton.landmarks[skeleton.segments[name].frame_definition.primary_point_name].local_position.array
+        name: SUBJECT_HEIGHT_MM
+        * skeleton.landmarks[
+            skeleton.segments[name].frame_definition.primary_point_name
+        ].local_position.array
         for name in segment_order
     }
+    segment_scales = {name: SUBJECT_HEIGHT_MM for name in skeleton.segments}
 
     finger_tip_name = skeleton.segments["left_index_distal_phalanx"].frame_definition.primary_point_name
 
@@ -218,12 +226,22 @@ def _build_data() -> dict:
             parent = parents[name]
             relative[name] = world[name] if parent is None else world[parent].inverse() * world[name]
 
-        world_orientations, world_origins, true_landmarks = build_rest_pose(
+        world_orientations, template_origins, template_landmarks = build_rest_pose(
             skeleton=skeleton,
             parents=parents,
             connect_ats=connect_ats,
             orientations=relative,
         )
+        # The forward kinematics places the dimensionless template; scaling it here is the
+        # subject's size, and everything past this point is millimetres.
+        world_origins = {
+            name: Point.from_prevalidated_array(array=SUBJECT_HEIGHT_MM * origin.array)
+            for name, origin in template_origins.items()
+        }
+        true_landmarks = {
+            name: Point.from_prevalidated_array(array=SUBJECT_HEIGHT_MM * point.array)
+            for name, point in template_landmarks.items()
+        }
 
         observed = {
             name: Point.from_prevalidated_array(
@@ -239,7 +257,9 @@ def _build_data() -> dict:
             pose=hydrate_skeleton(skeleton=skeleton, observed=observed)
         )
 
-        world_positions = landmark_world_positions(skeleton=skeleton, pose=hydrated)
+        world_positions = landmark_world_positions(
+            skeleton=skeleton, pose=hydrated, segment_scales=segment_scales
+        )
         segment_coms = compute_segment_coms(
             definitions=com_definitions, world=world_positions
         )

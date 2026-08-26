@@ -1,7 +1,7 @@
 """Hydrate a skeleton: recover each segment's pose from observed landmark positions.
 
 This is the closed-form, single-frame core of Phase 3. A segment whose own landmarks span
-a plane is treated as one rigid body and fit with Kabsch over every one of them that is
+a plane is treated as one rigid body and fit with Umeyama over every one of them that is
 observed; a segment that only ever pins a line - the limbs, the spine - yields a direction,
 turned into an orientation by the shortest-arc rotation, with roll left free for a
 downstream roll convention to resolve. The input is a mapping of landmark name to world
@@ -11,6 +11,12 @@ Which of the two a segment gets is a STATIC property of the segment, answered by
 `RigidBodySegment.supports_rigid_fit`, not a runtime accident. If a segment that can be
 rigid-fit is handed degenerate observations, that is an error and it is raised, not
 quietly downgraded to a direction fit.
+
+Both closed forms also recover a SCALE, because the authored template is dimensionless: a
+local position is a fraction of body height, so placing a segment in a world measured in
+millimetres means answering how big it is as well as where and which way. The rigid fit
+reads that off every observed landmark at once; the direction fit reads it off the one
+distance it has. Neither pools it across segments - that is `body_scale_fitting`'s job.
 """
 
 from __future__ import annotations
@@ -20,6 +26,9 @@ from collections.abc import Mapping
 import numpy as np
 
 from skellyforge.core.math.geometry.numeric_tolerances import MINIMUM_VECTOR_NORM
+from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basis import (
+    direction_along,
+)
 from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
 from skellyforge.core.math.kinematics.coordinate_frame_ops import rotation_between_vectors
 from skellyforge.core.math.kinematics.rigid_point_set import (
@@ -77,7 +86,7 @@ def hydrate_segment(
 
     if segment.supports_rigid_fit and len(observed_owned) >= MINIMUM_POINTS_FOR_RIGID_FIT:
         try:
-            transform = segment.rigid_point_set.fit_pose(observed=observed)
+            fit = segment.rigid_point_set.fit_pose(observed=observed)
         except ValueError as error:
             raise DegenerateObservations(
                 f"segment {segment.name!r}: observed landmarks are degenerate "
@@ -85,21 +94,52 @@ def hydrate_segment(
             ) from error
         return SegmentPose(
             segment_name=segment.name,
-            origin=transform.apply(points=Point.from_xyz(x=0.0, y=0.0, z=0.0)),
-            orientation=transform.rotation,
+            # The segment's own origin is the zero of its frame, so the fit's translation
+            # IS its world origin - and only once the fit carries a scale, because an
+            # unscaled fit hides the size mismatch in exactly this translation.
+            origin=fit.apply(points=Point.from_xyz(x=0.0, y=0.0, z=0.0)),
+            orientation=fit.transform.rotation,
+            body_scale_estimate=fit.scale,
             solved_by=PoseSolution.RIGID_FIT,
         )
 
     origin_name = segment.frame_definition.origin_point_name
     primary_name = segment.frame_definition.primary_point_name
     if origin_name in observed and primary_name in observed:
+        # One displacement answers both of this branch's questions - which way the segment
+        # runs, and how big it is - so it is measured once. Two measurements could disagree
+        # about whether the pair is degenerate; one cannot.
+        displacement = observed[primary_name] - observed[origin_name]
+        observed_length = float(displacement.norm())
+        # Two landmarks that land on each other give neither a direction nor a size. Named
+        # as its own failure rather than left to the normalization below, so a streaming
+        # caller can skip this segment the same way it skips a collinear one.
+        if observed_length < MINIMUM_VECTOR_NORM:
+            raise DegenerateObservations(
+                f"segment {segment.name!r}: its observed origin {origin_name!r} and "
+                f"primary {primary_name!r} are {observed_length:.3e} apart, which is not a "
+                f"usable distance (needs >= {MINIMUM_VECTOR_NORM:.1e}) - the segment has "
+                "neither a direction nor a size"
+            )
         return SegmentPose(
             segment_name=segment.name,
             origin=observed[origin_name],
             orientation=rotation_between_vectors(
                 from_direction=_local_primary_direction(segment=segment),
-                to_direction=segment.calculate_direction(points=observed),
+                to_direction=direction_along(
+                    axis=segment.frame_definition.primary_axis,
+                    displacement=displacement,
+                    description=(
+                        f"segment {segment.name!r}'s primary axis (`{origin_name}` -> "
+                        f"`{primary_name}`)"
+                    ),
+                ),
             ),
+            # `segment.length` is the authored origin-to-primary distance as a fraction of
+            # body height, nonzero by construction - a primary landmark sitting on its own
+            # origin is refused at load - so this ratio is world units per unit body
+            # height: this segment's own reading of how big the subject is.
+            body_scale_estimate=observed_length / segment.length,
             solved_by=PoseSolution.DIRECTION,
         )
 

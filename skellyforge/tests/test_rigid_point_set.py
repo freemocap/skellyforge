@@ -1,4 +1,4 @@
-"""Tests for the closed-form rigid fit (Kabsch) and the RigidPointSet wrapper."""
+"""Tests for the closed-form similarity fit (Umeyama) and the RigidPointSet wrapper."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 from skellyforge.core.math.geometry.transform_math import Transform
 from skellyforge.core.math.kinematics.rigid_point_set import (
     RigidPointSet,
-    align_point_sets_kabsch,
+    align_point_sets_similarity,
 )
 
 
-def test_kabsch_recovers_a_known_rigid_transform() -> None:
+def test_similarity_fit_recovers_a_known_rigid_transform() -> None:
     rng = np.random.default_rng(0)
     reference = Point.from_array(values=rng.normal(size=(5, 3)))
     expected = Transform(
@@ -23,26 +23,80 @@ def test_kabsch_recovers_a_known_rigid_transform() -> None:
     )
     observed = expected.apply(points=reference)
 
-    fit = align_point_sets_kabsch(reference=reference, observed=observed)
+    fit = align_point_sets_similarity(reference=reference, observed=observed)
     recovered = fit.apply(points=reference)
 
     np.testing.assert_allclose(recovered.array, observed.array, atol=1e-10)
+    assert fit.scale == pytest.approx(1.0)
 
 
-def test_kabsch_recovers_a_pure_translation() -> None:
+def test_similarity_fit_recovers_a_pure_translation() -> None:
     reference = Point.from_array(
         values=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
     )
     observed = Point.from_array(
         values=np.array([[5, -2, 3], [6, -2, 3], [5, -1, 3], [5, -2, 4]], dtype=np.float64)
     )
-    fit = align_point_sets_kabsch(reference=reference, observed=observed)
-    # Identity rotation, translation (5, -2, 3).
-    np.testing.assert_allclose(fit.rotation.to_rotation_matrix(), np.eye(3), atol=1e-10)
-    np.testing.assert_allclose(fit.translation.array, [5.0, -2.0, 3.0], atol=1e-10)
+    fit = align_point_sets_similarity(reference=reference, observed=observed)
+    # Identity rotation, unit scale, translation (5, -2, 3).
+    np.testing.assert_allclose(
+        fit.transform.rotation.to_rotation_matrix(), np.eye(3), atol=1e-10
+    )
+    assert fit.scale == pytest.approx(1.0)
+    np.testing.assert_allclose(fit.transform.translation.array, [5.0, -2.0, 3.0], atol=1e-10)
 
 
-def test_kabsch_returns_a_proper_rotation_for_a_mirrored_set() -> None:
+def test_similarity_fit_recovers_a_uniform_scale() -> None:
+    """The whole point of the similarity fit: a reference authored at a different size.
+
+    The standard human's local positions are fractions of body height, so a real subject's
+    landmarks are a scaled copy of them. A fit that could not recover the scale would hide
+    it in the translation and put the segment's origin in the wrong place.
+    """
+    rng = np.random.default_rng(11)
+    reference = Point.from_array(values=rng.normal(size=(6, 3)))
+    rotation = RotationQuaternion.from_components(w=0.5, x=0.5, y=0.5, z=0.5)
+    scale = 1700.0
+    translation = np.array([120.0, -40.0, 950.0])
+    observed = Point.from_array(
+        values=np.einsum(
+            "ij,nj->ni", rotation.to_rotation_matrix(), scale * reference.array
+        )
+        + translation
+    )
+
+    fit = align_point_sets_similarity(reference=reference, observed=observed)
+
+    assert fit.scale == pytest.approx(scale)
+    np.testing.assert_allclose(fit.transform.translation.array, translation, atol=1e-6)
+    np.testing.assert_allclose(fit.apply(points=reference).array, observed.array, atol=1e-6)
+
+
+def test_similarity_fit_places_the_local_origin_correctly_at_any_scale() -> None:
+    """The invariant hydration depends on: applying the fit to the local zero.
+
+    A segment's own origin sits at `[0, 0, 0]` in its frame, so `fit.apply(zero)` IS its
+    world origin. That only holds if the scale is in the fit — an unscaled fit puts it on
+    the observed centroid instead, which for the thorax is 200mm away.
+    """
+    reference = Point.from_array(
+        values=np.array(
+            [[0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]], dtype=np.float64
+        )
+    )
+    world_origin = np.array([-100.0, 25.0, 1400.0])
+    observed = Point.from_array(values=1700.0 * reference.array + world_origin)
+
+    fit = align_point_sets_similarity(reference=reference, observed=observed)
+
+    np.testing.assert_allclose(
+        fit.apply(points=Point.from_xyz(x=0.0, y=0.0, z=0.0)).array,
+        world_origin,
+        atol=1e-8,
+    )
+
+
+def test_similarity_fit_returns_a_proper_rotation_for_a_mirrored_set() -> None:
     # A mirrored point set cannot be reached by any rotation; the fit must still be a
     # proper rotation (determinant +1), never a reflection.
     rng = np.random.default_rng(3)
@@ -51,11 +105,11 @@ def test_kabsch_returns_a_proper_rotation_for_a_mirrored_set() -> None:
     mirrored[:, 0] *= -1.0
     observed = Point.from_array(values=mirrored)
 
-    fit = align_point_sets_kabsch(reference=reference, observed=observed)
-    assert np.linalg.det(fit.rotation.to_rotation_matrix()) > 0.0
+    fit = align_point_sets_similarity(reference=reference, observed=observed)
+    assert np.linalg.det(fit.transform.rotation.to_rotation_matrix()) > 0.0
 
 
-def test_kabsch_rejects_collinear_points() -> None:
+def test_similarity_fit_rejects_collinear_points() -> None:
     reference = Point.from_array(
         values=np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]], dtype=np.float64)
     )
@@ -63,21 +117,31 @@ def test_kabsch_rejects_collinear_points() -> None:
         values=np.array([[0, 0, 0], [0, 1, 0], [0, 2, 0], [0, 3, 0]], dtype=np.float64)
     )
     with pytest.raises(ValueError, match="collinear"):
-        align_point_sets_kabsch(reference=reference, observed=observed)
+        align_point_sets_similarity(reference=reference, observed=observed)
 
 
-def test_kabsch_rejects_fewer_than_three_points() -> None:
+def test_similarity_fit_rejects_coincident_reference_points() -> None:
+    """A reference with no spread has no scale to be measured against."""
+    reference = Point.from_array(values=np.zeros((4, 3)))
+    observed = Point.from_array(
+        values=np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
+    )
+    with pytest.raises(ValueError, match="collinear|coincident"):
+        align_point_sets_similarity(reference=reference, observed=observed)
+
+
+def test_similarity_fit_rejects_fewer_than_three_points() -> None:
     reference = Point.from_array(values=np.array([[0, 0, 0], [1, 0, 0]], dtype=np.float64))
     observed = Point.from_array(values=np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float64))
     with pytest.raises(ValueError, match="at least 3"):
-        align_point_sets_kabsch(reference=reference, observed=observed)
+        align_point_sets_similarity(reference=reference, observed=observed)
 
 
-def test_kabsch_rejects_mismatched_shapes() -> None:
+def test_similarity_fit_rejects_mismatched_shapes() -> None:
     reference = Point.from_array(values=np.zeros((4, 3)))
     observed = Point.from_array(values=np.zeros((5, 3)))
     with pytest.raises(ValueError, match="same shape"):
-        align_point_sets_kabsch(reference=reference, observed=observed)
+        align_point_sets_similarity(reference=reference, observed=observed)
 
 
 def test_rigid_point_set_fits_a_pose_from_observed_positions() -> None:
@@ -117,7 +181,7 @@ def test_rigid_point_set_fits_with_a_missing_landmark() -> None:
         "y": Point.from_xyz(x=5.0, y=8.0, z=3.0),
     }
     fit = point_set.fit_pose(observed=observed)
-    np.testing.assert_allclose(fit.translation.array, [5.0, -2.0, 3.0], atol=1e-8)
+    np.testing.assert_allclose(fit.transform.translation.array, [5.0, -2.0, 3.0], atol=1e-8)
 
 
 def test_rigid_point_set_rejects_too_few_observed_points() -> None:

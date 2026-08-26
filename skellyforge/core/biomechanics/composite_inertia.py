@@ -48,15 +48,19 @@ def body_inertial_properties(
     body_mass: float,
     anthropometric: AnthropometricParameters,
     com_definitions: CenterOfMassDefinitions,
+    segment_scales: Mapping[str, float],
 ) -> BodyInertialProperties:
     """The whole body's mass, center of mass and inertia tensor at this pose.
 
     Args:
         skeleton: the skeleton the pose hydrates.
         pose: the skeleton's pose at one instant.
-        body_mass: the subject's total body mass, in the units the skeleton is authored in.
+        body_mass: the subject's total body mass.
         anthropometric: de Leva mass fractions and radii of gyration.
         com_definitions: the per-segment COM and long-axis landmark definitions.
+        segment_scales: each segment's fitted scale, in world units per unit body height —
+            `BodyScaleFit.segment_scales`. Everything below reads world positions, and the
+            template has no size without this.
 
     Raises:
         ValueError: body_mass is not positive.
@@ -64,7 +68,9 @@ def body_inertial_properties(
     if body_mass <= 0.0:
         raise ValueError(f"body_mass must be positive, got {body_mass}")
 
-    world = landmark_world_positions(skeleton=skeleton, pose=pose)
+    world = landmark_world_positions(
+        skeleton=skeleton, pose=pose, segment_scales=segment_scales
+    )
 
     segment_masses: dict[str, float] = {}
     segment_coms: dict[str, FloatArray] = {}

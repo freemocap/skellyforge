@@ -274,24 +274,49 @@ def _build_weights(*, name: str, node: object) -> tuple[ComLandmarkWeight, ...]:
 
 
 def landmark_world_positions(
-    *, skeleton: SkeletonDefinition, pose: SkeletonPose
+    *,
+    skeleton: SkeletonDefinition,
+    pose: SkeletonPose,
+    segment_scales: Mapping[str, float],
 ) -> dict[str, FloatArray]:
     """Every landmark's world position at this pose, keyed by canonical name.
 
-    A landmark's world position is its local position rotated by its segment's
-    orientation and translated to that segment's world origin. Segments absent
-    from a partial pose (occluded) are omitted, so their landmarks are absent
-    too — downstream consumers roll up over the visible ones.
+    A landmark's local position is a FRACTION OF BODY HEIGHT, so placing it in the world
+    means sizing it as well as turning and moving it: scale by the segment's fitted scale,
+    rotate by its orientation, translate to its world origin. Skipping the scale does not
+    merely lose the size — it collapses every landmark onto its segment's origin, and the
+    center of mass computed from that is a mass-weighted average of joint centres.
+
+    Segments absent from a partial pose (occluded) are omitted, so their landmarks are
+    absent too — downstream consumers roll up over the visible ones.
+
+    Args:
+        skeleton: the skeleton the pose hydrates.
+        pose: the skeleton's pose at one instant.
+        segment_scales: each segment's fitted scale, in world units per unit body height —
+            `BodyScaleFit.segment_scales`. Every hydrated segment must have one; a missing
+            entry would silently produce a segment the size of the template.
+
+    Raises:
+        KeyError: a hydrated segment has no entry in `segment_scales`.
     """
     positions: dict[str, FloatArray] = {}
     for segment_name, segment in skeleton.segments.items():
         segment_pose = pose.segment_poses.get(segment_name)
         if segment_pose is None:
             continue
+        scale = segment_scales.get(segment_name)
+        if scale is None:
+            raise KeyError(
+                f"segment {segment_name!r} is hydrated but has no entry in "
+                f"segment_scales, so its landmarks have no size. Pass the scales from the "
+                f"same fit that the pose was measured against; it covers every segment of "
+                f"the skeleton."
+            )
         origin = segment_pose.origin.array
         for landmark_name, landmark in segment.landmarks.items():
             positions[landmark_name] = origin + segment_pose.orientation.rotate_vector(
-                vector=landmark.local_position.array
+                vector=scale * landmark.local_position.array
             )
     return positions
 

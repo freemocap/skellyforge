@@ -7,5 +7,5 @@ Organized semantically:
 - loading/ is the YAML loader pipeline (include -> lowercase -> side -> reference frame ->
   objects);
 - pose/ is pose and hydration (the rest pose, closed-form hydration, roll resolution, and
-  segment-length calibration).
+  the body-scale fit that gives the dimensionless template a size).
 """

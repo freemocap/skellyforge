@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from skellyforge.core.biomechanics.anthropometric_parameters import AnthropometricParameters
+from skellyforge.core.skeleton.loading.sided_expansion import side_prefix_of
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 
 
@@ -59,7 +60,7 @@ def distribute_segment_masses(
     for segment_name in skeleton.segments:
         anatomical = mapping[segment_name]
         segment = anthropometric.get(name=anatomical)
-        side = _side_of(segment_name=segment_name) if segment.bilateral else None
+        side = side_prefix_of(name=segment_name) if segment.bilateral else None
         groups.setdefault((anatomical, side), []).append(segment_name)
 
     masses: dict[str, float] = {}
@@ -74,9 +75,3 @@ def distribute_segment_masses(
     return masses
 
 
-def _side_of(*, segment_name: str) -> str | None:
-    if segment_name.startswith("left_"):
-        return "left"
-    if segment_name.startswith("right_"):
-        return "right"
-    return None

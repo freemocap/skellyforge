@@ -13,6 +13,29 @@ SIDE_PREFIXES: Final[tuple[str, str]] = ("left", "right")
 MIRRORED_AXIS_KEY: Final[str] = "x_axis"
 
 
+def side_prefix_of(*, name: str) -> str | None:
+    """Which side a loaded name carries, or `None` if it is unsided.
+
+    Reading the prefix is the inverse of writing it, so it lives beside the expansion that
+    writes it - a second copy of "does this start with left_" elsewhere in the package
+    would be a second answer to which names are sided.
+    """
+    for side in SIDE_PREFIXES:
+        if name.startswith(f"{side}_"):
+            return side
+    return None
+
+
+def unsided_name_of(*, name: str) -> str:
+    """`name` with its side prefix stripped, or unchanged when it has none.
+
+    This is what makes a left/right pair addressable as the one anatomical thing they are -
+    `left_upper_leg` and `right_upper_leg` both answer `upper_leg`.
+    """
+    side = side_prefix_of(name=name)
+    return name if side is None else name[len(side) + 1 :]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Stage 3: sidedness
 # ═══════════════════════════════════════════════════════════════════════

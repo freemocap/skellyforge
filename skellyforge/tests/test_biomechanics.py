@@ -30,6 +30,7 @@ from skellyforge.core.biomechanics.segment_mapping import (
     distribute_segment_masses,
     map_skeleton_segments,
 )
+from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import (
@@ -55,6 +56,10 @@ REST_POSE_YAML_PATH: Path = (
 EXPECTED_SEGMENT_COUNT: int = 61
 BODY_MASS: float = 70.0
 GRAVITY: FloatArray = np.array([0.0, 0.0, -9810.0])
+# The rest pose is authored as body-height proportions, and gravity above is in mm/s^2, so
+# the T-pose these tests roll up is a real 1700mm body rather than a template of height 1.
+# Every position here is therefore in millimetres, as it is in the live pipeline.
+BODY_HEIGHT_MM: float = 1700.0
 
 
 def _skeleton() -> SkeletonDefinition:
@@ -68,13 +73,21 @@ def _pose() -> SkeletonPose:
         segment_poses={
             name: SegmentPose(
                 segment_name=name,
-                origin=rest_pose.segment_origins[name],
+                origin=Point.from_array(
+                    values=BODY_HEIGHT_MM * rest_pose.segment_origins[name].array
+                ),
                 orientation=rest_pose.segment_orientations[name],
+                body_scale_estimate=BODY_HEIGHT_MM,
                 solved_by=PoseSolution.RIGID_FIT,
             )
             for name in skeleton.segments
         }
     )
+
+
+def _segment_scales() -> dict[str, float]:
+    """A perfectly-fitted subject: every segment at the same body height."""
+    return {name: BODY_HEIGHT_MM for name in _skeleton().segments}
 
 
 def _anthropometric() -> AnthropometricParameters:
@@ -92,6 +105,7 @@ def _body() -> FloatArray:
         body_mass=BODY_MASS,
         anthropometric=_anthropometric(),
         com_definitions=_com_definitions(),
+        segment_scales=_segment_scales(),
     )
 
 
@@ -190,6 +204,7 @@ def test_partial_pose_rolls_up_over_the_visible_segments() -> None:
         body_mass=BODY_MASS,
         anthropometric=_anthropometric(),
         com_definitions=_com_definitions(),
+        segment_scales=_segment_scales(),
     )
     assert np.all(np.isfinite(body.center_of_mass))
     assert np.all(np.isfinite(body.inertia_tensor))

@@ -163,7 +163,8 @@ Leva table) and `center_of_mass.yaml` (per-segment COM as weighted landmark sums
    the right slope; strict-timestamp rejection.
 4. **`segment_inertia.py`** — per-segment world-frame inertia: `J_world = R J_local Rᵀ`
    with `J_local = m · diag((k_sag·L)², (k_trans·L)², (k_long·L)²)`, using the segment's
-   `length` (or `estimate_segment_lengths`) and `SegmentPose.orientation`. Tests: tensor
+   fitted length (`BodyScaleFit.segment_lengths` — the authored `length` is a fraction of
+   body height, not a length) and `SegmentPose.orientation`. Tests: tensor
    symmetric & positive semi-definite; principal axes align with the segment's long axis at
    rest.
 5. **`composite_inertia.py`** — sum + principal axes + ellipsoid (mostly ported, typed).

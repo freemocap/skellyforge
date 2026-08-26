@@ -7,10 +7,12 @@ against - and nothing downstream can tell. This test closes that loop: it drives
 body mapping's real ``TrackerMapping.apply`` with synthetic T-pose observations taken
 from ``RestPose``, and asserts every produced landmark lands on its authored position.
 
-Some landmarks are UNREACHABLE BY CONSTRUCTION from their entry's two-axis frame -
-the authored point lies off the plane the frame spans - so they carry explicit
-allowances here instead of silently failing or being rounded into green:
-``_ALLOWED_ERROR_MM`` documents each one and why.
+The rest pose is authored as fractions of body height, so both the observations driving
+the mapping and the authored positions they are checked against are scaled to a nominal
+``_NOMINAL_BODY_HEIGHT_MM`` first. That is what keeps the tolerance below meaningful: a
+millimetre is a millimetre only once the template has a size. The mapping itself is
+scale-free - its offsets are ratios of a measured span - so the choice of height changes
+the residuals proportionally and nothing else.
 
 The module skips itself when skellytracker is not installed (dev dependency). The
 regenerator that produces corrected ratios is
@@ -40,19 +42,10 @@ _BODY_MAPPINGS = (MEDIAPIPE_BODY_MAPPING, RTMPOSE_BODY_MAPPING)
 
 _DEFAULT_TOLERANCE_MM = 2.0
 
-# Landmarks whose authored rest positions cannot be expressed by their entry's
-# frame (the point sits off the plane spanned by the declared axes + implicit
-# third), documented instead of hidden. Values are measured residuals at T-pose.
-_ALLOWED_ERROR_MM: dict[str, float] = {
-    # The sternum points sit ~4.8mm superior to the shoulder-line plane the
-    # trunk frame spans.
-    "left_sternoclavicular": 5.0,
-    "right_sternoclavicular": 5.0,
-    "sternoclavicular_notch": 5.0,
-    # The iliac crests sit ~6.4mm off that plane on the far side.
-    "left_iliac_crest": 7.0,
-    "right_iliac_crest": 7.0,
-}
+# The body height the proportional template is scaled to before anything is measured in
+# millimetres. A 50th-percentile adult, so the residuals below read as the size of error a
+# real subject would see.
+_NOMINAL_BODY_HEIGHT_MM = 1700.0
 
 # Tracker keypoint name -> standard-human landmark whose REST position stands in
 # for it at the synthetic T-pose. Keep in sync with
@@ -101,7 +94,10 @@ def _synthetic_tpose_tracker_positions(
     missing: list[str] = []
     for tracker_name, landmark_name in _TRACKER_STANDINS.items():
         try:
-            positions[tracker_name] = rest_pose.landmark_positions[landmark_name].array
+            positions[tracker_name] = (
+                _NOMINAL_BODY_HEIGHT_MM
+                * rest_pose.landmark_positions[landmark_name].array
+            )
         except KeyError:
             missing.append(f"{tracker_name} -> {landmark_name}")
     if missing:
@@ -121,18 +117,16 @@ def test_every_mapped_landmark_lands_on_its_authored_rest_position(
 
     offenders: list[str] = []
     for landmark_name, position in sorted(output.items()):
-        authored_position = (
-            rest_pose.landmark_positions[landmark_name].array
-            if landmark_name in skeleton.landmarks
-            else None
-        )
-        if authored_position is None:
+        if landmark_name not in skeleton.landmarks:
             continue
+        authored_position = (
+            _NOMINAL_BODY_HEIGHT_MM
+            * rest_pose.landmark_positions[landmark_name].array
+        )
         error_mm = float(np.linalg.norm(np.asarray(position) - authored_position))
-        allowance = _ALLOWED_ERROR_MM.get(landmark_name, _DEFAULT_TOLERANCE_MM)
-        if error_mm > allowance:
+        if error_mm > _DEFAULT_TOLERANCE_MM:
             offenders.append(
-                f"{landmark_name}: {error_mm:.1f}mm (allowed {allowance:.1f}mm)"
+                f"{landmark_name}: {error_mm:.2f}mm (allowed {_DEFAULT_TOLERANCE_MM:.1f}mm)"
             )
 
     assert not offenders, (
