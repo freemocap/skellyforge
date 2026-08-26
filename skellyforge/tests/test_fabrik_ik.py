@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton.chain import solve_fabrik
+from skellyforge.core.skeleton.chain.fabrik_ik import solve_fabrik
 
 
 def _straight_chain(*, lengths: list[float], direction=(1.0, 0.0, 0.0), origin=(0.0, 0.0, 100.0)):

@@ -40,8 +40,8 @@ skellyforge/
  │   │   ├── linkage/                      # the joint layer: JointDefinition, EulerConvention,
  │   │   │                                 #   relative_orientation, JointPose + provenance
  │   │   ├── chain/                        # the multi-segment layer: KinematicChain declarations,
- │   │   │                                 #   forward synthesis, two-bone IK + FABRIK;
- │   │   │                                 #   twist backfill pending
+ │   │   │                                 #   forward synthesis, two-bone IK + FABRIK,
+ │   │   │                                 #   twist backfill from rigid terminals
  │   │   ├── pose/                         #   hydration + rest pose + roll resolution
  │   │   │                                 #   (anchored secondary axes w/ transport fallback)
 │   │   ├── loading/                      #   the YAML loader pipeline
@@ -88,7 +88,9 @@ tests. Roll resolution anchors to parent-origin directions at the skeleton level
 (deterministic per frame) and falls back to parallel transport when no anchor
 exists. Chain IK is built: closed-form two-bone solving and iterative FABRIK,
 both fail-loud on unreachable targets and iteration exhaustion. Twist backfill
-is the next pending piece.
+fills a chain's proximal roll from its measured rigid-fit terminal against a
+baseline pose - pronation is no longer invisible when the hand is tracked.
+Finger coupling ratios are the remaining deferred piece.
 
 ## Commands
 

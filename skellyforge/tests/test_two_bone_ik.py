@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton.chain import solve_two_bone_ik
+from skellyforge.core.skeleton.chain.two_bone_ik import solve_two_bone_ik
 
 UPPER = 300.0
 LOWER = 250.0
@@ -145,7 +145,7 @@ def test_two_bone_solution_feeds_fabrik_to_instant_convergence() -> None:
     """Cross-solver contract: the analytic solution is already a fixed point of
     FABRIK - seeding the iterative solver with it converges on the first pass.
     """
-    from skellyforge.core.skeleton.chain import solve_fabrik
+    from skellyforge.core.skeleton.chain.fabrik_ik import solve_fabrik
 
     target = Point.from_xyz(x=260.0, y=210.0, z=360.0)
     solution = solve_two_bone_ik(
