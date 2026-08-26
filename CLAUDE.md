@@ -65,7 +65,7 @@ skellyforge/
 │       └── derived_kinematics.py         #   CoM velocity / acceleration
 ├── definitions/human_skeleton/           authored YAML (the static source of truth)
 │   ├── human_skeleton.yaml               #   components: pelvis, spine, skull, arm, hand, leg, foot
-│   ├── rest_pose.yaml                    #   the T-pose: parent tree + relative orientations
+│   ├── rest_pose.yaml                    #   the T-pose: per-segment relative orientations only
 │   ├── anthropometric_parameters.yaml    #   de Leva (1996) masses + radii of gyration
 │   ├── center_of_mass.yaml               #   per-segment COM = weighted landmark sums
 │   ├── face.yaml                         #   52 blendshapes (FaceBlendShapes, not the skeleton)
@@ -75,22 +75,24 @@ skellyforge/
 └── tests/
 ```
 
-**Status.** The whole human skeleton loads (61 segments / 124 landmarks / 52 face
-blendshapes) and hydrates: `RestPose`, `hydrate_skeleton`, `ContinuousRollResolver` and
+**Status.** The whole human skeleton loads (61 segments / 124 landmarks / 52 face blendshapes /
+60 joints / 5 chains) and hydrates: `RestPose`, `hydrate_skeleton`, `ContinuousRollResolver` and
 `estimate_segment_lengths` all work on the shipped definitions, and the viewer exercises
-the whole path end to end. The **linkage layer is built**: `human_skeleton.yaml`'s
-`joints:` section is the authoritative topology (the rest pose is orientation-only),
-`relative_orientation` + per-joint euler conventions decompose to named angles, and
-every `JointPose` carries input provenance. The **chain layer's declarations and
-forward synthesis are built**: declared chains compile with contiguity validation, and
-`synthesize_pose` walks joint angles -> whole-body poses, gated by the FK-closure
-tests. Roll resolution anchors to parent-origin directions at the skeleton level
-(deterministic per frame) and falls back to parallel transport when no anchor
-exists. Chain IK is built: closed-form two-bone solving and iterative FABRIK,
-both fail-loud on unreachable targets and iteration exhaustion. Twist backfill
-fills a chain's proximal roll from its measured rigid-fit terminal against a
-baseline pose - pronation is no longer invisible when the hand is tracked.
-Finger coupling ratios are the remaining deferred piece.
+the whole path end to end. Landmark coordinates are authored as **body-height proportions**
+(`H = 1.0` = floor-to-skull-top), not millimetres. The **linkage layer is built**: `human_skeleton.yaml`'s
+`joints:` section is the authoritative topology (bilateral joints authored once via `sided: true`),
+`relative_orientation` + per-joint euler conventions decompose to named angles, and every `JointPose`
+carries input provenance. The **chain layer's declarations and forward synthesis are built**:
+declared chains compile with contiguity validation, and `synthesize_pose` walks joint angles ->
+whole-body poses, gated by the FK-closure tests. Roll resolution anchors to parent-origin directions
+at the skeleton level (deterministic per frame) and falls back to parallel transport when no anchor
+exists; twist backfill fills a chain's proximal roll from its measured rigid-fit terminal.
+Chain IK is built: closed-form two-bone solving and iterative FABRIK, both fail-loud on unreachable
+targets and iteration exhaustion. Every segment declares its `anatomical_segment` (de Leva chunk)
+in its component YAML — `segment_mapping.py` reads the declarations rather than a hardcoded dict.
+The spine/thorax redesign is landed (`sacrolumbar`/`thoracic`/`cervical_spine`). Next work: the
+**body-fitting step** that scales the proportional template to measured millimetres, then the
+pelvis split, face component, and finger coupling ratios.
 
 ## Commands
 
@@ -124,8 +126,9 @@ installed in the default env either (no lint gate here yet).
   never imported by them; the skeleton never imports biomechanics, and math never
   imports either.
 - **Canonical coordinate system: Blender's** — right-handed, `+x` right, `+y` forward,
-  `+z` up, ground plane at `z = 0`. All definitions and world-space quantities are
-  authored in it. Every other convention (VRM/glTF, ROS, ISB, Unreal, Unity, and any a
+  `+z` up, ground plane at `z = 0`. Authored `local_position`s are **body-height proportions**
+  (`H = 1.0` = floor-to-skull-top), so the template is body-agnostic; the body-fitting step
+  scales them to measured mm. Every other convention (VRM/glTF, ROS, ISB, Unreal, Unity, and any a
   user defines) lives in `definitions/coordinate_systems/coordinate_systems.yaml` and is
   entered or left only at an I/O boundary, through `CoordinateSystemTransform`.
 
@@ -155,6 +158,7 @@ definition and a per-frame world hydration. A **segment** is a VRM-1.0-aligned r
 - **The feet stand on one flat ground plane.** Enforced by
   `test_both_feet_stand_on_one_flat_ground_plane`, which ties the heel orientation, the
   heel length and the foot orientation together so none can drift alone.
-- **Most of the skeleton has free roll.** 56 of 61 segments are direction-only.
-  `ContinuousRollResolver` supplies their roll by convention, not by measurement, and
-  `SegmentPose.solved_by` says which you are looking at.
+- **Most of the skeleton has free roll.** 58 of 61 segments are underspecified (only
+  `pelvis`, `thoracic`, `skull` name a secondary axis). `ContinuousRollResolver` supplies the
+  rest by convention — anchored secondary axes with parallel-transport fallback and twist
+  backfill — and `SegmentPose.solved_by` says which you are looking at.

@@ -103,7 +103,8 @@ def _descendants(parents: dict[str, str | None], root: str) -> list[str]:
 
 def _build_data() -> dict:
     skeleton = SkeletonDefinition.from_yaml(path=DEFINITIONS / "human_skeleton.yaml")
-    # The tree comes from RestPose, which is the one validated reader of rest_pose.yaml.
+    # The tree comes from the skeleton's joints; RestPose layers per-segment rest
+    # orientations on top of it.
     rest_pose = RestPose.from_yaml(
         path=DEFINITIONS / "rest_pose.yaml", skeleton=skeleton
     )

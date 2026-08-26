@@ -24,10 +24,10 @@
 #   upper_leg   a half turn about x: local +z (toward the knee) becomes world -z, so the
 #               legs point down. Its own mirror image, so both sides are identical.
 #   foot        -63.86 deg about x. Composed with the leg's half turn this puts the ankle
-#               68.3 mm above the ball, which is the ankle joint centre's height.
-#   heel        +31.34 deg about x. Composed with the leg's half turn it aims the 80 mm
-#               calcaneus at the SAME height as the ball, so the foot has a flat ground
-#               plane rather than a heel in the air.
+#               0.0415 H above the ball, which is the ankle joint centre's height.
+#   heel        +31.34 deg about x. Composed with the leg's half turn it aims the
+#               0.0486 H calcaneus at the SAME height as the ball, so the foot has a flat
+#               ground plane rather than a heel in the air.
 #   toes        a half turn that lands the toes flat and forward from the ball.
 #               Self-mirroring, so both sides are identical.
 
