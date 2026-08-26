@@ -1,13 +1,14 @@
 """The loading pipeline assembled: an include-resolved component document into objects.
 
-Runs stages 2-4 over one component document and returns its landmarks and segments. The
-two dicts are returned rather than a component object, because a component is a file and
-what a file contributes is landmarks and segments; cross-component checks live on
-SkeletonDefinition.
+Runs stages 2-4 over one component document and returns what that file contributes -
+landmarks, segments, and the groupings that say what its landmarks are and which of them
+connect. Cross-component checks live on SkeletonDefinition, which is the first place that
+can see every component at once.
 """
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
@@ -15,6 +16,12 @@ import yaml
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.landmark_grouping import (
+    LandmarkConnectionGroup,
+    LandmarkGroup,
+    build_landmark_connection_group,
+    build_landmark_group,
+)
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
 from skellyforge.core.skeleton.loading.include_resolution import resolve_includes
 from skellyforge.core.skeleton.loading.name_lowercasing import _as_list, lowercase_names
@@ -31,6 +38,29 @@ SEGMENT_KEYS: Final[frozenset[str]] = frozenset(
     {"aliases", "reference_geometry", "sided", "anatomical_segment"}
 )
 NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
+COMPONENT_SECTION_KEYS: Final[frozenset[str]] = frozenset(
+    {"landmarks", "segments", "joints", "sided", "landmark_groups", "landmark_connections"}
+)
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class LoadedComponent:
+    """What one component file contributes to a skeleton.
+
+    A named record rather than a tuple: this grew from two things to four, and positional
+    unpacking of four is exactly where a caller starts getting them the wrong way round.
+
+    Attributes:
+        landmarks: this file's landmarks, expanded and lowercased.
+        segments: this file's segments, each owning its own landmarks.
+        landmark_groups: named sets of landmarks, keyed by group name.
+        landmark_connections: named sets of landmark edges, keyed by group name.
+    """
+
+    landmarks: dict[LandmarkNameString, AnatomicalLandmark]
+    segments: dict[RigidBodySegmentName, RigidBodySegment]
+    landmark_groups: dict[str, LandmarkGroup] = field(default_factory=dict)
+    landmark_connections: dict[str, LandmarkConnectionGroup] = field(default_factory=dict)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -38,23 +68,19 @@ NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def load_component(
-    *, path: Path, name: str
-) -> tuple[dict[LandmarkNameString, AnatomicalLandmark], dict[RigidBodySegmentName, RigidBodySegment]]:
-    """Load one component YAML file into landmark and segment objects.
+def load_component(*, path: Path, name: str) -> LoadedComponent:
+    """Load one component YAML file into landmark, segment and grouping objects.
 
-    Returns the two dicts rather than a component object, because a component is not a
-    thing that outlives loading - it is a file, and what a file contributes is landmarks
-    and segments. Cross-component checks belong to `SkeletonDefinition`, which is the
-    first place that can see every component at once: a landmark here may legitimately
-    name a `reference_frame` that lives in another file.
+    Cross-component checks belong to `SkeletonDefinition`, which is the first place that
+    can see every component at once: a landmark here may legitimately name a
+    `reference_frame`, or a group here a landmark, that lives in another file.
 
     Args:
         path: the component `.yaml` file.
         name: the name this component is known by in the skeleton, used in errors.
 
     Returns:
-        This component's landmarks and segments, expanded and lowercased.
+        This component's contribution, expanded and lowercased.
     """
     if not path.is_file():
         raise FileNotFoundError(f"component {name!r}: {path} is not a file")
@@ -68,13 +94,17 @@ def load_component(
     return build_component(component=raw, name=name)
 
 
-def build_component(
-    *, component: Mapping[str, object], name: str
-) -> tuple[dict[LandmarkNameString, AnatomicalLandmark], dict[RigidBodySegmentName, RigidBodySegment]]:
+def build_component(*, component: Mapping[str, object], name: str) -> LoadedComponent:
     """Run stages 2-4 over one already-include-resolved component document."""
     lowercased = lowercase_names(node=component)
     if not isinstance(lowercased, Mapping):
         raise ValueError(f"component {name!r} must be a mapping, got {type(component).__name__}")
+    unexpected_sections = sorted(set(lowercased) - COMPONENT_SECTION_KEYS)
+    if unexpected_sections:
+        raise ValueError(
+            f"component {name!r}: unexpected top-level sections {unexpected_sections} - "
+            f"expected {sorted(COMPONENT_SECTION_KEYS)}"
+        )
     expanded = expand_sided_entries(component=lowercased)
     landmarks = {
         landmark_name: _build_landmark(name=landmark_name, entry=entry)
@@ -86,7 +116,40 @@ def build_component(
         )
         for segment_name, entry in expanded["segments"].items()
     }
-    return landmarks, segments
+    # Groupings are read from the lowercased document rather than the sided expansion:
+    # they name their landmarks explicitly (including `left_`/`right_` ones), so there is
+    # no base name for the expansion to mirror and nothing for it to do.
+    return LoadedComponent(
+        landmarks=landmarks,
+        segments=segments,
+        landmark_groups={
+            group_name: build_landmark_group(name=group_name, entry=entry)
+            for group_name, entry in _grouping_section(
+                component=lowercased, section="landmark_groups", component_name=name
+            ).items()
+        },
+        landmark_connections={
+            group_name: build_landmark_connection_group(name=group_name, entry=entry)
+            for group_name, entry in _grouping_section(
+                component=lowercased, section="landmark_connections", component_name=name
+            ).items()
+        },
+    )
+
+
+def _grouping_section(
+    *, component: Mapping[str, object], section: str, component_name: str
+) -> Mapping[str, object]:
+    """One optional grouping section, refusing anything that is not a mapping."""
+    node = component.get(section)
+    if node is None:
+        return {}
+    if not isinstance(node, Mapping):
+        raise ValueError(
+            f"component {component_name!r}: `{section}` must be a mapping of group name -> "
+            f"group, got {type(node).__name__}"
+        )
+    return node
 
 
 def _build_landmark(*, name: str, entry: Mapping[str, object]) -> AnatomicalLandmark:

@@ -10,7 +10,11 @@ from collections.abc import Mapping, Sequence
 from typing import Final
 
 NAME_VALUED_KEYS: Final[frozenset[str]] = frozenset(
-    {"name", "aliases", "reference_frame", "origin", "landmark", "type"}
+    # `landmark_names` and `pairs` are the grouping sections' member lists. They are named
+    # distinctly from the `landmarks:` SECTION on purpose: that section's value is a mapping
+    # of entries, which this would pass through untouched, silently leaving every landmark
+    # in the file un-lowercased.
+    {"name", "aliases", "reference_frame", "origin", "landmark", "type", "landmark_names", "pairs"}
 )
 
 

@@ -130,6 +130,52 @@ class CenterOfMassDefinitions:
             )
         )
 
+    @classmethod
+    def default_for(cls, *, skeleton: SkeletonDefinition) -> CenterOfMassDefinitions:
+        """The COM definitions of a skeleton that authors none: one per segment, unweighted.
+
+        Every skeleton has a centre of mass. When nothing declares how a segment's mass is
+        distributed, the honest answer is that it is distributed evenly over the segment's
+        own landmarks - the unweighted mean. A charuco board gets a sensible centre this
+        way without anyone inventing a mass model for a sheet of card.
+
+        This is a DEFAULT, not a fallback: it is what "no declaration" MEANS, resolved once
+        here. The human's `center_of_mass.yaml` is an override of it, and a skeleton that
+        authors a malformed one still fails loudly rather than landing here.
+
+        Keyed by SKELETON segment name rather than by de Leva anatomical name, because a
+        skeleton with no declared mass model has no anatomical segments to key by. Each
+        definition is unsided for the same reason: `left_upper_leg` is already the full
+        name, with no base name to mirror.
+
+        Raises:
+            ValueError: a segment owns no landmarks, so it has no centre to compute.
+        """
+        landmarkless = sorted(
+            name for name, segment in skeleton.segments.items() if not segment.landmarks
+        )
+        if landmarkless:
+            raise ValueError(
+                f"skeleton {skeleton.name!r}: cannot build default centre-of-mass "
+                f"definitions - these segments own no landmarks, so they have no centre "
+                f"to average: {landmarkless}"
+            )
+        definitions: dict[str, SegmentComDefinition] = {}
+        for name, segment in skeleton.segments.items():
+            owned = tuple(segment.landmarks)
+            weight = 1.0 / len(owned)
+            definitions[name] = SegmentComDefinition(
+                name=name,
+                proximal=segment.frame_definition.origin_point_name,
+                distal=segment.frame_definition.primary_point_name,
+                weights=tuple(
+                    ComLandmarkWeight(landmark=landmark_name, weight=weight)
+                    for landmark_name in owned
+                ),
+                sided=False,
+            )
+        return cls(definitions=definitions)
+
     def validate_against(self, *, skeleton: SkeletonDefinition) -> None:
         """Fail loudly if any COM or anchor landmark does not exist in the skeleton."""
         known = set(skeleton.landmarks)
@@ -293,8 +339,8 @@ def landmark_world_positions(
     Args:
         skeleton: the skeleton the pose hydrates.
         pose: the skeleton's pose at one instant.
-        segment_scales: each segment's fitted scale, in world units per unit body height —
-            `BodyScaleFit.segment_scales`. Every hydrated segment must have one; a missing
+        segment_scales: each segment's fitted scale, in world units per unit of the model's reference unit —
+            `ModelScaleFit.segment_scales`. Every hydrated segment must have one; a missing
             entry would silently produce a segment the size of the template.
 
     Raises:

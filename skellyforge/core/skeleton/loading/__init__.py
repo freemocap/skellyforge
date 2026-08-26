@@ -1,5 +1,6 @@
 """The YAML loader pipeline: include -> lowercase -> side -> reference frame -> objects."""
 from skellyforge.core.skeleton.loading.component_building import (
+    LoadedComponent,
     build_component,
     load_component,
 )
@@ -11,6 +12,7 @@ from skellyforge.core.skeleton.loading.reference_frame_building import (
 from skellyforge.core.skeleton.loading.sided_expansion import expand_sided_entries
 
 __all__ = [
+    "LoadedComponent",
     "build_component",
     "build_reference_frame_definition",
     "expand_sided_entries",

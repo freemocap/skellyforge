@@ -143,7 +143,9 @@ class RestPose:
         if not isinstance(entries, Mapping):
             raise ValueError(f"{path} needs a 'segments' mapping")
 
-        parents, connect_ats = _topology_from_skeleton(path=path, skeleton=skeleton)
+        parents, connect_ats = _topology_from_skeleton(
+            source=str(path), skeleton=skeleton
+        )
         relative_orientations = _read_segment_entries(
             path=path, entries=entries, skeleton=skeleton
         )
@@ -170,6 +172,46 @@ class RestPose:
         )
 
     @classmethod
+    def default_for(cls, *, skeleton: SkeletonDefinition) -> RestPose:
+        """The rest pose of a skeleton that does not author one: every segment at identity.
+
+        A skeleton whose segments are already authored in the pose they rest in has nothing
+        to say in a `rest_pose.yaml` beyond "identity" repeated once per segment - a
+        charuco board's markers are on the board, and that is the whole rest pose. Making
+        it author that file anyway would be boilerplate whose only possible content is the
+        default.
+
+        This is a DEFAULT, not a fallback: it is resolved once here because the model did
+        not specify and there is exactly one right answer. A skeleton that *does* author
+        orientations must load them, and `from_yaml` still refuses a malformed file rather
+        than quietly landing here.
+        """
+        parents, connect_ats = _topology_from_skeleton(
+            source=f"default rest pose for {skeleton.name!r}", skeleton=skeleton
+        )
+        relative_orientations = {
+            name: RotationQuaternion.identity() for name in skeleton.segments
+        }
+        world_orientations, world_origins, landmark_positions = build_rest_pose(
+            skeleton=skeleton,
+            parents=parents,
+            connect_ats=connect_ats,
+            orientations=relative_orientations,
+        )
+        return cls(
+            name=f"{skeleton.name}_default_rest_pose",
+            root_segment_name=next(
+                name for name, parent in parents.items() if parent is None
+            ),
+            parents=parents,
+            connect_ats=connect_ats,
+            relative_orientations=relative_orientations,
+            segment_orientations=world_orientations,
+            segment_origins=world_origins,
+            landmark_positions=landmark_positions,
+        )
+
+    @classmethod
     def from_default_yaml(cls, *, skeleton: SkeletonDefinition) -> RestPose:
         """Load the shipped standard-human rest (T) pose, resolved against a skeleton."""
         path = (
@@ -182,23 +224,21 @@ class RestPose:
 
 
 def _topology_from_skeleton(
-    *, path: Path, skeleton: SkeletonDefinition
+    *, source: str, skeleton: SkeletonDefinition
 ) -> tuple[
     dict[RigidBodySegmentName, RigidBodySegmentName | None],
     dict[RigidBodySegmentName, LandmarkNameString],
 ]:
     """The parent map and resolved connect points, read off the skeleton's joints.
 
-    The root's connect point defaults to its own origin landmark, which it sits
-    on at the world origin.
-    """
-    if not skeleton.joints:
-        raise ValueError(
-            f"{path}: skeleton {skeleton.name!r} defines no joints, so there is no "
-            f"segment tree for a rest pose to hang orientations on - add the "
-            f"`joints:` section to its YAML"
-        )
+    The root's connect point is its own origin landmark, which it sits on at the world
+    origin.
 
+    The invariant is that the joint tree resolves to EXACTLY ONE ROOT - not that the
+    skeleton has joints at all. A one-segment skeleton (a charuco board) has no joints and
+    satisfies it trivially: its single segment is the root. A many-segment skeleton with no
+    joints has as many roots as segments, which is not a tree, and is refused by name.
+    """
     parents: dict[RigidBodySegmentName, RigidBodySegmentName | None] = {
         segment.name: None for segment in skeleton.segments.values()
     }
@@ -207,7 +247,15 @@ def _topology_from_skeleton(
         parents[joint.child.name] = joint.parent.name
         connect_ats[joint.child.name] = joint.connect_at.name
 
-    root_name = next(name for name, parent in parents.items() if parent is None)
+    root_names = sorted(name for name, parent in parents.items() if parent is None)
+    if len(root_names) != 1:
+        raise ValueError(
+            f"{source}: skeleton {skeleton.name!r} has {len(root_names)} segments with no "
+            f"parent ({root_names[:8]}{'...' if len(root_names) > 8 else ''}), so its "
+            f"joints do not form one tree for a rest pose to hang orientations on. A "
+            f"skeleton of one segment needs no `joints:` section; any more than that does."
+        )
+    root_name = root_names[0]
     root = skeleton.segments[root_name]
     connect_ats[root_name] = root.frame_definition.origin_point_name
     return parents, connect_ats

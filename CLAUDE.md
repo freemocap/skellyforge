@@ -1,16 +1,27 @@
 # CLAUDE.md
 
-Guidance for Claude Code working in **skellyforge** (the standard human + kinematics, a
+Guidance for Claude Code working in **skellyforge** (skeleton definitions + kinematics, a
 sub-skelley of the FreeMoCap polyrepo). Workspace orientation, repo boundaries, and the
 cross-repo model live in [`../CLAUDE.md`](../CLAUDE.md) — read it first. **Never touch
 git** — the user owns commits; make changes on disk and report stopping points.
 
 ## What this repo is (current architecture)
 
-The **standard human**, built on the seven-layer ontology (keypoint → mapping → landmark →
-segment → linkage → chain → skeleton), defined in **YAML** and compiled into typed objects
-whose references are objects, not strings. See `freemocap/current-work-plans/ontology.md`
-first. Layout:
+**SkellyForge's job is skeleton definitions — and the math and hydration that go with them.**
+
+"Skeleton" here is the **generic** term, not the human one. A `SkeletonDefinition` is a hydratable
+specification of a rigid named thing, built on the seven-layer ontology (keypoint → mapping →
+landmark → segment → linkage → chain → skeleton), defined in **YAML** (or built programmatically)
+and compiled into typed objects whose references are objects, not strings. It spans:
+
+- a **fully specified** skeleton — the standard human: landmarks, segments, joints, chains, a rest
+  pose, biomechanics, roll conventions;
+- a **simple** skeleton — a charuco board: one segment carrying its markers.
+
+Layers a skeleton does not use are absent, not stubbed, and what it does not declare it gets by
+**sensible default** (see Conventions below). Read "the human" throughout this file as the worked
+example, never as the contract — conflating the two is how single-human assumptions accumulate.
+See `freemocap/current-work-plans/ontology.md` first. Layout:
 
 ```
 skellyforge/
@@ -117,6 +128,13 @@ installed in the default env either (no lint gate here yet).
 - **Fail loudly, always.** Nothing here repairs, skips, or swallows. If a value is missing
   or malformed, raise, and name the thing that was wrong. A silently short result or a
   bare `except` is a bug even when the shipped data never triggers it.
+- **Sensible defaults are not fallbacks.** A *default* resolves once at load, because the model did
+  not say and there is exactly one right answer (a one-segment skeleton's rest pose is its segment's).
+  A *fallback* resolves per call at runtime, because something failed — still banned. What a default
+  cannot answer raises at load, naming the missing declaration.
+- **Structure travels in the model, never in string patterns.** If a consumer needs to know four
+  landmarks form a square, the skeleton declares it as a connection group. Nothing parses a name to
+  recover structure it should have been handed.
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once
   at load.
 - Every numeric tolerance comes from `numeric_tolerances.py`. No bare `1e-10` in a

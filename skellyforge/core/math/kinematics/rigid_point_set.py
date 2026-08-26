@@ -9,15 +9,15 @@ the least-squares sense. The closed form is exact, needs no iteration, and is wh
 
 The scale is not an optional refinement, it is the reason this is a SIMILARITY and not a
 rigid motion. The authored template is dimensionless - a landmark's local position is a
-fraction of body height, not a length - so the map from a segment's own frame into the world
+fraction of the model's reference unit, not a length - so the map from a segment's own frame into the world
 carries a size as well as a pose. Solving without it does not merely lose the size: the
 translation absorbs the mismatch (`observed_centroid - rotation @ reference_centroid` puts
 the origin on the observed centroid when the reference is a thousand times smaller), so the
 segment's origin lands in the wrong place. The scale is recovered from the same SVD as the
 rotation, at the cost of one trace.
 
-What the scale MEANS, therefore, is millimetres per unit body height - this segment's own
-estimate of how big the subject is. `core.skeleton.pose.body_scale_fitting` is what pools
+What the scale MEANS, therefore, is millimetres per unit of the model's reference unit - this segment's own
+estimate of how big the model is. `core.skeleton.pose.model_scale_fitting` is what pools
 those per-segment estimates into one.
 """
 
@@ -48,7 +48,7 @@ class SimilarityFit:
     questions and are consumed by different layers. The `transform` places the segment -
     its translation IS the segment's world origin, since a segment's own origin sits at the
     zero of its frame - and is what hydration returns. The `scale` sizes it, and is what the
-    body-scale fit pools across segments.
+    model-scale fit pools across segments.
 
     Attributes:
         transform: the rotation and translation. Applying it to the local origin gives the

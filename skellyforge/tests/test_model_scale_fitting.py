@@ -12,12 +12,12 @@ import numpy as np
 import pytest
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton.pose.body_scale_fitting import (
+from skellyforge.core.skeleton.pose.model_scale_fitting import (
     DEFAULT_SCALE_WINDOW_FRAMES,
     InsufficientScaleEvidence,
-    StreamingBodyScaleFitter,
-    body_scale_voting_segment_names,
-    fit_body_scale,
+    StreamingModelScaleFitter,
+    scale_voting_segment_names,
+    fit_model_scale,
 )
 from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
@@ -65,9 +65,9 @@ def _all_landmarks_measured(skeleton: SkeletonDefinition) -> frozenset[str]:
 def _fit_from_one_pose(
     *, skeleton: SkeletonDefinition, pose: SkeletonPose, measured: frozenset[str]
 ):
-    fitter = StreamingBodyScaleFitter(
+    fitter = StreamingModelScaleFitter(
         skeleton=skeleton,
-        voting_segment_names=body_scale_voting_segment_names(
+        voting_segment_names=scale_voting_segment_names(
             skeleton=skeleton, measured_landmark_names=measured
         ),
     )
@@ -90,7 +90,7 @@ def test_every_hydrated_segment_reads_the_subjects_height() -> None:
 
     assert pose.segment_poses, "the full T-pose must hydrate segments"
     for name, segment_pose in pose.segment_poses.items():
-        assert segment_pose.body_scale_estimate == pytest.approx(
+        assert segment_pose.scale_estimate == pytest.approx(
             SUBJECT_HEIGHT_MM, rel=1e-6
         ), f"segment {name!r} reads a different body than the rest of the skeleton"
 
@@ -138,7 +138,7 @@ def test_a_seated_subject_still_measures_their_own_height_and_feet() -> None:
         skeleton=skeleton, pose=pose, measured=frozenset(seated)
     )
 
-    assert fit.body_height == pytest.approx(SUBJECT_HEIGHT_MM, rel=0.02)
+    assert fit.fitted_scale == pytest.approx(SUBJECT_HEIGHT_MM, rel=0.02)
 
     # The foot was never seen, so it wears the pooled height - and lands on its true size.
     assert "left_foot" not in fit.measured_segment_names
@@ -167,7 +167,7 @@ def test_one_side_occluded_still_fits_from_the_other() -> None:
         skeleton=skeleton, pose=pose, measured=frozenset(one_sided)
     )
 
-    assert fit.body_height == pytest.approx(SUBJECT_HEIGHT_MM, rel=0.02)
+    assert fit.fitted_scale == pytest.approx(SUBJECT_HEIGHT_MM, rel=0.02)
     # The unseen right thigh is sized from the seen left one, via the pooled height.
     assert fit.segment_lengths["right_upper_leg"] == pytest.approx(
         skeleton.segments["right_upper_leg"].length * SUBJECT_HEIGHT_MM, rel=0.02
@@ -181,23 +181,23 @@ def test_a_mistracked_limb_does_not_resize_the_body() -> None:
     """One limb triangulated at three times its length must not move the height at all."""
     skeleton = _skeleton()
     measured = _all_landmarks_measured(skeleton)
-    voting = body_scale_voting_segment_names(
+    voting = scale_voting_segment_names(
         skeleton=skeleton, measured_landmark_names=measured
     )
     honest = {name: [SUBJECT_HEIGHT_MM] * 30 for name in sorted(voting)}
 
-    clean_fit = fit_body_scale(
+    clean_fit = fit_model_scale(
         skeleton=skeleton, scale_samples=honest, voting_segment_names=voting
     )
 
     corrupted = dict(honest)
     corrupted["left_lower_arm"] = [3.0 * SUBJECT_HEIGHT_MM] * 30
     corrupted["left_upper_arm"] = [3.0 * SUBJECT_HEIGHT_MM] * 30
-    corrupted_fit = fit_body_scale(
+    corrupted_fit = fit_model_scale(
         skeleton=skeleton, scale_samples=corrupted, voting_segment_names=voting
     )
 
-    assert corrupted_fit.body_height == pytest.approx(clean_fit.body_height, rel=1e-9)
+    assert corrupted_fit.fitted_scale == pytest.approx(clean_fit.fitted_scale, rel=1e-9)
 
 
 def test_a_jittering_segment_is_pulled_further_toward_the_pooled_height() -> None:
@@ -208,7 +208,7 @@ def test_a_jittering_segment_is_pulled_further_toward_the_pooled_height() -> Non
     retune can satisfy it.
     """
     skeleton = _skeleton()
-    voting = body_scale_voting_segment_names(
+    voting = scale_voting_segment_names(
         skeleton=skeleton, measured_landmark_names=_all_landmarks_measured(skeleton)
     )
     rng = np.random.default_rng(4)
@@ -223,12 +223,12 @@ def test_a_jittering_segment_is_pulled_further_toward_the_pooled_height() -> Non
             * (1.0 + relative_jitter * rng.normal(size=sample_count))
         )
         samples["left_lower_leg"] = list(readings)
-        fit = fit_body_scale(
+        fit = fit_model_scale(
             skeleton=skeleton, scale_samples=samples, voting_segment_names=voting
         )
         return (
             fit.segment_scales["left_lower_leg"],
-            fit.body_height,
+            fit.fitted_scale,
             float(np.median(readings)),
         )
 
@@ -248,14 +248,14 @@ def test_a_steady_segment_keeps_its_own_measurement() -> None:
     """The other end of the same rule: a genuinely long femur stays long."""
     skeleton = _skeleton()
     measured = _all_landmarks_measured(skeleton)
-    voting = body_scale_voting_segment_names(
+    voting = scale_voting_segment_names(
         skeleton=skeleton, measured_landmark_names=measured
     )
     samples = {name: [SUBJECT_HEIGHT_MM] * 30 for name in sorted(voting)}
     long_femur = 1.1 * SUBJECT_HEIGHT_MM
     samples["left_upper_leg"] = [long_femur] * 30
 
-    fit = fit_body_scale(
+    fit = fit_model_scale(
         skeleton=skeleton, scale_samples=samples, voting_segment_names=voting
     )
 
@@ -263,7 +263,7 @@ def test_a_steady_segment_keeps_its_own_measurement() -> None:
     # The right femur was not measured differently, so it keeps the pooled height - a real
     # limb-length difference survives the fit rather than being averaged away.
     assert fit.segment_scales["right_upper_leg"] == pytest.approx(
-        fit.body_height, rel=1e-9
+        fit.fitted_scale, rel=1e-9
     )
 
 
@@ -284,7 +284,7 @@ def test_segments_built_from_synthesized_landmarks_do_not_vote() -> None:
     }
     measured = frozenset(skeleton.landmarks) - synthesized
 
-    voting = body_scale_voting_segment_names(
+    voting = scale_voting_segment_names(
         skeleton=skeleton, measured_landmark_names=measured
     )
 
@@ -301,7 +301,7 @@ def test_a_rigid_fit_segment_needs_every_one_of_its_landmarks_measured() -> None
     skeleton = _skeleton()
     measured = frozenset(skeleton.landmarks) - {"left_iliac_crest"}
 
-    voting = body_scale_voting_segment_names(
+    voting = scale_voting_segment_names(
         skeleton=skeleton, measured_landmark_names=measured
     )
 
@@ -310,11 +310,11 @@ def test_a_rigid_fit_segment_needs_every_one_of_its_landmarks_measured() -> None
 
 def test_no_voting_segment_seen_is_a_refusal_not_a_default() -> None:
     skeleton = _skeleton()
-    fitter = StreamingBodyScaleFitter(
+    fitter = StreamingModelScaleFitter(
         skeleton=skeleton,
         voting_segment_names=frozenset({"left_upper_leg"}),
     )
-    assert not fitter.has_body_scale
+    assert not fitter.has_model_scale
     with pytest.raises(InsufficientScaleEvidence, match="no segment entitled to vote"):
         fitter.current_fit()
 
@@ -323,7 +323,7 @@ def test_readings_from_non_voting_segments_alone_are_still_a_refusal() -> None:
     """Seeing only synthesized geometry is not seeing the subject."""
     skeleton = _skeleton()
     with pytest.raises(InsufficientScaleEvidence):
-        fit_body_scale(
+        fit_model_scale(
             skeleton=skeleton,
             scale_samples={"thoracic": [SUBJECT_HEIGHT_MM]},
             voting_segment_names=frozenset({"left_upper_leg"}),
@@ -336,9 +336,9 @@ def test_readings_from_non_voting_segments_alone_are_still_a_refusal() -> None:
 def test_the_window_is_bounded_and_forgets_the_oldest_readings() -> None:
     """A subject who walks closer gets re-fitted within a window, not averaged forever."""
     skeleton = _skeleton()
-    fitter = StreamingBodyScaleFitter(
+    fitter = StreamingModelScaleFitter(
         skeleton=skeleton,
-        voting_segment_names=body_scale_voting_segment_names(
+        voting_segment_names=scale_voting_segment_names(
             skeleton=skeleton,
             measured_landmark_names=_all_landmarks_measured(skeleton),
         ),
@@ -349,11 +349,11 @@ def test_the_window_is_bounded_and_forgets_the_oldest_readings() -> None:
 
     for _ in range(DEFAULT_SCALE_WINDOW_FRAMES):
         fitter.observe_pose(pose=_hydrate(skeleton=skeleton, observed=short_subject))
-    assert fitter.current_fit().body_height == pytest.approx(1500.0, rel=1e-6)
+    assert fitter.current_fit().fitted_scale == pytest.approx(1500.0, rel=1e-6)
 
     for _ in range(DEFAULT_SCALE_WINDOW_FRAMES):
         fitter.observe_pose(pose=_hydrate(skeleton=skeleton, observed=tall_subject))
-    assert fitter.current_fit().body_height == pytest.approx(1900.0, rel=1e-6)
+    assert fitter.current_fit().fitted_scale == pytest.approx(1900.0, rel=1e-6)
 
 
 def test_a_segment_that_stops_being_seen_keeps_its_measurement() -> None:
@@ -365,9 +365,9 @@ def test_a_segment_that_stops_being_seen_keeps_its_measurement() -> None:
         for name, position in standing.items()
         if not any(hidden in name for hidden in _BELOW_THE_DESK)
     }
-    fitter = StreamingBodyScaleFitter(
+    fitter = StreamingModelScaleFitter(
         skeleton=skeleton,
-        voting_segment_names=body_scale_voting_segment_names(
+        voting_segment_names=scale_voting_segment_names(
             skeleton=skeleton,
             measured_landmark_names=_all_landmarks_measured(skeleton),
         ),
@@ -385,14 +385,14 @@ def test_a_segment_that_stops_being_seen_keeps_its_measurement() -> None:
     assert seated_fit.segment_lengths["left_upper_leg"] == pytest.approx(
         standing_fit.segment_lengths["left_upper_leg"], rel=1e-6
     )
-    assert seated_fit.body_height == pytest.approx(standing_fit.body_height, rel=1e-6)
+    assert seated_fit.fitted_scale == pytest.approx(standing_fit.fitted_scale, rel=1e-6)
 
 
 def test_reset_forgets_the_body() -> None:
     skeleton = _skeleton()
-    fitter = StreamingBodyScaleFitter(
+    fitter = StreamingModelScaleFitter(
         skeleton=skeleton,
-        voting_segment_names=body_scale_voting_segment_names(
+        voting_segment_names=scale_voting_segment_names(
             skeleton=skeleton,
             measured_landmark_names=_all_landmarks_measured(skeleton),
         ),
@@ -400,30 +400,30 @@ def test_reset_forgets_the_body() -> None:
     fitter.observe_pose(
         pose=_hydrate(skeleton=skeleton, observed=_observed_subject(skeleton=skeleton))
     )
-    assert fitter.has_body_scale
+    assert fitter.has_model_scale
 
     fitter.reset()
 
-    assert not fitter.has_body_scale
+    assert not fitter.has_model_scale
 
 
 def test_the_fit_covers_every_segment_even_from_a_single_reading() -> None:
     skeleton = _skeleton()
-    fit = fit_body_scale(
+    fit = fit_model_scale(
         skeleton=skeleton,
         scale_samples={"left_upper_leg": [SUBJECT_HEIGHT_MM]},
         voting_segment_names=frozenset({"left_upper_leg"}),
     )
     assert set(fit.segment_scales) == set(skeleton.segments)
     assert set(fit.segment_lengths) == set(skeleton.segments)
-    assert fit.body_height == pytest.approx(SUBJECT_HEIGHT_MM)
+    assert fit.fitted_scale == pytest.approx(SUBJECT_HEIGHT_MM)
     assert fit.measured_segment_names == frozenset({"left_upper_leg"})
 
 
 def test_samples_for_an_unknown_segment_are_an_error() -> None:
     skeleton = _skeleton()
     with pytest.raises(KeyError, match="not in skeleton"):
-        fit_body_scale(
+        fit_model_scale(
             skeleton=skeleton,
             scale_samples={"left_upper_leg": [1.0], "tentacle": [1.0]},
             voting_segment_names=frozenset({"left_upper_leg"}),

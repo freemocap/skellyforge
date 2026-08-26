@@ -1,6 +1,18 @@
 name: human
 coordinate_system: blender
 
+# The computed properties this skeleton opts into. Centre of mass is NOT listed: every
+# skeleton has one (unweighted mean of each segment's landmarks by default, overridden
+# here by center_of_mass.yaml's de Leva weighted sums). These are the ones that need
+# something a simpler skeleton would not have - a mass model, or a roll convention for
+# segments that cannot measure their own.
+derived_quantities:
+- inertia
+- extrapolated_center_of_mass
+- center_of_pressure
+- centroidal_moment_pivot
+- roll_resolution
+
 components:
   pelvis: { $include: components/pelvis.yaml }
   spine: { $include: components/spine.yaml }

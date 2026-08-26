@@ -15,12 +15,20 @@ from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalL
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.loading import (
+    LoadedComponent,
     build_component,
     build_reference_frame_definition,
     expand_sided_entries,
     lowercase_names,
     resolve_includes,
 )
+
+
+def _component_contents(
+    loaded: LoadedComponent,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """The two parts these tests assert on, for the many that predate groupings."""
+    return loaded.landmarks, loaded.segments
 
 PELVIS_YAML_PATH: Path = (
     Path(__file__).resolve().parents[1]
@@ -454,7 +462,7 @@ def test_a_landmark_naming_a_nonexistent_segment_is_rejected() -> None:
             local_position: [0, 10, 0]
         """
     )
-    landmarks, segments = build_component(component=component, name="pelvis")
+    landmarks, segments = _component_contents(build_component(component=component, name="pelvis"))
     with pytest.raises(ValueError, match="an owning segment that this skeleton does not have"):
         SkeletonDefinition(name="pelvis", landmarks=landmarks, segments=segments)
 
@@ -494,7 +502,7 @@ def test_a_component_can_share_a_joint_between_two_segments() -> None:
             local_position: [0, 260, 0]
         """
     )
-    landmarks, segments = build_component(component=component, name="arm")
+    landmarks, segments = _component_contents(build_component(component=component, name="arm"))
     skeleton = SkeletonDefinition(name="arm", landmarks=landmarks, segments=segments)
     assert sorted(skeleton.segments) == [
         "left_lower_arm",
@@ -595,7 +603,7 @@ def test_a_landmark_may_name_its_segment_by_an_alias() -> None:
           FRONT: {definition: front, reference_frame: BACKBONE, local_position: [0, 0, 40]}
         """
     )
-    landmarks, segments = build_component(component=component, name="spine")
+    landmarks, segments = _component_contents(build_component(component=component, name="spine"))
     assert sorted(segments["spine"].landmarks) == ["base", "front", "top"]
     skeleton = SkeletonDefinition(name="t", landmarks=landmarks, segments=segments)
     assert skeleton.owning_segment_name_of(landmark=landmarks["front"]) == "spine"
@@ -603,7 +611,7 @@ def test_a_landmark_may_name_its_segment_by_an_alias() -> None:
 
 def test_a_landmark_owned_by_no_segment_is_rejected() -> None:
     """The cross-component case the alias fix cannot reach still has to fail loudly."""
-    landmarks, segments = build_component(
+    landmarks, segments = _component_contents(build_component(
         component=yaml.safe_load(
             """
             segments:
@@ -617,7 +625,7 @@ def test_a_landmark_owned_by_no_segment_is_rejected() -> None:
             """
         ),
         name="spine",
-    )
+    ))
     stranger = AnatomicalLandmark(
         name="stranger",
         anatomical_definition="a landmark whose segment never collected it",
@@ -654,7 +662,7 @@ def test_two_segments_may_not_share_an_alias() -> None:
           D: {definition: d, reference_frame: beta,  local_position: [0, 10, 0]}
         """
     )
-    landmarks, segments = build_component(component=component, name="t")
+    landmarks, segments = _component_contents(build_component(component=component, name="t"))
     with pytest.raises(ValueError, match="globally unique"):
         SkeletonDefinition(name="t", landmarks=landmarks, segments=segments)
 
@@ -691,7 +699,7 @@ def test_left_and_right_local_frames_agree_on_up_forward_and_distal() -> None:
     of +x being medial on the left and lateral on the right, which a right-handed triad
     cannot avoid.
     """
-    landmarks, segments = build_component(component=_bilateral_component(), name="limb")
+    landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
     rest_positions = {name: landmark.local_position for name, landmark in landmarks.items()}
     bases = {
         side: segments[f"{side}_limb"].calculate_basis(points=rest_positions)
@@ -710,7 +718,7 @@ def test_left_and_right_local_frames_agree_on_up_forward_and_distal() -> None:
 
 
 def test_both_sided_frames_stay_right_handed() -> None:
-    landmarks, segments = build_component(component=_bilateral_component(), name="limb")
+    landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
     rest_positions = {name: landmark.local_position for name, landmark in landmarks.items()}
     for side in ("left", "right"):
         basis = segments[f"{side}_limb"].calculate_basis(points=rest_positions)
@@ -723,7 +731,7 @@ def test_both_sided_frames_stay_right_handed() -> None:
 
 def test_the_right_side_negates_an_x_axis_declaration() -> None:
     """The landmark still lies exactly on its declared signed axis - the negative half."""
-    _landmarks, segments = build_component(component=_bilateral_component(), name="limb")
+    _landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
     assert segments["left_limb"].frame_definition.secondary_axis is SpatialAxis.X
     assert segments["right_limb"].frame_definition.secondary_axis is SpatialAxis.NEGATIVE_X
     # y is untouched by a sagittal mirror, so the primary axis is the same on both sides.
@@ -734,7 +742,7 @@ def test_the_right_side_negates_an_x_axis_declaration() -> None:
 def test_an_already_negated_x_axis_flips_back_on_the_right() -> None:
     component = _bilateral_component()
     component["segments"]["LIMB"]["reference_geometry"]["x_axis"]["negate"] = True
-    _landmarks, segments = build_component(component=component, name="limb")
+    _landmarks, segments = _component_contents(build_component(component=component, name="limb"))
     assert segments["left_limb"].frame_definition.secondary_axis is SpatialAxis.NEGATIVE_X
     assert segments["right_limb"].frame_definition.secondary_axis is SpatialAxis.X
 

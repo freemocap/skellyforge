@@ -16,7 +16,7 @@ Both closed forms also recover a SCALE, because the authored template is dimensi
 local position is a fraction of body height, so placing a segment in a world measured in
 millimetres means answering how big it is as well as where and which way. The rigid fit
 reads that off every observed landmark at once; the direction fit reads it off the one
-distance it has. Neither pools it across segments - that is `body_scale_fitting`'s job.
+distance it has. Neither pools it across segments - that is `model_scale_fitting`'s job.
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def hydrate_segment(
             # unscaled fit hides the size mismatch in exactly this translation.
             origin=fit.apply(points=Point.from_xyz(x=0.0, y=0.0, z=0.0)),
             orientation=fit.transform.rotation,
-            body_scale_estimate=fit.scale,
+            scale_estimate=fit.scale,
             solved_by=PoseSolution.RIGID_FIT,
         )
 
@@ -139,7 +139,7 @@ def hydrate_segment(
             # body height, nonzero by construction - a primary landmark sitting on its own
             # origin is refused at load - so this ratio is world units per unit body
             # height: this segment's own reading of how big the subject is.
-            body_scale_estimate=observed_length / segment.length,
+            scale_estimate=observed_length / segment.length,
             solved_by=PoseSolution.DIRECTION,
         )
 

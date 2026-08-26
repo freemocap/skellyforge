@@ -101,3 +101,45 @@ landmarks:
     - -0.012148
     - 0.036445
     - -0.030371
+
+# ── Groupings ──────────────────────────────────────────────────────────────
+# What these landmarks ARE, and which of them a consumer should draw as edges.
+# Authored here rather than recovered downstream from a name prefix: a renderer that
+# knows the face by `startsWith("eye")` is a second, silent copy of this file.
+#
+# The sided landmarks are named explicitly with their `left_`/`right_` prefixes because a
+# group is a set of specific points, not a rule that mirrors.
+landmark_groups:
+  FACE_SURFACE:
+    color: "#ffd166"
+    landmark_names:
+      - HEAD_VERTEX
+      - NOSE
+      - CHIN
+      - LEFT_EYE
+      - RIGHT_EYE
+      - LEFT_EYE_INNER
+      - RIGHT_EYE_INNER
+      - LEFT_EYE_OUTER
+      - RIGHT_EYE_OUTER
+      - LEFT_EAR
+      - RIGHT_EAR
+
+landmark_connections:
+  SKULL_OUTLINE:
+    color: "#ffd166"
+    pairs:
+      - [LEFT_EAR, HEAD_VERTEX]
+      - [RIGHT_EAR, HEAD_VERTEX]
+      - [LEFT_EAR, CHIN]
+      - [RIGHT_EAR, CHIN]
+      - [HEAD_VERTEX, NOSE]
+      - [NOSE, CHIN]
+  EYE_LINE:
+    color: "#8ecae6"
+    pairs:
+      - [LEFT_EYE_OUTER, LEFT_EYE]
+      - [LEFT_EYE, LEFT_EYE_INNER]
+      - [LEFT_EYE_INNER, RIGHT_EYE_INNER]
+      - [RIGHT_EYE_INNER, RIGHT_EYE]
+      - [RIGHT_EYE, RIGHT_EYE_OUTER]

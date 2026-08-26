@@ -14,7 +14,7 @@ skeleton, and nothing downstream should be rebuilding them.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -25,6 +25,10 @@ from skellyforge.core.math.geometry.coordinate_systems.coordinate_system_registr
 )
 from skellyforge.core.skeleton.chain.kinematic_chain import KinematicChain
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.components.landmark_grouping import (
+    LandmarkConnectionGroup,
+    LandmarkGroup,
+)
 from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
 from skellyforge.core.skeleton.linkage.joint_definition import (
@@ -47,6 +51,26 @@ from skellyforge.type_overloads import (
 )
 
 
+DERIVED_QUANTITY_REQUIREMENTS: Mapping[str, str] = {
+    # name -> what a skeleton must declare for it to be computable, "" when nothing extra.
+    "inertia": "anatomical_segment",
+    "extrapolated_center_of_mass": "",
+    "center_of_pressure": "",
+    "centroidal_moment_pivot": "",
+    "roll_resolution": "",
+}
+"""The derived quantities a skeleton may opt into, and what each one needs declared.
+
+Centre of mass is deliberately absent: EVERY skeleton has one, defaulting to the unweighted
+mean of each segment's landmarks, so listing it here would make a universal property look
+optional. Everything in this table needs something the model may not have, or is a
+convention (roll) a rigid object does not want applied to it.
+
+The names live in the skeleton layer rather than in biomechanics because the skeleton is
+what validates them at load, and the skeleton never imports biomechanics.
+"""
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class SkeletonDefinition:
     """Every landmark, segment and joint of one skeleton, keyed by name.
@@ -60,6 +84,17 @@ class SkeletonDefinition:
             rest pose reads its tree from here.
         chains: declared multi-segment paths over those joints ("left_arm"),
             keyed by chain name. The unit multi-segment math owns.
+        landmark_groups: named sets of landmarks ("charuco_corners", "skull_surface"),
+            keyed by group name. What a landmark IS, said by the model rather than
+            recovered downstream by parsing its name.
+        landmark_connections: named sets of landmark edges ("charuco_grid",
+            "aruco_markers", "skull_outline"), keyed by group name. Distinct from the
+            SEGMENT-origin edges walked from `joints` - these join landmarks, which is the
+            only kind of edge a one-segment skeleton has.
+        derived_quantities: the computed properties this skeleton opts into, from
+            `DERIVED_QUANTITY_REQUIREMENTS`. Centre of mass is NOT among them - every
+            skeleton has one. Asking for a quantity whose inputs are undeclared raises
+            here, at load.
         coordinate_system: the coordinate-system convention (from the registry) the
             authored positions and local frames are expressed in - "blender" for the
             shipped human.
@@ -70,6 +105,11 @@ class SkeletonDefinition:
     segments: Mapping[RigidBodySegmentName, RigidBodySegment]
     joints: Mapping[LinkageNameString, JointDefinition] = field(default_factory=dict)
     chains: Mapping[ChainNameString, KinematicChain] = field(default_factory=dict)
+    landmark_groups: Mapping[str, LandmarkGroup] = field(default_factory=dict)
+    landmark_connections: Mapping[str, LandmarkConnectionGroup] = field(
+        default_factory=dict
+    )
+    derived_quantities: frozenset[str] = frozenset()
     coordinate_system: str = "blender"
     _landmark_name_resolver: LandmarkNameResolver = field(init=False, repr=False)
     _canonical_segment_name_by_known_name: Mapping[
@@ -160,6 +200,65 @@ class SkeletonDefinition:
                 f"landmarks that do not exist - {dangling}"
             )
 
+        # Groupings are authored per component but may name landmarks from any of them, so
+        # this is the first place they can be checked - the same reason the reference
+        # geometry above is checked here and not in the component builder.
+        ungrouped: list[str] = []
+        for group in self.landmark_groups.values():
+            missing = sorted(
+                name for name in group.landmark_names if name not in self.landmarks
+            )
+            if missing:
+                ungrouped.append(f"landmark group {group.name!r} -> {missing}")
+        for connection_group in self.landmark_connections.values():
+            missing = sorted(
+                name
+                for name in connection_group.landmark_names
+                if name not in self.landmarks
+            )
+            if missing:
+                ungrouped.append(f"connection group {connection_group.name!r} -> {missing}")
+        if ungrouped:
+            raise ValueError(
+                f"skeleton {self.name!r}: these groupings name landmarks that do not "
+                f"exist - {ungrouped}"
+            )
+
+        self._raise_unless_derived_quantities_are_computable()
+
+    def _raise_unless_derived_quantities_are_computable(self) -> None:
+        """Refuse a derived quantity this skeleton cannot actually produce.
+
+        Opting in is a claim, and the point of checking it HERE is that the alternative is
+        discovering at the first frame that a quantity silently produced nothing. A skeleton
+        that asks for inertia without declaring where its mass lives is a definition bug,
+        and it should say so while the definition is on screen.
+        """
+        unknown = sorted(self.derived_quantities - set(DERIVED_QUANTITY_REQUIREMENTS))
+        if unknown:
+            if "center_of_mass" in unknown:
+                raise ValueError(
+                    f"skeleton {self.name!r}: `center_of_mass` is not an opt-in derived "
+                    "quantity - every skeleton has one, defaulting to the unweighted mean "
+                    "of each segment's landmarks. Remove it from `derived_quantities`."
+                )
+            raise ValueError(
+                f"skeleton {self.name!r}: unknown derived quantities {unknown} - known "
+                f"quantities are {sorted(DERIVED_QUANTITY_REQUIREMENTS)}"
+            )
+        if "inertia" in self.derived_quantities:
+            undeclared = sorted(
+                name
+                for name, segment in self.segments.items()
+                if segment.anatomical_segment is None
+            )
+            if undeclared:
+                raise ValueError(
+                    f"skeleton {self.name!r} asks for the `inertia` derived quantity, but "
+                    f"these segments declare no `anatomical_segment`, so there is no mass "
+                    f"model to build a tensor from: {undeclared}"
+                )
+
     @property
     def landmark_name_resolver(self) -> LandmarkNameResolver:
         """Folds every alias in this skeleton down to its canonical landmark name.
@@ -249,6 +348,14 @@ class SkeletonDefinition:
                 "topology that the linkage layer (and the rest pose) is built from"
             )
 
+        derived_node = document.get("derived_quantities", [])
+        if not isinstance(derived_node, Sequence) or isinstance(derived_node, (str, bytes)):
+            raise ValueError(
+                f"{path}: 'derived_quantities' must be a list of quantity names - got "
+                f"{derived_node!r}"
+            )
+        derived_quantities = frozenset(str(quantity) for quantity in derived_node)
+
         coordinate_system = document.get("coordinate_system", "blender")
         if not isinstance(coordinate_system, str) or not coordinate_system:
             raise ValueError(
@@ -264,6 +371,8 @@ class SkeletonDefinition:
 
         landmarks: dict[LandmarkNameString, AnatomicalLandmark] = {}
         segments: dict[RigidBodySegmentName, RigidBodySegment] = {}
+        landmark_groups: dict[str, LandmarkGroup] = {}
+        landmark_connections: dict[str, LandmarkConnectionGroup] = {}
         for component_name, component_node in components.items():
             resolved = resolve_includes(
                 node=component_node,
@@ -275,20 +384,30 @@ class SkeletonDefinition:
                     f"component {component_name!r} must resolve to a mapping - got "
                     f"{type(resolved).__name__}"
                 )
-            component_landmarks, component_segments = build_component(
-                component=resolved, name=str(component_name)
-            )
+            component = build_component(component=resolved, name=str(component_name))
             _merge_into(
                 merged=landmarks,
-                additions=component_landmarks,
+                additions=component.landmarks,
                 component_name=str(component_name),
                 what="landmark",
             )
             _merge_into(
                 merged=segments,
-                additions=component_segments,
+                additions=component.segments,
                 component_name=str(component_name),
                 what="segment",
+            )
+            _merge_into(
+                merged=landmark_groups,
+                additions=component.landmark_groups,
+                component_name=str(component_name),
+                what="landmark group",
+            )
+            _merge_into(
+                merged=landmark_connections,
+                additions=component.landmark_connections,
+                component_name=str(component_name),
+                what="landmark connection group",
             )
 
         # Expand sided joints: a joint marked `sided: true` whose parent/child/
@@ -355,6 +474,9 @@ class SkeletonDefinition:
             segments=segments,
             joints=joints,
             chains=chains,
+            landmark_groups=landmark_groups,
+            landmark_connections=landmark_connections,
+            derived_quantities=derived_quantities,
             coordinate_system=coordinate_system,
         )
 
@@ -376,8 +498,14 @@ class SkeletonDefinition:
         Useful while components are still being brought up one at a time: a component that
         is internally consistent can be loaded and checked before the whole skeleton is.
         """
-        landmarks, segments = load_component(path=path, name=name)
-        return cls(name=name, landmarks=landmarks, segments=segments)
+        component = load_component(path=path, name=name)
+        return cls(
+            name=name,
+            landmarks=component.landmarks,
+            segments=component.segments,
+            landmark_groups=component.landmark_groups,
+            landmark_connections=component.landmark_connections,
+        )
 
 
 def _build_joint_definitions(

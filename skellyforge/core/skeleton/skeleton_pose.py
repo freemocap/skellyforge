@@ -6,10 +6,10 @@ in from observed landmark positions; velocities and accelerations come later, wh
 trajectory is known.
 
 Scale is a component of the pose rather than a property of the definition because the
-authored template is dimensionless - local positions are fractions of body height - so the
+authored template is dimensionless - local positions are fractions of the model's reference unit - so the
 map from a segment's frame into the world is a similarity, not a rigid motion. Every
-hydrated segment therefore reports its own reading of how big the subject is, and
-`pose.body_scale_fitting` pools those readings into one.
+hydrated segment therefore reports its own reading of how big the model is, and
+`pose.model_scale_fitting` pools those readings into one.
 
 Every pose records HOW it was solved, because the two solutions carry different amounts of
 information: a rigid fit pins the full orientation, while a direction fit pins only the
@@ -53,13 +53,14 @@ class SegmentPose:
         segment_name: the segment this pose belongs to.
         origin: the world position of the segment's frame origin.
         orientation: the world orientation (local-to-world rotation).
-        body_scale_estimate: this segment's own reading of the subject's size, in world
-            units per unit of the template's body height - millimetres per unit `H`, when
+        scale_estimate: this segment's own reading of the model's size, in world
+            units per unit of the skeleton's reference unit - millimetres per unit `H` for the
+            standard human, when
             the observations were in millimetres. A rigid fit measures it over every
             observed landmark at once; a direction fit measures it as the observed
             origin-to-primary distance over the authored proportion. It is ONE segment's
-            noisy reading, not the subject's height: pooling those readings is
-            `pose.body_scale_fitting`'s job.
+            noisy reading, not the model's size: pooling those readings is
+            `pose.model_scale_fitting`'s job.
         solved_by: which closed form produced it. `PoseSolution.DIRECTION` means the roll
             about the segment's long axis is arbitrary and must be resolved downstream.
     """
@@ -67,14 +68,14 @@ class SegmentPose:
     segment_name: RigidBodySegmentName
     origin: Point
     orientation: RotationQuaternion
-    body_scale_estimate: float
+    scale_estimate: float
     solved_by: PoseSolution
 
     def __post_init__(self) -> None:
-        if not self.body_scale_estimate > 0.0:
+        if not self.scale_estimate > 0.0:
             raise ValueError(
-                f"segment {self.segment_name!r}: body_scale_estimate must be positive - "
-                f"got {self.body_scale_estimate!r}. A segment with no measurable size has "
+                f"segment {self.segment_name!r}: scale_estimate must be positive - "
+                f"got {self.scale_estimate!r}. A segment with no measurable size has "
                 "no pose; it should have been left out of the hydration, not hydrated "
                 "with a degenerate scale."
             )
@@ -99,7 +100,7 @@ class SegmentPose:
             segment_name=self.segment_name,
             origin=self.origin,
             orientation=orientation,
-            body_scale_estimate=self.body_scale_estimate,
+            scale_estimate=self.scale_estimate,
             solved_by=solved_by,
         )
 

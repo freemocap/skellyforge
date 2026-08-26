@@ -59,7 +59,7 @@ GRAVITY: FloatArray = np.array([0.0, 0.0, -9810.0])
 # The rest pose is authored as body-height proportions, and gravity above is in mm/s^2, so
 # the T-pose these tests roll up is a real 1700mm body rather than a template of height 1.
 # Every position here is therefore in millimetres, as it is in the live pipeline.
-BODY_HEIGHT_MM: float = 1700.0
+SUBJECT_HEIGHT_MM: float = 1700.0
 
 
 def _skeleton() -> SkeletonDefinition:
@@ -74,10 +74,10 @@ def _pose() -> SkeletonPose:
             name: SegmentPose(
                 segment_name=name,
                 origin=Point.from_array(
-                    values=BODY_HEIGHT_MM * rest_pose.segment_origins[name].array
+                    values=SUBJECT_HEIGHT_MM * rest_pose.segment_origins[name].array
                 ),
                 orientation=rest_pose.segment_orientations[name],
-                body_scale_estimate=BODY_HEIGHT_MM,
+                scale_estimate=SUBJECT_HEIGHT_MM,
                 solved_by=PoseSolution.RIGID_FIT,
             )
             for name in skeleton.segments
@@ -87,7 +87,7 @@ def _pose() -> SkeletonPose:
 
 def _segment_scales() -> dict[str, float]:
     """A perfectly-fitted subject: every segment at the same body height."""
-    return {name: BODY_HEIGHT_MM for name in _skeleton().segments}
+    return {name: SUBJECT_HEIGHT_MM for name in _skeleton().segments}
 
 
 def _anthropometric() -> AnthropometricParameters:

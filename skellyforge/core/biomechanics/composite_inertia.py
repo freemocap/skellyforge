@@ -58,8 +58,8 @@ def body_inertial_properties(
         body_mass: the subject's total body mass.
         anthropometric: de Leva mass fractions and radii of gyration.
         com_definitions: the per-segment COM and long-axis landmark definitions.
-        segment_scales: each segment's fitted scale, in world units per unit body height —
-            `BodyScaleFit.segment_scales`. Everything below reads world positions, and the
+        segment_scales: each segment's fitted scale, in world units per unit of the model's reference unit —
+            `ModelScaleFit.segment_scales`. Everything below reads world positions, and the
             template has no size without this.
 
     Raises:

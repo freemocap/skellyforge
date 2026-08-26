@@ -1,42 +1,48 @@
-"""Fitting the dimensionless template to a real body: one height, one scale per segment.
+"""Fitting a dimensionless skeleton to a real thing: one scale, one scale per segment.
 
-The authored template has no size. A landmark's local position is a fraction of body
-height, so every segment carries a PROPORTION `p` (`RigidBodySegment.length`) rather than a
-length, and the same skeleton describes a toddler and a basketball player. Turning it into
-a body means answering one question - how big is this subject - which is a problem precisely
-because a camera rarely sees all of a person at once. Sitting at a desk, the legs are simply
-not there.
+An authored skeleton has no size. A landmark's local position is a fraction of the
+skeleton's own REFERENCE UNIT - body height for the standard human, square length for a
+charuco board - so every segment carries a PROPORTION `p` (`RigidBodySegment.length`)
+rather than a length, and the same skeleton describes a toddler and a basketball player.
+Turning it into a thing means answering one question - how big is this one - which is a
+problem precisely because a camera rarely sees all of anything at once. Sitting at a desk,
+the legs are simply not there.
 
 The way out is that `p` makes every visible segment an answer to the SAME question. A
 segment observed to be `d` long reports
 
-    s = d / p                   world units per unit body height
+    s = d / p                   world units per unit of the model's reference unit
 
-and that is the subject's height, read off that one bone. A femur says it, a forearm says
-it, the skull says it. So the fit is not "measure the lengths, then guess a height" - it is
+and that is the model's size, read off that one segment. A femur says it, a forearm says
+it, the skull says it. So the fit is not "measure the lengths, then guess a size" - it is
 one scale field over the skeleton, `s̃`, where each segment either has its own reading or
 inherits the pooled one:
 
-    Ĥ   = a robust aggregate of the readings from segments that actually measure something
-    s̃ₛ  = that segment's own reading, shrunk toward Ĥ by how much evidence it has
+    Ŝ   = a robust aggregate of the readings from segments that actually measure something
+    s̃ₛ  = that segment's own reading, shrunk toward Ŝ by how much evidence it has
     Lₛ  = pₛ · s̃ₛ
 
-A segment nobody can see has no reading, so `s̃ₛ` IS `Ĥ` and its length is `pₛ · Ĥ`. That is
-not a fallback - it is the answer the proportional template exists to give. Your feet under
+A segment nobody can see has no reading, so `s̃ₛ` IS `Ŝ` and its length is `pₛ · Ŝ`. That is
+not a fallback - it is the answer a proportional skeleton exists to give. Your feet under
 the desk are as long as your humerus says they are.
+
+What the fitted scale MEANS depends on what the skeleton normalized against: for the human
+it is stature in millimetres; for a board authored at `square_length = 1.0` it is the
+measured square length, which is directly comparable to the value a user entered at
+calibration.
 
 ## What is allowed to vote
 
-Not every segment measures the subject. A tracker mapping synthesizes some landmarks as
+Not every segment measures the model. A tracker mapping synthesizes some landmarks as
 ratios of a measured span - the sternoclavicular joints, the xiphoid process - so a segment
 between two of them reports `span × (authored ratio) / p`, which is the template quoting
 itself back. Worse, such a segment is nearly NOISE-FREE, so any weighting that rewards
-consistency would rank it as the best evidence available. `body_scale_voting_segment_names`
+consistency would rank it as the best evidence available. `scale_voting_segment_names`
 is how a caller says which landmarks are real measurements; only segments built entirely
-from those set `Ĥ`. Everything else consumes it.
+from those set `Ŝ`. Everything else consumes it.
 
 Non-voting segments still keep their own measured `s̃ₛ`, because their length is where their
-endpoints actually are - a bone rendered at `pₛ · Ĥ` when its own landmarks say otherwise
+endpoints actually are - a bone rendered at `pₛ · Ŝ` when its own landmarks say otherwise
 would not reach its own joints.
 
 ## What makes it robust
@@ -45,7 +51,7 @@ Medians throughout, never means: one badly triangulated frame must not stretch a
 one badly tracked limb must not resize the body. Weights are derived, not dialled - a
 segment's vote is worth `p²` (a fixed absolute error on `d` is a relative error on `s` that
 grows as `1/p`, so short segments genuinely know less), times how many samples it has, over
-how much those samples disagree. Left and right pool their samples for `Ĥ`, because a
+how much those samples disagree. Left and right pool their samples for `Ŝ`, because a
 one-sided occlusion is common and stature is not sided - but they keep separate lengths, so
 a real limb-length difference still shows.
 
@@ -89,10 +95,10 @@ threshold is scaled up by the segment's dispersion."""
 
 
 class InsufficientScaleEvidence(ValueError):
-    """No segment has measured the subject, so the body has no size yet.
+    """No segment has measured the model, so it has no size yet.
 
     Distinct from a bad fit: this is the honest state of a fit that has seen nobody, or has
-    seen only landmarks its caller declared synthetic. A caller asks `has_body_scale` before
+    seen only landmarks its caller declared synthetic. A caller asks `has_model_scale` before
     asking for the fit rather than being handed a plausible-looking default.
     """
 
@@ -103,7 +109,7 @@ class SegmentScaleReading:
 
     Attributes:
         segment_name: the segment these readings came from.
-        median_scale: the median reading, in world units per unit body height.
+        median_scale: the median reading, in world units per unit of the model's reference unit.
         relative_dispersion: the median absolute deviation over the median - how much the
             readings disagree, as a fraction of their own size. Zero for a single reading.
         sample_count: how many readings the summary is over.
@@ -116,7 +122,7 @@ class SegmentScaleReading:
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class BodyScaleFit:
+class ModelScaleFit:
     """A fitted body: one height, and the scale and length of every segment.
 
     Every segment of the skeleton appears in `segment_scales` and `segment_lengths`,
@@ -125,36 +131,36 @@ class BodyScaleFit:
     wearing the pooled one.
 
     Attributes:
-        body_height: the subject's height, in whatever units the observations were in
+        fitted_scale: the model's size, in whatever units the observations were in
             (millimetres, for anything coming through freemocap). Numerically this is the
             scale itself, because the template's height is 1.
         segment_scales: each segment's fitted scale - its own reading shrunk toward
-            `body_height`, or `body_height` exactly when it has no reading.
+            `fitted_scale`, or `fitted_scale` exactly when it has no reading.
         segment_lengths: each segment's fitted length, `proportion x scale`, in the same
-            units as `body_height`.
+            units as `fitted_scale`.
         measured_segment_names: the segments that contributed a reading of their own.
-        voting_segment_names: the subset of those that were allowed to set `body_height`.
+        voting_segment_names: the subset of those that were allowed to set `fitted_scale`.
     """
 
-    body_height: float
+    fitted_scale: float
     segment_scales: Mapping[RigidBodySegmentName, float]
     segment_lengths: Mapping[RigidBodySegmentName, float]
     measured_segment_names: frozenset[RigidBodySegmentName]
     voting_segment_names: frozenset[RigidBodySegmentName]
 
     def __post_init__(self) -> None:
-        if not self.body_height > 0.0:
+        if not self.fitted_scale > 0.0:
             raise ValueError(
-                f"body_height must be positive - got {self.body_height!r}"
+                f"fitted_scale must be positive - got {self.fitted_scale!r}"
             )
 
 
-def body_scale_voting_segment_names(
+def scale_voting_segment_names(
     *,
     skeleton: SkeletonDefinition,
     measured_landmark_names: Set[LandmarkNameString],
 ) -> frozenset[RigidBodySegmentName]:
-    """Which segments are entitled to set the body height, given what is really measured.
+    """Which segments are entitled to set the fitted scale, given what is really measured.
 
     A segment votes only when every landmark its scale is read from is a real measurement.
     Which landmarks those are depends on how the segment solves, and that is a static
@@ -190,21 +196,21 @@ def body_scale_voting_segment_names(
     return frozenset(voting)
 
 
-def fit_body_scale(
+def fit_model_scale(
     *,
     skeleton: SkeletonDefinition,
     scale_samples: Mapping[RigidBodySegmentName, Sequence[float]],
     voting_segment_names: Set[RigidBodySegmentName],
-) -> BodyScaleFit:
-    """Fit one body height and a per-segment scale field from per-segment scale readings.
+) -> ModelScaleFit:
+    """Fit one scale and a per-segment scale field from per-segment scale readings.
 
     Args:
         skeleton: the skeleton being fitted; supplies each segment's authored proportion.
-        scale_samples: per segment, its recent readings of world units per unit body height
-            (`SegmentPose.body_scale_estimate`). Segments with no readings may be absent or
+        scale_samples: per segment, its recent readings of world units per unit of the model's reference unit
+            (`SegmentPose.scale_estimate`). Segments with no readings may be absent or
             empty; a segment not in the skeleton is an error, not a value to ignore.
         voting_segment_names: which segments may set the height, from
-            `body_scale_voting_segment_names`.
+            `scale_voting_segment_names`.
 
     Returns:
         The fit, covering every segment of the skeleton.
@@ -228,7 +234,7 @@ def fit_body_scale(
         is not None
     }
 
-    body_height = _pooled_body_height(
+    fitted_scale = _pooled_body_height(
         skeleton=skeleton,
         readings=readings,
         voting_segment_names=voting_segment_names,
@@ -239,7 +245,7 @@ def fit_body_scale(
     for name, segment in skeleton.segments.items():
         reading = readings.get(name)
         if reading is None:
-            scale = body_height
+            scale = fitted_scale
         else:
             # The template is a prior worth `prior_weight` clean readings; a segment whose
             # own readings disagree with each other has to bring proportionally more of
@@ -248,12 +254,12 @@ def fit_body_scale(
                 1.0 + reading.relative_dispersion / DISPERSION_HALF_TRUST
             )
             own_share = reading.sample_count / (reading.sample_count + prior_weight)
-            scale = own_share * reading.median_scale + (1.0 - own_share) * body_height
+            scale = own_share * reading.median_scale + (1.0 - own_share) * fitted_scale
         segment_scales[name] = scale
         segment_lengths[name] = segment.length * scale
 
-    return BodyScaleFit(
-        body_height=body_height,
+    return ModelScaleFit(
+        fitted_scale=fitted_scale,
         segment_scales=segment_scales,
         segment_lengths=segment_lengths,
         measured_segment_names=frozenset(readings),
@@ -276,7 +282,7 @@ def _summarize_scale_samples(
     if not median > 0.0:
         raise ValueError(
             f"segment {segment_name!r}: median of its scale readings is {median!r}, which "
-            "is not a size. Readings come from `SegmentPose.body_scale_estimate`, which is "
+            "is not a size. Readings come from `SegmentPose.scale_estimate`, which is "
             "positive by construction, so this window was filled from somewhere else."
         )
     absolute_deviation = float(np.median(np.abs(values - median)))
@@ -316,7 +322,7 @@ def _pooled_body_height(
 
     if not pooled_medians:
         raise InsufficientScaleEvidence(
-            "no segment entitled to vote has a scale reading, so the subject has no "
+            "no segment entitled to vote has a scale reading, so the model has no "
             f"measured size. {len(readings)} segment(s) have readings "
             f"({sorted(readings)[:8]}...) and {len(voting_segment_names)} are entitled to "
             "vote, but the two do not overlap - either nobody is in view yet, or every "
@@ -362,8 +368,8 @@ def _weighted_median(*, values: Sequence[float], weights: Sequence[float]) -> fl
     return float(sorted_values[min(crossing, len(sorted_values) - 1)])
 
 
-class StreamingBodyScaleFitter:
-    """A rolling body-scale fit over a live pose stream.
+class StreamingModelScaleFitter:
+    """A rolling model-scale fit over a live pose stream.
 
     Holds one bounded window of readings per segment and re-fits on demand. The window is
     the ONLY temporal smoothing here: a segment's median over its window is already steady,
@@ -403,11 +409,11 @@ class StreamingBodyScaleFitter:
 
     @property
     def voting_segment_names(self) -> frozenset[RigidBodySegmentName]:
-        """The segments this fitter lets set the body height."""
+        """The segments this fitter lets set the fitted scale."""
         return self._voting_segment_names
 
     @property
-    def has_body_scale(self) -> bool:
+    def has_model_scale(self) -> bool:
         """Whether any segment entitled to vote has been seen yet.
 
         Ask this before `current_fit`. It is the one question a caller with nobody in front
@@ -419,7 +425,7 @@ class StreamingBodyScaleFitter:
         )
 
     def observe_pose(self, *, pose: SkeletonPose) -> None:
-        """Record every hydrated segment's reading of how big the subject is."""
+        """Record every hydrated segment's reading of how big the model is."""
         for name, segment_pose in pose.segment_poses.items():
             window = self._windows.get(name)
             if window is None:
@@ -427,20 +433,20 @@ class StreamingBodyScaleFitter:
                 self._windows[name] = window
                 self._next_slot[name] = 0
             if len(window) < self._window_frames:
-                window.append(segment_pose.body_scale_estimate)
+                window.append(segment_pose.scale_estimate)
             else:
                 slot = self._next_slot[name]
-                window[slot] = segment_pose.body_scale_estimate
+                window[slot] = segment_pose.scale_estimate
                 self._next_slot[name] = (slot + 1) % self._window_frames
 
-    def current_fit(self) -> BodyScaleFit:
+    def current_fit(self) -> ModelScaleFit:
         """The fit over everything observed so far.
 
         Raises:
             InsufficientScaleEvidence: no voting segment has been seen. Guard with
-                `has_body_scale`.
+                `has_model_scale`.
         """
-        return fit_body_scale(
+        return fit_model_scale(
             skeleton=self._skeleton,
             scale_samples=self._windows,
             voting_segment_names=self._voting_segment_names,
