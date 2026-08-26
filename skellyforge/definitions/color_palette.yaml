@@ -18,6 +18,10 @@ right: "#ff4444"          # red
 left_hand: "#22dddd"      # cyan
 right_hand: "#ff44dd"     # magenta
 
+# Facial features. `eye` is more specific than `face`, so a group tagged [eye, face] takes
+# this and anything else on the face falls through to the amber below.
+eye: "#8ecae6"            # pale blue
+
 # Midline structures belong to neither side.
 center: "#00aa00"         # green
 face: "#ffd166"           # amber
