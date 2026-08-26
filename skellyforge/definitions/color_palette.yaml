@@ -1,0 +1,35 @@
+# Tag -> colour. The shipped default scheme; a user supplies their own by loading a
+# different file, or by overriding individual tags.
+#
+# Resolution is FIRST MATCH over a group's ordered tags, so specificity is expressed by
+# the order the model lists them, not by rules here. A group tagged
+# ["left_hand", "left"] takes `left_hand` where it exists and `left` where it does not —
+# which is how "hands are their own colour, but still readably left-vs-right" works
+# without either side hardcoding the other.
+#
+# Anything this file does not name is drawn in `default`.
+
+# Sidedness — cool on the left, warm on the right, so the pair reads at a glance.
+left: "#4488ff"           # blue
+right: "#ff4444"          # red
+
+# Hands: the brighter member of the same two families, so a hand still reads as left or
+# right while being distinguishable from the arm it hangs off.
+left_hand: "#22dddd"      # cyan
+right_hand: "#ff44dd"     # magenta
+
+# Midline structures belong to neither side.
+center: "#00aa00"         # green
+face: "#ffd166"           # amber
+spine: "#00aa00"          # green
+
+# Calibration targets. These recreate what the 2D overlay and the old 3D viewer drew:
+# the chessboard lattice in green, the fiducial markers in orange.
+charuco_corner: "#14ff14"   # green
+charuco_grid: "#14ff14"     # green
+aruco_marker: "#ff8c14"     # orange
+
+# Everything unnamed. Green, because that is what the overlay has always drawn an
+# unclassified connection in — so an unrecognized tag looks like "not classified yet"
+# rather than like a deliberate choice.
+default: "#14ff14"

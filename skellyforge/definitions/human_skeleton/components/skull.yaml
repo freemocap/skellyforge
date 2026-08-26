@@ -107,11 +107,16 @@ landmarks:
 # Authored here rather than recovered downstream from a name prefix: a renderer that
 # knows the face by `startsWith("eye")` is a second, silent copy of this file.
 #
+# Groups carry TAGS, not colours — `definitions/color_palette.yaml` turns a tag into a
+# colour, so a user recolours by editing that one file rather than every component. Tags
+# are ordered most-specific-first: EYE_LINE asks for the `eye` colour if the palette has
+# one and falls back to `face` if it does not.
+#
 # The sided landmarks are named explicitly with their `left_`/`right_` prefixes because a
 # group is a set of specific points, not a rule that mirrors.
 landmark_groups:
   FACE_SURFACE:
-    color: "#ffd166"
+    tags: [face]
     landmark_names:
       - HEAD_VERTEX
       - NOSE
@@ -127,7 +132,7 @@ landmark_groups:
 
 landmark_connections:
   SKULL_OUTLINE:
-    color: "#ffd166"
+    tags: [face]
     pairs:
       - [LEFT_EAR, HEAD_VERTEX]
       - [RIGHT_EAR, HEAD_VERTEX]
@@ -136,7 +141,7 @@ landmark_connections:
       - [HEAD_VERTEX, NOSE]
       - [NOSE, CHIN]
   EYE_LINE:
-    color: "#8ecae6"
+    tags: [eye, face]
     pairs:
       - [LEFT_EYE_OUTER, LEFT_EYE]
       - [LEFT_EYE, LEFT_EYE_INNER]

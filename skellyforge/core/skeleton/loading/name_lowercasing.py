@@ -14,7 +14,7 @@ NAME_VALUED_KEYS: Final[frozenset[str]] = frozenset(
     # distinctly from the `landmarks:` SECTION on purpose: that section's value is a mapping
     # of entries, which this would pass through untouched, silently leaving every landmark
     # in the file un-lowercased.
-    {"name", "aliases", "reference_frame", "origin", "landmark", "type", "landmark_names", "pairs"}
+    {"name", "aliases", "reference_frame", "origin", "landmark", "type", "landmark_names", "pairs", "tags"}
 )
 
 

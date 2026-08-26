@@ -58,12 +58,21 @@ def test_a_pair_that_is_not_a_pair_is_refused() -> None:
         LandmarkConnectionGroup(name="outline", pairs=(("nose", "chin", "ear"),))
 
 
-def test_a_malformed_color_is_refused_at_load_not_ignored_at_draw_time() -> None:
-    """A bad colour is a silent no-op in a renderer, so it is caught where it is named."""
-    with pytest.raises(ValueError, match="hex string"):
-        LandmarkGroup(name="face", landmark_names=("nose",), color="reddish")
-    with pytest.raises(ValueError, match="hex string"):
-        LandmarkConnectionGroup(name="outline", pairs=(("a", "b"),), color="#fff")
+def test_a_bare_string_tag_is_refused() -> None:
+    """`tags: face` instead of `tags: [face]` is a YAML slip, so it is caught on that path.
+
+    Tags are ordered — the palette resolves the first one it knows — so a single tag is
+    still a list of one, and writing it as a scalar hides that ordering matters.
+    """
+    with pytest.raises(ValueError, match="must be a list of tag names"):
+        build_landmark_group(
+            name="face", entry={"landmark_names": ["nose"], "tags": "face"}
+        )
+
+
+def test_duplicate_tags_are_refused() -> None:
+    with pytest.raises(ValueError, match="more than once"):
+        LandmarkConnectionGroup(name="outline", pairs=(("a", "b"),), tags=("face", "face"))
 
 
 def test_a_group_listing_a_landmark_twice_is_refused() -> None:
@@ -81,14 +90,14 @@ def test_connection_groups_report_every_landmark_they_touch() -> None:
 # ── the loader ─────────────────────────────────────────────────────────────
 
 
-def test_groupings_load_with_names_lowercased_and_colors_intact() -> None:
-    """Names are lowercased like every other name; a colour is not a name."""
+def test_groupings_load_with_names_and_tags_lowercased() -> None:
+    """Tags are names too, so a palette lookup cannot miss on capitalization."""
     component = build_component(
         component=_component_with(
             groupings="""
         landmark_groups:
           ENDS:
-            color: "#FFD166"
+            tags: [Ends, Spine]
             landmark_names: [BASE, TOP]
         landmark_connections:
           SPAN:
@@ -100,7 +109,7 @@ def test_groupings_load_with_names_lowercased_and_colors_intact() -> None:
     )
 
     assert component.landmark_groups["ends"].landmark_names == ("base", "top")
-    assert component.landmark_groups["ends"].color == "#FFD166"
+    assert component.landmark_groups["ends"].tags == ("ends", "spine")
     assert component.landmark_connections["span"].pairs == (("base", "top"),)
 
 
@@ -150,15 +159,15 @@ def test_a_grouping_naming_a_landmark_that_does_not_exist_fails_at_load() -> Non
 
 def test_build_helpers_refuse_a_missing_member_list() -> None:
     with pytest.raises(ValueError, match="`landmark_names` must be a list"):
-        build_landmark_group(name="face", entry={"color": "#ffffff"})
+        build_landmark_group(name="face", entry={"tags": ["face"]})
     with pytest.raises(ValueError, match="`pairs` must be a list"):
-        build_landmark_connection_group(name="outline", entry={"color": "#ffffff"})
+        build_landmark_connection_group(name="outline", entry={"tags": ["face"]})
 
 
 def test_build_helpers_refuse_unexpected_keys() -> None:
     with pytest.raises(ValueError, match="unexpected keys"):
         build_landmark_group(
-            name="face", entry={"landmark_names": ["nose"], "colour": "#ffffff"}
+            name="face", entry={"landmark_names": ["nose"], "color": "#ffffff"}
         )
 
 
@@ -186,8 +195,6 @@ def test_the_standard_human_ships_skull_groupings() -> None:
             assert name in skeleton.landmarks, name
     assert "left_eye_outer" in skeleton.landmark_connections["eye_line"].landmark_names
 
-    # Distinct colours are what let one renderer draw both groups differently.
-    assert (
-        skeleton.landmark_connections["skull_outline"].color
-        != skeleton.landmark_connections["eye_line"].color
-    )
+    # Tags, not colours: the palette turns these into something drawable.
+    assert skeleton.landmark_connections["skull_outline"].tags == ("face",)
+    assert skeleton.landmark_connections["eye_line"].tags == ("eye", "face")

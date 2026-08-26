@@ -10,16 +10,19 @@ because its name starts with `aruco`. That works until a name changes, and it si
 puts the model's structure in two places: the skeleton, and a regex somewhere downstream.
 Structure travels in the model. Names are opaque identifiers.
 
-Colour is authored here rather than chosen by the consumer for the same reason. A charuco
-grid is green and its markers are orange because the model says so, which is what lets one
-renderer draw a skull and a calibration board without knowing which is which. A consumer
-that wants its own palette is free to ignore it; a consumer that does not want to invent
-one has an answer.
+Groups carry TAGS rather than colours. A tag says what a group is ("left", "hand",
+"aruco_marker"); a palette says what that should look like. Keeping the two apart is what
+lets a user recolour their whole skeleton by editing one mapping instead of re-authoring
+every component, and it keeps a presentation choice out of a geometry file.
+
+Tags are ordered, and a palette resolves the FIRST one it knows - so a group tagged
+`["left_hand", "left"]` takes the hand colour where a palette defines one and falls back to
+the left-side colour where it does not. That is how "left/hand is cyan but left is blue"
+is expressed without the model needing to know either colour.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -27,22 +30,24 @@ from typing import Final
 from skellyforge.type_overloads import LandmarkNameString
 
 LANDMARKS_PER_CONNECTION: Final[int] = 2
-HEX_COLOR_PATTERN: Final[re.Pattern[str]] = re.compile(r"#[0-9a-fA-F]{6}")
 
 
-def _validated_color(*, owner: str, color: object) -> str | None:
-    """A `#rrggbb` string, or None. Anything else is refused rather than passed through.
-
-    A colour that reaches a renderer malformed is a silent no-op there, so it is checked
-    at load where the offending group can be named.
-    """
-    if color is None:
-        return None
-    if not isinstance(color, str) or not HEX_COLOR_PATTERN.fullmatch(color):
+def _validated_tags(*, owner: str, tags: object) -> tuple[str, ...]:
+    """An ordered tuple of non-empty tag strings, or empty. Anything else is refused."""
+    if tags is None:
+        return ()
+    if isinstance(tags, str) or not isinstance(tags, Sequence):
         raise ValueError(
-            f"{owner}: color must be a '#rrggbb' hex string or absent - got {color!r}"
+            f"{owner}: `tags` must be a list of tag names - got {tags!r}. A single tag is "
+            "still a list of one, so that the order a palette resolves them in is visible."
         )
-    return color
+    parsed = tuple(str(tag) for tag in tags)
+    if any(not tag for tag in parsed):
+        raise ValueError(f"{owner}: tags must be non-empty strings - got {parsed}")
+    duplicates = sorted({tag for tag in parsed if parsed.count(tag) > 1})
+    if duplicates:
+        raise ValueError(f"{owner}: lists {duplicates} more than once")
+    return parsed
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -54,12 +59,14 @@ class LandmarkGroup:
         landmark_names: the landmarks in it. Membership is validated against the skeleton,
             not here - a group is loaded from one component and may name a landmark that
             another component declares.
-        color: an optional authored `#rrggbb` for consumers that draw these points.
+        tags: what this group IS, most specific first. A palette resolves the first tag
+            it knows into a colour; a group with no tags, or none the palette knows, gets
+            the palette's default.
     """
 
     name: str
     landmark_names: tuple[LandmarkNameString, ...]
-    color: str | None = None
+    tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -77,7 +84,7 @@ class LandmarkGroup:
                 f"landmark group {self.name!r} lists {duplicates} more than once"
             )
         object.__setattr__(
-            self, "color", _validated_color(owner=f"landmark group {self.name!r}", color=self.color)
+            self, "tags", _validated_tags(owner=f"landmark group {self.name!r}", tags=self.tags)
         )
 
 
@@ -94,12 +101,12 @@ class LandmarkConnectionGroup:
             than as 2-tuples so that a wrong arity is refused by `__post_init__` with a
             message naming this group, instead of by a type-check error that names only a
             hint. Membership is validated against the skeleton, not here.
-        color: an optional authored `#rrggbb` for consumers that draw these edges.
+        tags: what this group IS, most specific first — resolved to a colour by a palette.
     """
 
     name: str
     pairs: tuple[tuple[LandmarkNameString, ...], ...]
-    color: str | None = None
+    tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -122,7 +129,7 @@ class LandmarkConnectionGroup:
                 f"themselves - {self_edges}"
             )
         object.__setattr__(
-            self, "color", _validated_color(owner=f"connection group {self.name!r}", color=self.color)
+            self, "tags", _validated_tags(owner=f"connection group {self.name!r}", tags=self.tags)
         )
 
     @property
@@ -138,11 +145,11 @@ def build_landmark_group(*, name: str, entry: object) -> LandmarkGroup:
             f"landmark group {name!r} must be a mapping with `landmark_names:` - got "
             f"{type(entry).__name__}"
         )
-    unexpected = sorted(set(entry) - {"landmark_names", "color"})
+    unexpected = sorted(set(entry) - {"landmark_names", "tags"})
     if unexpected:
         raise ValueError(
             f"landmark group {name!r}: unexpected keys {unexpected} - expected "
-            "['color', 'landmark_names']"
+            "['landmark_names', 'tags']"
         )
     landmark_names = entry.get("landmark_names")
     if not isinstance(landmark_names, Sequence) or isinstance(landmark_names, (str, bytes)):
@@ -153,7 +160,7 @@ def build_landmark_group(*, name: str, entry: object) -> LandmarkGroup:
     return LandmarkGroup(
         name=name,
         landmark_names=tuple(str(member) for member in landmark_names),
-        color=entry.get("color"),
+        tags=_validated_tags(owner=f"landmark group {name!r}", tags=entry.get("tags")),
     )
 
 
@@ -164,11 +171,11 @@ def build_landmark_connection_group(*, name: str, entry: object) -> LandmarkConn
             f"connection group {name!r} must be a mapping with `pairs:` - got "
             f"{type(entry).__name__}"
         )
-    unexpected = sorted(set(entry) - {"pairs", "color"})
+    unexpected = sorted(set(entry) - {"pairs", "tags"})
     if unexpected:
         raise ValueError(
             f"connection group {name!r}: unexpected keys {unexpected} - expected "
-            "['color', 'pairs']"
+            "['pairs', 'tags']"
         )
     pairs = entry.get("pairs")
     if not isinstance(pairs, Sequence) or isinstance(pairs, (str, bytes)):
@@ -185,5 +192,7 @@ def build_landmark_connection_group(*, name: str, entry: object) -> LandmarkConn
             )
         parsed.append(tuple(str(member) for member in pair))
     return LandmarkConnectionGroup(
-        name=name, pairs=tuple(parsed), color=entry.get("color")
+        name=name,
+        pairs=tuple(parsed),
+        tags=_validated_tags(owner=f"connection group {name!r}", tags=entry.get("tags")),
     )

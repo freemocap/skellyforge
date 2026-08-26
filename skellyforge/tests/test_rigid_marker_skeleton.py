@@ -49,7 +49,7 @@ def _grid_connection_group() -> LandmarkConnectionGroup:
                 pairs.append((f"marker_{index}", f"marker_{index + 1}"))
             if row < GRID_ROWS - 1:
                 pairs.append((f"marker_{index}", f"marker_{index + GRID_COLUMNS}"))
-    return LandmarkConnectionGroup(name="grid", pairs=tuple(pairs), color="#14ff14")
+    return LandmarkConnectionGroup(name="grid", pairs=tuple(pairs), tags=("charuco_grid",))
 
 
 def _board() -> SkeletonDefinition:
@@ -64,7 +64,7 @@ def _board() -> SkeletonDefinition:
             "corners": LandmarkGroup(
                 name="corners",
                 landmark_names=tuple(sorted(_marker_positions())),
-                color="#14ff14",
+                tags=("charuco_corner",),
             )
         },
         landmark_connections={"grid": _grid_connection_group()},
@@ -82,7 +82,7 @@ def test_a_rigid_marker_object_is_a_one_segment_skeleton() -> None:
     # No joints and no chains is a COMPLETE skeleton, not a deficient one.
     assert board.joints == {}
     assert board.chains == {}
-    assert board.landmark_connections["grid"].color == "#14ff14"
+    assert board.landmark_connections["grid"].tags == ("charuco_grid",)
 
 
 def test_its_segment_rigid_fits_and_is_fully_specified() -> None:

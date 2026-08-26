@@ -45,7 +45,9 @@ skellyforge/
  │   │   │   ├── anatomical_landmark.py    #   AnatomicalLandmark
  │   │   │   ├── rigid_body_segment.py     #   RigidBodySegment + calculate_bases_for_segments
  │   │   │   ├── segment_basis_solver.py   #   per-segment basis solver
- │   │   │   ├── landmark_name_resolver.py #   alias → canonical, resolved once at load
+ │   │   │   ├── landmark_grouping.py      #   LandmarkGroup / LandmarkConnectionGroup (tagged)
+│   │   │   ├── color_palette.py          #   tag → colour, first match, green default
+│   │   │   ├── landmark_name_resolver.py #   alias → canonical, resolved once at load
  │   │   │   ├── face_blendshapes.py       #   FaceBlendShapes (52 ARKit, NOT a component)
  │   │   │   └── naming.py                 #   snake_case + alias rules
  │   │   ├── linkage/                      # the joint layer: JointDefinition, EulerConvention,
@@ -77,6 +79,7 @@ skellyforge/
 ├── definitions/human_skeleton/           authored YAML (the static source of truth)
 │   ├── human_skeleton.yaml               #   components: pelvis, spine, skull, arm, hand, leg, foot
 │   ├── rest_pose.yaml                    #   the T-pose: per-segment relative orientations only
+│   ├── color_palette.yaml                #   tag → colour (sides, hands, calibration targets)
 │   ├── anthropometric_parameters.yaml    #   de Leva (1996) masses + radii of gyration
 │   ├── center_of_mass.yaml               #   per-segment COM = weighted landmark sums
 │   ├── face.yaml                         #   52 blendshapes (FaceBlendShapes, not the skeleton)
@@ -135,6 +138,10 @@ installed in the default env either (no lint gate here yet).
 - **Structure travels in the model, never in string patterns.** If a consumer needs to know four
   landmarks form a square, the skeleton declares it as a connection group. Nothing parses a name to
   recover structure it should have been handed.
+- **Groups carry tags, never colours.** A tag says what a group IS (`left`, `aruco_marker`);
+  `definitions/color_palette.yaml` says what that looks like, resolving the FIRST tag it knows and
+  defaulting to green. That is what lets a user recolour a skeleton by editing one mapping instead of
+  every component, and it keeps a presentation choice out of a geometry file.
 - Hot-path code: no per-frame allocations beyond necessary; dict-backed indices built once
   at load.
 - Every numeric tolerance comes from `numeric_tolerances.py`. No bare `1e-10` in a
