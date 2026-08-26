@@ -157,7 +157,7 @@ def test_the_pelvis_sits_at_the_origin_and_the_lumbar_on_the_sacrum() -> None:
     )
     # upper_leg's origin is the left hemipelvis's hip socket.
     np.testing.assert_allclose(
-        pose.segment_origins["left_upper_leg"].array, [-88.0, 0.0, 0.0], atol=1e-9
+        pose.segment_origins["left_upper_leg"].array, [-88.0 / 1646.3212, 0.0, 0.0], atol=1e-6
     )
 
 

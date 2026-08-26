@@ -153,223 +153,223 @@ landmarks:
     definition: Geometric center of the scaphoid carpal bone
     reference_frame: carpals
     local_position:
-    - -12
-    - 0
-    - 8
+    - -0.007289
+    - 0.0
+    - 0.004859
   LUNATE:
     definition: Geometric center of the lunate carpal bone
     reference_frame: carpals
     local_position:
-    - -4
-    - 0
-    - 8
+    - -0.00243
+    - 0.0
+    - 0.004859
   TRIQUETRUM:
     definition: Geometric center of the triquetrum carpal bone
     reference_frame: carpals
     local_position:
-    - 8
-    - 0
-    - 8
+    - 0.004859
+    - 0.0
+    - 0.004859
   PISIFORM:
     definition: Geometric center of the pisiform carpal bone
     reference_frame: carpals
     local_position:
-    - 14
-    - 0
-    - 6
+    - 0.008504
+    - 0.0
+    - 0.003644
   TRAPEZIUM:
     definition: Geometric center of the trapezium carpal bone
     reference_frame: carpals
     local_position:
-    - -16
-    - 0
-    - 20
+    - -0.009719
+    - 0.0
+    - 0.012148
   TRAPEZOID:
     definition: Geometric center of the trapezoid carpal bone
     reference_frame: carpals
     local_position:
-    - -9
-    - 0
-    - 20
+    - -0.005467
+    - 0.0
+    - 0.012148
   CAPITATE:
     definition: Geometric center of the capitate carpal bone
     reference_frame: carpals
     local_position:
-    - 0
-    - 0
-    - 21
+    - 0.0
+    - 0.0
+    - 0.012756
   HAMATE:
     definition: Geometric center of the hamate carpal bone
     reference_frame: carpals
     local_position:
-    - 9
-    - 0
-    - 20
+    - 0.005467
+    - 0.0
+    - 0.012148
   THUMB_CMC:
     definition: Geometric center of the thumb carpometacarpal joint
     reference_frame: carpals
     local_position:
-    - -22
-    - 0
-    - 25
+    - -0.013363
+    - 0.0
+    - 0.015185
   INDEX_CMC:
     definition: Geometric center of the index carpometacarpal joint
     reference_frame: carpals
     local_position:
-    - -11
-    - 0
-    - 25
+    - -0.006682
+    - 0.0
+    - 0.015185
   MIDDLE_CMC:
     definition: Geometric center of the middle carpometacarpal joint
     reference_frame: carpals
     local_position:
-    - 0
-    - 0
-    - 25
+    - 0.0
+    - 0.0
+    - 0.015185
   RING_CMC:
     definition: Geometric center of the ring carpometacarpal joint
     reference_frame: carpals
     local_position:
-    - 10
-    - 0
-    - 25
+    - 0.006074
+    - 0.0
+    - 0.015185
   PINKY_CMC:
     definition: Geometric center of the pinky carpometacarpal joint
     reference_frame: carpals
     local_position:
-    - 19
-    - 0
-    - 25
+    - 0.011541
+    - 0.0
+    - 0.015185
   THUMB_MCP:
     definition: Geometric center of the thumb metacarpophalangeal joint (knuckle)
     reference_frame: thumb_metacarpal
     local_position:
-    - 0
-    - 0
-    - 45
+    - 0.0
+    - 0.0
+    - 0.027334
   INDEX_MCP:
     definition: Geometric center of the index metacarpophalangeal joint (knuckle)
     reference_frame: index_metacarpal
     local_position:
-    - 0
-    - 0
-    - 65
+    - 0.0
+    - 0.0
+    - 0.039482
   MIDDLE_MCP:
     definition: Geometric center of the middle metacarpophalangeal joint (knuckle)
     reference_frame: middle_metacarpal
     local_position:
-    - 0
-    - 0
-    - 68
+    - 0.0
+    - 0.0
+    - 0.041304
   RING_MCP:
     definition: Geometric center of the ring metacarpophalangeal joint (knuckle)
     reference_frame: ring_metacarpal
     local_position:
-    - 0
-    - 0
-    - 60
+    - 0.0
+    - 0.0
+    - 0.036445
   PINKY_MCP:
     definition: Geometric center of the pinky metacarpophalangeal joint (knuckle)
     reference_frame: pinky_metacarpal
     local_position:
-    - 0
-    - 0
-    - 50
+    - 0.0
+    - 0.0
+    - 0.030371
   THUMB_IP:
     definition: Geometric center of the thumb interphalangeal joint
     reference_frame: thumb_proximal_phalanx
     local_position:
-    - 0
-    - 0
-    - 30
+    - 0.0
+    - 0.0
+    - 0.018222
   INDEX_PIP:
     definition: Geometric center of the index proximal interphalangeal joint
     reference_frame: index_proximal_phalanx
     local_position:
-    - 0
-    - 0
-    - 40
+    - 0.0
+    - 0.0
+    - 0.024297
   MIDDLE_PIP:
     definition: Geometric center of the middle proximal interphalangeal joint
     reference_frame: middle_proximal_phalanx
     local_position:
-    - 0
-    - 0
-    - 45
+    - 0.0
+    - 0.0
+    - 0.027334
   RING_PIP:
     definition: Geometric center of the ring proximal interphalangeal joint
     reference_frame: ring_proximal_phalanx
     local_position:
-    - 0
-    - 0
-    - 40
+    - 0.0
+    - 0.0
+    - 0.024297
   PINKY_PIP:
     definition: Geometric center of the pinky proximal interphalangeal joint
     reference_frame: pinky_proximal_phalanx
     local_position:
-    - 0
-    - 0
-    - 30
+    - 0.0
+    - 0.0
+    - 0.018222
   INDEX_DIP:
     definition: Geometric center of the index distal interphalangeal joint
     reference_frame: index_middle_phalanx
     local_position:
-    - 0
-    - 0
-    - 25
+    - 0.0
+    - 0.0
+    - 0.015185
   MIDDLE_DIP:
     definition: Geometric center of the middle distal interphalangeal joint
     reference_frame: middle_middle_phalanx
     local_position:
-    - 0
-    - 0
-    - 28
+    - 0.0
+    - 0.0
+    - 0.017008
   RING_DIP:
     definition: Geometric center of the ring distal interphalangeal joint
     reference_frame: ring_middle_phalanx
     local_position:
-    - 0
-    - 0
-    - 25
+    - 0.0
+    - 0.0
+    - 0.015185
   PINKY_DIP:
     definition: Geometric center of the pinky distal interphalangeal joint
     reference_frame: pinky_middle_phalanx
     local_position:
-    - 0
-    - 0
-    - 18
+    - 0.0
+    - 0.0
+    - 0.010933
   THUMB_TIP:
     definition: Tip of the thumb finger (apex of the distal phalanx)
     reference_frame: thumb_distal_phalanx
     local_position:
-    - 0
-    - 0
-    - 20
+    - 0.0
+    - 0.0
+    - 0.012148
   INDEX_TIP:
     definition: Tip of the index finger (apex of the distal phalanx)
     reference_frame: index_distal_phalanx
     local_position:
-    - 0
-    - 0
-    - 20
+    - 0.0
+    - 0.0
+    - 0.012148
   MIDDLE_TIP:
     definition: Tip of the middle finger (apex of the distal phalanx)
     reference_frame: middle_distal_phalanx
     local_position:
-    - 0
-    - 0
-    - 20
+    - 0.0
+    - 0.0
+    - 0.012148
   RING_TIP:
     definition: Tip of the ring finger (apex of the distal phalanx)
     reference_frame: ring_distal_phalanx
     local_position:
-    - 0
-    - 0
-    - 18
+    - 0.0
+    - 0.0
+    - 0.010933
   PINKY_TIP:
     definition: Tip of the pinky finger (apex of the distal phalanx)
     reference_frame: pinky_distal_phalanx
     local_position:
-    - 0
-    - 0
-    - 16
+    - 0.0
+    - 0.0
+    - 0.009719

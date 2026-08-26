@@ -30,27 +30,27 @@ landmarks:
       sagittal sutures
     reference_frame: skull
     local_position:
-    - 0
-    - 0
-    - 130
+    - 0.0
+    - 0.0
+    - 0.078964
   NOSE:
     aliases:
     - nose_tip
     definition: Tip of the nose
     reference_frame: skull
     local_position:
-    - 0
-    - 100
-    - 0
+    - 0.0
+    - 0.060741
+    - 0.0
   CHIN:
     aliases:
     - menton
     definition: Tip of the chin (menton), the most inferior point of the mandible
     reference_frame: skull
     local_position:
-    - 0
-    - 95
-    - -95
+    - 0.0
+    - 0.057704
+    - -0.057704
   EYE:
     sided: true
     aliases:
@@ -58,9 +58,9 @@ landmarks:
     definition: Geometric center of the eye, the midpoint of the inner and outer canthi
     reference_frame: skull
     local_position:
-    - -32
-    - 65
-    - 40
+    - -0.019437
+    - 0.039482
+    - 0.024297
   EYE_INNER:
     sided: true
     aliases:
@@ -69,9 +69,9 @@ landmarks:
       duct)
     reference_frame: skull
     local_position:
-    - -16
-    - 70
-    - 38
+    - -0.009719
+    - 0.042519
+    - 0.023082
   EYE_OUTER:
     sided: true
     aliases:
@@ -80,9 +80,9 @@ landmarks:
       and zygomatic bones
     reference_frame: skull
     local_position:
-    - -46
-    - 60
-    - 38
+    - -0.027941
+    - 0.036445
+    - 0.023082
   EAR:
     sided: true
     aliases:
@@ -90,14 +90,14 @@ landmarks:
     definition: Entrance to the ear canal (acoustic meatus), just behind the tragus
     reference_frame: skull
     local_position:
-    - -70
-    - 0
-    - 0
+    - -0.042519
+    - 0.0
+    - 0.0
   CANINE_TOOTH_TIP:
     sided: true
     definition: Tip of the canine tooth, roughly behind the corner of the mouth
     reference_frame: skull
     local_position:
-    - -20
-    - 60
-    - -50
+    - -0.012148
+    - 0.036445
+    - -0.030371

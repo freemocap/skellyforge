@@ -37,7 +37,12 @@ REST_POSE_YAML_PATH: Path = (
     / "rest_pose.yaml"
 )
 
-SHORT_SEGMENT_LENGTH_MILLIMETRES: float = 50.0
+# Landmark coordinates are authored in body-height fractions (H = 1.0 = floor
+# to skull top). Convert the physically-meaningful millimetre constants into
+# that unit so the thresholds below stay legible.
+BODY_HEIGHT_MILLIMETRES: float = 1646.3212
+NOISE_SCALE = 2.0 / BODY_HEIGHT_MILLIMETRES
+SHORT_SEGMENT_LENGTH = 50.0 / BODY_HEIGHT_MILLIMETRES
 
 
 def _synthesize_and_hydrate(
@@ -142,7 +147,7 @@ def test_round_trip_recovers_the_pose_exactly_without_noise() -> None:
 
 def test_round_trip_is_robust_to_landmark_noise() -> None:
     skeleton, world_orientations, hydrated = _synthesize_and_hydrate(
-        noise_scale=2.0, seed=11
+        noise_scale=NOISE_SCALE, seed=11
     )
     direction_errors = _direction_errors(
         skeleton=skeleton, world_orientations=world_orientations, hydrated=hydrated
@@ -150,17 +155,17 @@ def test_round_trip_is_robust_to_landmark_noise() -> None:
 
     # Two regimes, split by length. A long bone's direction is pinned by a long lever arm,
     # so a couple of millimetres of noise costs only a degree or two. A short finger bone
-    # (16-45 mm) has almost no lever arm, so the same noise swings its direction by tens of
+    # has almost no lever arm, so the same noise swings its direction by tens of
     # degrees; those are checked only for boundedness (no 180 degree flips).
     long_errors = [
         error
         for name, error in direction_errors.items()
-        if skeleton.segments[name].length >= SHORT_SEGMENT_LENGTH_MILLIMETRES
+        if skeleton.segments[name].length >= SHORT_SEGMENT_LENGTH
     ]
     short_errors = [
         error
         for name, error in direction_errors.items()
-        if skeleton.segments[name].length < SHORT_SEGMENT_LENGTH_MILLIMETRES
+        if skeleton.segments[name].length < SHORT_SEGMENT_LENGTH
     ]
     assert np.mean(long_errors) < 0.05, f"long mean {np.mean(long_errors):.4f} rad"
     assert max(long_errors) < 0.2, f"long worst {max(long_errors):.3f} rad"

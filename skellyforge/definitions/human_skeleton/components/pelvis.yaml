@@ -29,39 +29,39 @@ landmarks:
       sacrum
     reference_frame: pelvis
     local_position:
-    - 0
-    - -35
-    - 95
+    - 0.0
+    - -0.02126
+    - 0.057704
   SACRUM:
     definition: Geometric center of the sacral body, around the S2 level
     reference_frame: pelvis
     local_position:
-    - 0
-    - -55
-    - 40
+    - 0.0
+    - -0.033408
+    - 0.024297
   COCCYX_TIP:
     definition: Distal tip of the coccyx (tailbone apex)
     reference_frame: pelvis
     local_position:
-    - 0
-    - -40
-    - -30
+    - 0.0
+    - -0.024297
+    - -0.018222
   PUBIC_SYMPHYSIS:
     definition: Geometric center of the pubic symphysis
     reference_frame: pelvis
     local_position:
-    - 0
-    - 60
-    - -10
+    - 0.0
+    - 0.036445
+    - -0.006074
   HIP_SOCKET:
     aliases:
     - hip
     definition: Geometric center of the proximal surface of the hip socket (acetabulum)
     reference_frame: pelvis
     local_position:
-    - -88
-    - 0
-    - 0
+    - -0.053453
+    - 0.0
+    - 0.0
     sided: true
   ILIAC_CREST:
     aliases:
@@ -69,9 +69,9 @@ landmarks:
     definition: Most superior point of the iliac crest
     reference_frame: pelvis
     local_position:
-    - -145
-    - 0
-    - 100
+    - -0.088075
+    - 0.0
+    - 0.060741
     sided: true
   ANTERIOR_SUPERIOR_ILIAC_SPINE:
     aliases:
@@ -80,9 +80,9 @@ landmarks:
       of the iliac crest
     reference_frame: pelvis
     local_position:
-    - -125
-    - 50
-    - 70
+    - -0.075927
+    - 0.030371
+    - 0.042519
     sided: true
   POSTERIOR_SUPERIOR_ILIAC_SPINE:
     aliases:
@@ -91,9 +91,9 @@ landmarks:
       of the iliac crest
     reference_frame: pelvis
     local_position:
-    - -42
-    - -55
-    - 85
+    - -0.025511
+    - -0.033408
+    - 0.05163
     sided: true
   SACROILIAC_JOINT:
     aliases:
@@ -102,7 +102,7 @@ landmarks:
       ilium
     reference_frame: pelvis
     local_position:
-    - -25
-    - -45
-    - 80
+    - -0.015185
+    - -0.027334
+    - 0.048593
     sided: true

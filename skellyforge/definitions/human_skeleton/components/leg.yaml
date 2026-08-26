@@ -36,9 +36,9 @@ landmarks:
       the tibial plateau
     reference_frame: upper_leg
     local_position:
-    - 0
-    - 0
-    - 440
+    - 0.0
+    - 0.0
+    - 0.267263
   ANKLE:
     aliases:
     - talocrural_joint
@@ -46,6 +46,6 @@ landmarks:
       the talus
     reference_frame: lower_leg
     local_position:
-    - 0
-    - 0
-    - 410
+    - 0.0
+    - 0.0
+    - 0.24904

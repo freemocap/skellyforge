@@ -36,7 +36,9 @@ from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import PoseSolution
 
 EXACT_CLOSURE_TOLERANCE_RADIANS = 1e-8
-DIRECTION_CLOSURE_TOLERANCE_DEGREES = 1e-6
+# Sub-arc-second: the direction closure is closed-form but runs at proportional
+# coordinate scale, where float64 round-off lands ~1e-6 deg.
+DIRECTION_CLOSURE_TOLERANCE_DEGREES = 1e-4
 
 
 def _random_rotation(*, rng: np.random.Generator, max_degrees: float) -> RotationQuaternion:
@@ -145,6 +147,7 @@ def test_fk_closure(seed: int) -> None:
         primary_local = skeleton.landmarks[
             fd.primary_point_name
         ].local_position.array.astype(float)
+        primary_local = primary_local / np.linalg.norm(primary_local)
         step = landmarks[fd.primary_point_name].array - landmarks[fd.origin_point_name].array
         step = step / np.linalg.norm(step)
 

@@ -364,8 +364,8 @@ def test_the_pelvis_segment_is_fully_specified() -> None:
 
 def test_the_hip_sockets_mirror_each_other() -> None:
     landmarks = _pelvis().landmarks
-    np.testing.assert_allclose(landmarks["left_hip_socket"].local_position.array, [-88, 0, 0])
-    np.testing.assert_allclose(landmarks["right_hip_socket"].local_position.array, [88, 0, 0])
+    np.testing.assert_allclose(landmarks["left_hip_socket"].local_position.array, [-88/1646.3212, 0, 0], atol=1e-6)
+    np.testing.assert_allclose(landmarks["right_hip_socket"].local_position.array, [88/1646.3212, 0, 0], atol=1e-6)
 
 
 def test_every_sided_pelvis_landmark_has_a_mirrored_partner() -> None:

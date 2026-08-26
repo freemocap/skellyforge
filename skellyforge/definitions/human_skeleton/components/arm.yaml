@@ -34,15 +34,15 @@ landmarks:
     definition: Geometric center of the elbow joint, near the trochlea of the humerus
     reference_frame: upper_arm
     local_position:
-    - 0
-    - 0
-    - 300
+    - 0.0
+    - 0.0
+    - 0.182224
   WRIST:
     aliases:
     - radiocarpal_joint
     definition: Geometric center of the radiocarpal joint (wrist joint)
     reference_frame: lower_arm
     local_position:
-    - 0
-    - 0
-    - 260
+    - 0.0
+    - 0.0
+    - 0.157928

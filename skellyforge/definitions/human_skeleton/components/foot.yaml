@@ -34,20 +34,20 @@ landmarks:
     definition: Posterior tip of the calcaneus (heel bone), the calcaneal tuberosity
     reference_frame: heel
     local_position:
-    - 0
-    - 0
-    - 80
+    - 0.0
+    - 0.0
+    - 0.048593
   BALL:
     definition: Geometric center of the ball of the foot, across the metatarsal heads
     reference_frame: foot
     local_position:
-    - 0
-    - 0
-    - 155
+    - 0.0
+    - 0.0
+    - 0.094149
   TOE_TIP:
     definition: Tip of the longest toe (second toe), apex of the distal phalanx
     reference_frame: toes
     local_position:
-    - 0
-    - 0
-    - 45
+    - 0.0
+    - 0.0
+    - 0.027334
