@@ -39,8 +39,9 @@ skellyforge/
  │   │   │   └── naming.py                 #   snake_case + alias rules
  │   │   ├── linkage/                      # the joint layer: JointDefinition, EulerConvention,
  │   │   │                                 #   relative_orientation, JointPose + provenance
- │   │   ├── chain/                        # the multi-segment layer: KinematicChain declarations
- │   │   │                                 #   + forward synthesis; IK / twist backfill pending
+ │   │   ├── chain/                        # the multi-segment layer: KinematicChain declarations,
+ │   │   │                                 #   forward synthesis, two-bone IK + FABRIK;
+ │   │   │                                 #   twist backfill pending
  │   │   ├── pose/                         #   hydration + rest pose + roll resolution
  │   │   │                                 #   (anchored secondary axes w/ transport fallback)
 │   │   ├── loading/                      #   the YAML loader pipeline
@@ -85,7 +86,9 @@ forward synthesis are built**: declared chains compile with contiguity validatio
 `synthesize_pose` walks joint angles -> whole-body poses, gated by the FK-closure
 tests. Roll resolution anchors to parent-origin directions at the skeleton level
 (deterministic per frame) and falls back to parallel transport when no anchor
-exists. Chain IK and twist backfill are the next pending pieces.
+exists. Chain IK is built: closed-form two-bone solving and iterative FABRIK,
+both fail-loud on unreachable targets and iteration exhaustion. Twist backfill
+is the next pending piece.
 
 ## Commands
 
