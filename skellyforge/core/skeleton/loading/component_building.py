@@ -27,7 +27,9 @@ from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 LANDMARK_KEYS: Final[frozenset[str]] = frozenset(
     {"aliases", "definition", "reference_frame", "local_position", "sided"}
 )
-SEGMENT_KEYS: Final[frozenset[str]] = frozenset({"aliases", "reference_geometry", "sided"})
+SEGMENT_KEYS: Final[frozenset[str]] = frozenset(
+    {"aliases", "reference_geometry", "sided", "anatomical_segment"}
+)
 NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
 
 
@@ -166,4 +168,5 @@ def _build_segment(
         landmarks=owned_landmarks,
         frame_definition=frame_definition,
         aliases=aliases,
+        anatomical_segment=entry.get("anatomical_segment"),
     )

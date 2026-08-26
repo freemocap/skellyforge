@@ -18,6 +18,7 @@
 
 segments:
   SACROLUMBAR:
+    anatomical_segment: middle_trunk
     aliases:
       - lumbar_spine
     reference_geometry:
@@ -27,6 +28,7 @@ segments:
         type: exact
 
   THORACIC:
+    anatomical_segment: upper_trunk
     aliases:
       - chest
       - thorax
@@ -42,6 +44,7 @@ segments:
         type: approximate
 
   CERVICAL_SPINE:
+    anatomical_segment: head_neck
     reference_geometry:
       origin: neck_center
       z_axis:
@@ -50,6 +53,7 @@ segments:
 
   CLAVICLE:
     sided: true
+    anatomical_segment: upper_trunk
     aliases:
       - collarbone
     reference_geometry:

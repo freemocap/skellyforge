@@ -1,14 +1,4 @@
-# Hand component.
-#
-# `sided: true` at the file level: every entry is authored for the LEFT hand and the
-# loader emits left_* / right_* (right is mirrored across the sagittal plane).
-# Local frame: origin at the radiocarpal joint, +z = distal (toward the fingertips),
-# -x = radial (thumb side), +y = palmar. The hand is authored flat (y = 0); the thumb
-# sits at -x and the pinky at +x, so sided entries legitimately span both signs of x.
-# Millimetres, 50th-percentile adult; positions are estimates.
-
 sided: true
-
 segments:
   CARPALS:
     reference_geometry:
@@ -16,252 +6,370 @@ segments:
       z_axis:
         landmark: middle_cmc
         type: exact
+    anatomical_segment: hand
   THUMB_METACARPAL:
     reference_geometry:
       origin: thumb_cmc
       z_axis:
         landmark: thumb_mcp
         type: exact
+    anatomical_segment: hand
   THUMB_PROXIMAL_PHALANX:
     reference_geometry:
       origin: thumb_mcp
       z_axis:
         landmark: thumb_ip
         type: exact
+    anatomical_segment: hand
   THUMB_DISTAL_PHALANX:
     reference_geometry:
       origin: thumb_ip
       z_axis:
         landmark: thumb_tip
         type: exact
+    anatomical_segment: hand
   INDEX_METACARPAL:
     reference_geometry:
       origin: index_cmc
       z_axis:
         landmark: index_mcp
         type: exact
+    anatomical_segment: hand
   INDEX_PROXIMAL_PHALANX:
     reference_geometry:
       origin: index_mcp
       z_axis:
         landmark: index_pip
         type: exact
+    anatomical_segment: hand
   INDEX_MIDDLE_PHALANX:
     reference_geometry:
       origin: index_pip
       z_axis:
         landmark: index_dip
         type: exact
+    anatomical_segment: hand
   INDEX_DISTAL_PHALANX:
     reference_geometry:
       origin: index_dip
       z_axis:
         landmark: index_tip
         type: exact
+    anatomical_segment: hand
   MIDDLE_METACARPAL:
     reference_geometry:
       origin: middle_cmc
       z_axis:
         landmark: middle_mcp
         type: exact
+    anatomical_segment: hand
   MIDDLE_PROXIMAL_PHALANX:
     reference_geometry:
       origin: middle_mcp
       z_axis:
         landmark: middle_pip
         type: exact
+    anatomical_segment: hand
   MIDDLE_MIDDLE_PHALANX:
     reference_geometry:
       origin: middle_pip
       z_axis:
         landmark: middle_dip
         type: exact
+    anatomical_segment: hand
   MIDDLE_DISTAL_PHALANX:
     reference_geometry:
       origin: middle_dip
       z_axis:
         landmark: middle_tip
         type: exact
+    anatomical_segment: hand
   RING_METACARPAL:
     reference_geometry:
       origin: ring_cmc
       z_axis:
         landmark: ring_mcp
         type: exact
+    anatomical_segment: hand
   RING_PROXIMAL_PHALANX:
     reference_geometry:
       origin: ring_mcp
       z_axis:
         landmark: ring_pip
         type: exact
+    anatomical_segment: hand
   RING_MIDDLE_PHALANX:
     reference_geometry:
       origin: ring_pip
       z_axis:
         landmark: ring_dip
         type: exact
+    anatomical_segment: hand
   RING_DISTAL_PHALANX:
     reference_geometry:
       origin: ring_dip
       z_axis:
         landmark: ring_tip
         type: exact
+    anatomical_segment: hand
   PINKY_METACARPAL:
     reference_geometry:
       origin: pinky_cmc
       z_axis:
         landmark: pinky_mcp
         type: exact
+    anatomical_segment: hand
   PINKY_PROXIMAL_PHALANX:
     reference_geometry:
       origin: pinky_mcp
       z_axis:
         landmark: pinky_pip
         type: exact
+    anatomical_segment: hand
   PINKY_MIDDLE_PHALANX:
     reference_geometry:
       origin: pinky_pip
       z_axis:
         landmark: pinky_dip
         type: exact
+    anatomical_segment: hand
   PINKY_DISTAL_PHALANX:
     reference_geometry:
       origin: pinky_dip
       z_axis:
         landmark: pinky_tip
         type: exact
-
+    anatomical_segment: hand
 landmarks:
-
   CARPAL_ORIGIN:
-    definition: "Geometric center of the radiocarpal joint, where the radius meets the scaphoid and lunate"
+    definition: Geometric center of the radiocarpal joint, where the radius meets
+      the scaphoid and lunate
     reference_frame: carpals
-    local_position: [0, 0, 0]
+    local_position:
+    - 0
+    - 0
+    - 0
   SCAPHOID:
-    definition: "Geometric center of the scaphoid carpal bone"
+    definition: Geometric center of the scaphoid carpal bone
     reference_frame: carpals
-    local_position: [-12, 0, 8]
+    local_position:
+    - -12
+    - 0
+    - 8
   LUNATE:
-    definition: "Geometric center of the lunate carpal bone"
+    definition: Geometric center of the lunate carpal bone
     reference_frame: carpals
-    local_position: [-4, 0, 8]
+    local_position:
+    - -4
+    - 0
+    - 8
   TRIQUETRUM:
-    definition: "Geometric center of the triquetrum carpal bone"
+    definition: Geometric center of the triquetrum carpal bone
     reference_frame: carpals
-    local_position: [8, 0, 8]
+    local_position:
+    - 8
+    - 0
+    - 8
   PISIFORM:
-    definition: "Geometric center of the pisiform carpal bone"
+    definition: Geometric center of the pisiform carpal bone
     reference_frame: carpals
-    local_position: [14, 0, 6]
+    local_position:
+    - 14
+    - 0
+    - 6
   TRAPEZIUM:
-    definition: "Geometric center of the trapezium carpal bone"
+    definition: Geometric center of the trapezium carpal bone
     reference_frame: carpals
-    local_position: [-16, 0, 20]
+    local_position:
+    - -16
+    - 0
+    - 20
   TRAPEZOID:
-    definition: "Geometric center of the trapezoid carpal bone"
+    definition: Geometric center of the trapezoid carpal bone
     reference_frame: carpals
-    local_position: [-9, 0, 20]
+    local_position:
+    - -9
+    - 0
+    - 20
   CAPITATE:
-    definition: "Geometric center of the capitate carpal bone"
+    definition: Geometric center of the capitate carpal bone
     reference_frame: carpals
-    local_position: [0, 0, 21]
+    local_position:
+    - 0
+    - 0
+    - 21
   HAMATE:
-    definition: "Geometric center of the hamate carpal bone"
+    definition: Geometric center of the hamate carpal bone
     reference_frame: carpals
-    local_position: [9, 0, 20]
+    local_position:
+    - 9
+    - 0
+    - 20
   THUMB_CMC:
-    definition: "Geometric center of the thumb carpometacarpal joint"
+    definition: Geometric center of the thumb carpometacarpal joint
     reference_frame: carpals
-    local_position: [-22, 0, 25]
+    local_position:
+    - -22
+    - 0
+    - 25
   INDEX_CMC:
-    definition: "Geometric center of the index carpometacarpal joint"
+    definition: Geometric center of the index carpometacarpal joint
     reference_frame: carpals
-    local_position: [-11, 0, 25]
+    local_position:
+    - -11
+    - 0
+    - 25
   MIDDLE_CMC:
-    definition: "Geometric center of the middle carpometacarpal joint"
+    definition: Geometric center of the middle carpometacarpal joint
     reference_frame: carpals
-    local_position: [0, 0, 25]
+    local_position:
+    - 0
+    - 0
+    - 25
   RING_CMC:
-    definition: "Geometric center of the ring carpometacarpal joint"
+    definition: Geometric center of the ring carpometacarpal joint
     reference_frame: carpals
-    local_position: [10, 0, 25]
+    local_position:
+    - 10
+    - 0
+    - 25
   PINKY_CMC:
-    definition: "Geometric center of the pinky carpometacarpal joint"
+    definition: Geometric center of the pinky carpometacarpal joint
     reference_frame: carpals
-    local_position: [19, 0, 25]
+    local_position:
+    - 19
+    - 0
+    - 25
   THUMB_MCP:
-    definition: "Geometric center of the thumb metacarpophalangeal joint (knuckle)"
+    definition: Geometric center of the thumb metacarpophalangeal joint (knuckle)
     reference_frame: thumb_metacarpal
-    local_position: [0, 0, 45]
+    local_position:
+    - 0
+    - 0
+    - 45
   INDEX_MCP:
-    definition: "Geometric center of the index metacarpophalangeal joint (knuckle)"
+    definition: Geometric center of the index metacarpophalangeal joint (knuckle)
     reference_frame: index_metacarpal
-    local_position: [0, 0, 65]
+    local_position:
+    - 0
+    - 0
+    - 65
   MIDDLE_MCP:
-    definition: "Geometric center of the middle metacarpophalangeal joint (knuckle)"
+    definition: Geometric center of the middle metacarpophalangeal joint (knuckle)
     reference_frame: middle_metacarpal
-    local_position: [0, 0, 68]
+    local_position:
+    - 0
+    - 0
+    - 68
   RING_MCP:
-    definition: "Geometric center of the ring metacarpophalangeal joint (knuckle)"
+    definition: Geometric center of the ring metacarpophalangeal joint (knuckle)
     reference_frame: ring_metacarpal
-    local_position: [0, 0, 60]
+    local_position:
+    - 0
+    - 0
+    - 60
   PINKY_MCP:
-    definition: "Geometric center of the pinky metacarpophalangeal joint (knuckle)"
+    definition: Geometric center of the pinky metacarpophalangeal joint (knuckle)
     reference_frame: pinky_metacarpal
-    local_position: [0, 0, 50]
+    local_position:
+    - 0
+    - 0
+    - 50
   THUMB_IP:
-    definition: "Geometric center of the thumb interphalangeal joint"
+    definition: Geometric center of the thumb interphalangeal joint
     reference_frame: thumb_proximal_phalanx
-    local_position: [0, 0, 30]
+    local_position:
+    - 0
+    - 0
+    - 30
   INDEX_PIP:
-    definition: "Geometric center of the index proximal interphalangeal joint"
+    definition: Geometric center of the index proximal interphalangeal joint
     reference_frame: index_proximal_phalanx
-    local_position: [0, 0, 40]
+    local_position:
+    - 0
+    - 0
+    - 40
   MIDDLE_PIP:
-    definition: "Geometric center of the middle proximal interphalangeal joint"
+    definition: Geometric center of the middle proximal interphalangeal joint
     reference_frame: middle_proximal_phalanx
-    local_position: [0, 0, 45]
+    local_position:
+    - 0
+    - 0
+    - 45
   RING_PIP:
-    definition: "Geometric center of the ring proximal interphalangeal joint"
+    definition: Geometric center of the ring proximal interphalangeal joint
     reference_frame: ring_proximal_phalanx
-    local_position: [0, 0, 40]
+    local_position:
+    - 0
+    - 0
+    - 40
   PINKY_PIP:
-    definition: "Geometric center of the pinky proximal interphalangeal joint"
+    definition: Geometric center of the pinky proximal interphalangeal joint
     reference_frame: pinky_proximal_phalanx
-    local_position: [0, 0, 30]
+    local_position:
+    - 0
+    - 0
+    - 30
   INDEX_DIP:
-    definition: "Geometric center of the index distal interphalangeal joint"
+    definition: Geometric center of the index distal interphalangeal joint
     reference_frame: index_middle_phalanx
-    local_position: [0, 0, 25]
+    local_position:
+    - 0
+    - 0
+    - 25
   MIDDLE_DIP:
-    definition: "Geometric center of the middle distal interphalangeal joint"
+    definition: Geometric center of the middle distal interphalangeal joint
     reference_frame: middle_middle_phalanx
-    local_position: [0, 0, 28]
+    local_position:
+    - 0
+    - 0
+    - 28
   RING_DIP:
-    definition: "Geometric center of the ring distal interphalangeal joint"
+    definition: Geometric center of the ring distal interphalangeal joint
     reference_frame: ring_middle_phalanx
-    local_position: [0, 0, 25]
+    local_position:
+    - 0
+    - 0
+    - 25
   PINKY_DIP:
-    definition: "Geometric center of the pinky distal interphalangeal joint"
+    definition: Geometric center of the pinky distal interphalangeal joint
     reference_frame: pinky_middle_phalanx
-    local_position: [0, 0, 18]
+    local_position:
+    - 0
+    - 0
+    - 18
   THUMB_TIP:
-    definition: "Tip of the thumb finger (apex of the distal phalanx)"
+    definition: Tip of the thumb finger (apex of the distal phalanx)
     reference_frame: thumb_distal_phalanx
-    local_position: [0, 0, 20]
+    local_position:
+    - 0
+    - 0
+    - 20
   INDEX_TIP:
-    definition: "Tip of the index finger (apex of the distal phalanx)"
+    definition: Tip of the index finger (apex of the distal phalanx)
     reference_frame: index_distal_phalanx
-    local_position: [0, 0, 20]
+    local_position:
+    - 0
+    - 0
+    - 20
   MIDDLE_TIP:
-    definition: "Tip of the middle finger (apex of the distal phalanx)"
+    definition: Tip of the middle finger (apex of the distal phalanx)
     reference_frame: middle_distal_phalanx
-    local_position: [0, 0, 20]
+    local_position:
+    - 0
+    - 0
+    - 20
   RING_TIP:
-    definition: "Tip of the ring finger (apex of the distal phalanx)"
+    definition: Tip of the ring finger (apex of the distal phalanx)
     reference_frame: ring_distal_phalanx
-    local_position: [0, 0, 18]
+    local_position:
+    - 0
+    - 0
+    - 18
   PINKY_TIP:
-    definition: "Tip of the pinky finger (apex of the distal phalanx)"
+    definition: Tip of the pinky finger (apex of the distal phalanx)
     reference_frame: pinky_distal_phalanx
-    local_position: [0, 0, 16]
+    local_position:
+    - 0
+    - 0
+    - 16

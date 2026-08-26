@@ -1,15 +1,4 @@
-# Foot component.
-#
-# `sided: true` at the file level: authored for the LEFT foot; the loader emits
-# left_* / right_* (right is mirrored across the sagittal plane).
-# Each segment's local +z runs proximal -> distal along the bone. The foot is simplified
-# to a midline ball and toe tip (the scaffold's single TOES segment), so the authored
-# landmarks sit at x = 0 and left/right are mirror images. The ankle (talocrural) joint
-# is the shared origin of the heel and foot; the ball is shared by the foot and toes.
-# Millimetres, 50th-percentile adult; positions are estimates.
-
 sided: true
-
 segments:
   HEEL:
     reference_geometry:
@@ -17,43 +6,48 @@ segments:
       z_axis:
         landmark: calcaneus
         type: exact
-
+    anatomical_segment: foot
   FOOT:
     reference_geometry:
       origin: ankle_origin
       z_axis:
         landmark: ball
         type: exact
-
+    anatomical_segment: foot
   TOES:
     reference_geometry:
       origin: ball
       z_axis:
         landmark: toe_tip
         type: exact
-
+    anatomical_segment: foot
 landmarks:
-
   ANKLE_ORIGIN:
-    definition: "Geometric center of the ankle (talocrural) joint, where the leg meets the talus"
+    definition: Geometric center of the ankle (talocrural) joint, where the leg meets
+      the talus
     reference_frame: foot
-    local_position: [0, 0, 0]
-
+    local_position:
+    - 0
+    - 0
+    - 0
   CALCANEUS:
-    # 80 mm from the ankle joint centre: the calcaneal tuberosity sits about 42 mm
-    # posterior to it and about 68 mm inferior (the ankle joint centre's height above
-    # the ground), and hypot(42, 68) is 80. The earlier 45 mm was a horizontal-only
-    # estimate, which left the heel unable to reach the floor the ball stands on.
-    definition: "Posterior tip of the calcaneus (heel bone), the calcaneal tuberosity"
+    definition: Posterior tip of the calcaneus (heel bone), the calcaneal tuberosity
     reference_frame: heel
-    local_position: [0, 0, 80]
-
+    local_position:
+    - 0
+    - 0
+    - 80
   BALL:
-    definition: "Geometric center of the ball of the foot, across the metatarsal heads"
+    definition: Geometric center of the ball of the foot, across the metatarsal heads
     reference_frame: foot
-    local_position: [0, 0, 155]
-
+    local_position:
+    - 0
+    - 0
+    - 155
   TOE_TIP:
-    definition: "Tip of the longest toe (second toe), apex of the distal phalanx"
+    definition: Tip of the longest toe (second toe), apex of the distal phalanx
     reference_frame: toes
-    local_position: [0, 0, 45]
+    local_position:
+    - 0
+    - 0
+    - 45

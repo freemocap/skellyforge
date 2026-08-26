@@ -1,12 +1,9 @@
-"""Map the skeleton's segments onto de Leva's 16 anatomical segments.
+"""Mass distribution: skeleton segments → de Leva anatomical segments.
 
-The de Leva table divides the body into 16 anatomical segments (head+neck, three trunk
-parts, and six bilateral limb parts). The skeleton models the same body as more rigid
-segments than that - several of which make up one anatomical segment (a hand is a carpal cluster
-plus nineteen phalanges/metacarpals; the head+neck is the skull plus the cervical spine).
-This module states that mapping and, from it, distributes each anatomical segment's mass
-across its skeleton segments proportionally to length cubed - the equal-density
-approximation, which is the right default for the hand's many small bones.
+Each skeleton segment declares its de Leva anatomical home in its component
+YAML via ``anatomical_segment: <name>``. This module reads those declarations
+and distributes body mass across segments proportionally to length cubed
+within each anatomical group (the equal-density approximation).
 """
 
 from __future__ import annotations
@@ -17,68 +14,26 @@ from skellyforge.core.biomechanics.anthropometric_parameters import Anthropometr
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 
 
-_ANATOMICAL_BY_SKELETON_SEGMENT: dict[str, str] = {
-    "skull": "head_neck",
-    "cervical_spine": "head_neck",
-    "thoracic": "upper_trunk",
-    "left_clavicle": "upper_trunk",
-    "right_clavicle": "upper_trunk",
-    "sacrolumbar": "middle_trunk",
-    "pelvis": "lower_trunk",
-    "left_upper_arm": "upper_arm",
-    "right_upper_arm": "upper_arm",
-    "left_lower_arm": "forearm",
-    "right_lower_arm": "forearm",
-    "left_carpals": "hand",
-    "right_carpals": "hand",
-    "left_upper_leg": "thigh",
-    "right_upper_leg": "thigh",
-    "left_lower_leg": "shank",
-    "right_lower_leg": "shank",
-    "left_foot": "foot",
-    "right_foot": "foot",
-    "left_heel": "foot",
-    "right_heel": "foot",
-    "left_toes": "foot",
-    "right_toes": "foot",
-}
-"""Skeleton segment name → de Leva anatomical segment name.
-
-This mapping is DEFINITIONAL: it states which skeleton segments make up each
-anatomical segment. It is not derivable from aliases because the relationship
-is many-to-one and crosses naming conventions (a hand = carpals + phalanges).
-When a new segment type is added to the skeleton, add its anatomical home here.
-"""
-
-# Suffixes that identify a skeleton segment as belonging to a bilateral
-# anatomical segment's hand, matched by substring rather than listed
-# exhaustively (there are many phalanx/metacarpal variants per side).
-_HAND_BONE_SUFFIXES = ("phalanx", "metacarpal")
-
-
-def anatomical_segment_name(*, skeleton_segment_name: str) -> str:
-    """The de Leva anatomical segment a skeleton segment belongs to.
-
-    The hand's phalanx and metacarpal segments are matched by name rather than listed
-    exhaustively (there are nineteen per side), because every one of them is a hand bone.
-    """
-    mapped = _ANATOMICAL_BY_SKELETON_SEGMENT.get(skeleton_segment_name)
-    if mapped is not None:
-        return mapped
-    if any(suffix in skeleton_segment_name for suffix in _HAND_BONE_SUFFIXES):
-        return "hand"
-    raise KeyError(
-        f"unknown skeleton segment {skeleton_segment_name!r} - cannot map it to an "
-        f"anatomical segment"
-    )
-
-
 def map_skeleton_segments(*, skeleton: SkeletonDefinition) -> dict[str, str]:
-    """Every skeleton segment mapped to its de Leva anatomical segment name."""
-    return {
-        name: anatomical_segment_name(skeleton_segment_name=name)
-        for name in skeleton.segments
-    }
+    """Every skeleton segment mapped to its de Leva anatomical segment name.
+
+    Raises:
+        ValueError: any segment lacks an ``anatomical_segment`` declaration.
+    """
+    mapping = {}
+    unmapped = []
+    for name, segment in skeleton.segments.items():
+        if segment.anatomical_segment is None:
+            unmapped.append(name)
+        else:
+            mapping[name] = segment.anatomical_segment
+    if unmapped:
+        raise ValueError(
+            f"these segments have no anatomical_segment declaration in their "
+            f"component YAML: {sorted(unmapped)}. Add one so mass distribution "
+            f"can proceed."
+        )
+    return mapping
 
 
 def distribute_segment_masses(

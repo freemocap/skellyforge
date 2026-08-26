@@ -1,51 +1,48 @@
-# Arm component.
-#
-# `sided: true` at the file level: every entry is authored for the LEFT side and the
-# loader emits left_* / right_* (right is mirrored across the sagittal plane).
-# Each segment's local +z runs proximal -> distal along the bone. The elbow is a SHARED
-# landmark: owned by the upper arm (its distal joint), and used as the lower arm's
-# origin. Millimetres, 50th-percentile adult; positions are estimates.
-
 sided: true
-
 segments:
   UPPER_ARM:
     aliases:
-      - humerus
+    - humerus
     reference_geometry:
       origin: shoulder
       z_axis:
         landmark: elbow
         type: exact
-
+    anatomical_segment: upper_arm
   LOWER_ARM:
     aliases:
-      - forearm
+    - forearm
     reference_geometry:
       origin: elbow
       z_axis:
         landmark: wrist
         type: exact
-
+    anatomical_segment: forearm
 landmarks:
-
   SHOULDER:
     aliases:
-      - glenohumeral_joint
-    definition: "Geometric center of the glenohumeral joint (shoulder joint)"
+    - glenohumeral_joint
+    definition: Geometric center of the glenohumeral joint (shoulder joint)
     reference_frame: upper_arm
-    local_position: [0, 0, 0]
-
+    local_position:
+    - 0
+    - 0
+    - 0
   ELBOW:
     aliases:
-      - humeroulnar_joint
-    definition: "Geometric center of the elbow joint, near the trochlea of the humerus"
+    - humeroulnar_joint
+    definition: Geometric center of the elbow joint, near the trochlea of the humerus
     reference_frame: upper_arm
-    local_position: [0, 0, 300]
-
+    local_position:
+    - 0
+    - 0
+    - 300
   WRIST:
     aliases:
-      - radiocarpal_joint
-    definition: "Geometric center of the radiocarpal joint (wrist joint)"
+    - radiocarpal_joint
+    definition: Geometric center of the radiocarpal joint (wrist joint)
     reference_frame: lower_arm
-    local_position: [0, 0, 260]
+    local_position:
+    - 0
+    - 0
+    - 260

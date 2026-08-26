@@ -73,6 +73,12 @@ class RigidBodySegment:
     landmarks: Mapping[LandmarkNameString, AnatomicalLandmark]
     frame_definition: ReferenceFrameDefinition
     aliases: tuple[RigidBodySegmentName, ...] = ()
+    anatomical_segment: str | None = None
+    """Which de Leva anatomical mass segment this rigid body contributes to.
+
+    Authored alongside the segment definition because it is a definitional
+    property, not a derivable one. Consumed by the biomechanics layer for
+    mass distribution; ignored by kinematics."""
     # Both answers below are STATIC properties of the authored geometry, so they are
     # computed once here at construction - the per-frame hydration path reads them
     # without ever re-deriving an SVD or re-stacking local positions.

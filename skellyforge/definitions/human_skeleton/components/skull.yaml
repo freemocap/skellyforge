@@ -1,20 +1,7 @@
-# Skull component.
-#
-# Local frame (right-handed, Blender convention):
-#   origin  - geometric center of the foramen magnum (base of the skull)
-#   +x      - subject's RIGHT
-#   +y      - FORWARD (anterior)
-#   +z      - UP (superior)
-# Units are millimetres, sized for a 50th-percentile adult. Positions are anatomical
-# estimates, reconciled against the segment frames in the rest-pose pass.
-
 segments:
   SKULL:
     aliases:
-      - head
-    # Primary axis is the nose (forward), so the skull bone points toward the face
-    # rather than straight up; head_vertex (up) becomes the secondary axis and still
-    # pins the skull's roll via Gram-Schmidt.
+    - head
     reference_geometry:
       origin: head_center
       y_axis:
@@ -23,75 +10,94 @@ segments:
       z_axis:
         landmark: head_vertex
         type: approximate
-
+    anatomical_segment: head_neck
 landmarks:
-
   HEAD_CENTER:
     aliases:
-      - skull_center
-    definition: "Geometric center of the foramen magnum, the hole at the base of the skull where the spinal cord enters"
+    - skull_center
+    definition: Geometric center of the foramen magnum, the hole at the base of the
+      skull where the spinal cord enters
     reference_frame: skull
-    local_position: [0, 0, 0]
-
+    local_position:
+    - 0
+    - 0
+    - 0
   HEAD_VERTEX:
     aliases:
-      - skull_top
-      - bregma
-    definition: "Top of the head at the bregma, the intersection of the coronal and sagittal sutures"
+    - skull_top
+    - bregma
+    definition: Top of the head at the bregma, the intersection of the coronal and
+      sagittal sutures
     reference_frame: skull
-    local_position: [0, 0, 130]
-
+    local_position:
+    - 0
+    - 0
+    - 130
   NOSE:
     aliases:
-      - nose_tip
-    definition: "Tip of the nose"
+    - nose_tip
+    definition: Tip of the nose
     reference_frame: skull
-    local_position: [0, 100, 0]
-
+    local_position:
+    - 0
+    - 100
+    - 0
   CHIN:
     aliases:
-      - menton
-    definition: "Tip of the chin (menton), the most inferior point of the mandible"
+    - menton
+    definition: Tip of the chin (menton), the most inferior point of the mandible
     reference_frame: skull
-    local_position: [0, 95, -95]
-
+    local_position:
+    - 0
+    - 95
+    - -95
   EYE:
     sided: true
     aliases:
-      - eye_center
-    definition: "Geometric center of the eye, the midpoint of the inner and outer canthi"
+    - eye_center
+    definition: Geometric center of the eye, the midpoint of the inner and outer canthi
     reference_frame: skull
-    local_position: [-32, 65, 40]
-
+    local_position:
+    - -32
+    - 65
+    - 40
   EYE_INNER:
     sided: true
     aliases:
-      - inner_canthus
-    definition: "Inner corner of the eye (inner canthus), at the lacrimal fossa (tear duct)"
+    - inner_canthus
+    definition: Inner corner of the eye (inner canthus), at the lacrimal fossa (tear
+      duct)
     reference_frame: skull
-    local_position: [-16, 70, 38]
-
+    local_position:
+    - -16
+    - 70
+    - 38
   EYE_OUTER:
     sided: true
     aliases:
-      - outer_canthus
-    definition: "Outer corner of the eye (outer canthus), at the junction of the frontal and zygomatic bones"
+    - outer_canthus
+    definition: Outer corner of the eye (outer canthus), at the junction of the frontal
+      and zygomatic bones
     reference_frame: skull
-    local_position: [-46, 60, 38]
-
+    local_position:
+    - -46
+    - 60
+    - 38
   EAR:
     sided: true
     aliases:
-      - acoustic_meatus
-    definition: "Entrance to the ear canal (acoustic meatus), just behind the tragus"
+    - acoustic_meatus
+    definition: Entrance to the ear canal (acoustic meatus), just behind the tragus
     reference_frame: skull
-    # Symmetric about the origin: the mapped head_center is the EAR MEAN, and the
-    # authored head_center is this segment's origin - asymmetric ears would make
-    # the two disagree by a centimetre and bias every skull fit.
-    local_position: [-70, 0, 0]
-
+    local_position:
+    - -70
+    - 0
+    - 0
   CANINE_TOOTH_TIP:
     sided: true
-    definition: "Tip of the canine tooth, roughly behind the corner of the mouth"
+    definition: Tip of the canine tooth, roughly behind the corner of the mouth
     reference_frame: skull
-    local_position: [-20, 60, -50]
+    local_position:
+    - -20
+    - 60
+    - -50

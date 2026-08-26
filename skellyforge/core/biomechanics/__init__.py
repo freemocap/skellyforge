@@ -55,7 +55,6 @@ from skellyforge.core.biomechanics.ground_reference import (
 )
 from skellyforge.core.biomechanics.segment_inertia import segment_inertia_tensor
 from skellyforge.core.biomechanics.segment_mapping import (
-    anatomical_segment_name,
     distribute_segment_masses,
     map_skeleton_segments,
 )
