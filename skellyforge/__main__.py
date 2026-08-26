@@ -18,7 +18,7 @@ DEFINITIONS_DIRECTORY: Path = (
 )
 SKELETON_YAML_PATH: Path = DEFINITIONS_DIRECTORY / "human_skeleton.yaml"
 REST_POSE_YAML_PATH: Path = DEFINITIONS_DIRECTORY / "rest_pose.yaml"
-FACE_YAML_PATH: Path = DEFINITIONS_DIRECTORY / "face.yaml"
+FACE_YAML_PATH: Path = DEFINITIONS_DIRECTORY / "components" / "face.yaml"
 
 
 def run() -> None:

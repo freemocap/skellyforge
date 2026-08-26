@@ -23,6 +23,7 @@ import yaml
 from skellyforge.core.math.geometry.coordinate_systems.coordinate_system_registry import (
     CoordinateSystemRegistry,
 )
+from skellyforge.core.skeleton.chain.kinematic_chain import KinematicChain
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
@@ -38,6 +39,7 @@ from skellyforge.core.skeleton.loading import (
     resolve_includes,
 )
 from skellyforge.type_overloads import (
+    ChainNameString,
     LandmarkNameString,
     LinkageNameString,
     RigidBodySegmentName,
@@ -56,6 +58,8 @@ class SkeletonDefinition:
         joints: the linkage layer - every parent->child edge with its
             convention, keyed by joint name. The authoritative topology; the
             rest pose reads its tree from here.
+        chains: declared multi-segment paths over those joints ("left_arm"),
+            keyed by chain name. The unit multi-segment math owns.
         coordinate_system: the coordinate-system convention (from the registry) the
             authored positions and local frames are expressed in - "blender" for the
             shipped human.
@@ -65,6 +69,7 @@ class SkeletonDefinition:
     landmarks: Mapping[LandmarkNameString, AnatomicalLandmark]
     segments: Mapping[RigidBodySegmentName, RigidBodySegment]
     joints: Mapping[LinkageNameString, JointDefinition] = field(default_factory=dict)
+    chains: Mapping[ChainNameString, KinematicChain] = field(default_factory=dict)
     coordinate_system: str = "blender"
     _landmark_name_resolver: LandmarkNameResolver = field(init=False, repr=False)
     _canonical_segment_name_by_known_name: Mapping[
@@ -278,12 +283,31 @@ class SkeletonDefinition:
             landmarks=landmarks,
             segments=segments,
         )
+        # Topology is validated BEFORE chains compile: a hand-edited joint that
+        # breaks the tree must be reported as a tree problem, not as whichever
+        # declared chain happened to trip over it first.
+        _validate_joint_topology(
+            skeleton_name=str(path), segments=segments, joints=joints
+        )
+
+        chains_node = document.get("chains") or {}
+        if not isinstance(chains_node, Mapping):
+            raise ValueError(f"{path}: 'chains' must be a mapping of name -> segment list")
+        chains = {
+            str(chain_name): KinematicChain.from_yaml_entry(
+                name=str(chain_name),
+                segment_names=segment_names,
+                joints=joints,
+            )
+            for chain_name, segment_names in chains_node.items()
+        }
 
         return cls(
             name=str(document.get("name", path.stem)),
             landmarks=landmarks,
             segments=segments,
             joints=joints,
+            chains=chains,
             coordinate_system=coordinate_system,
         )
 

@@ -85,3 +85,38 @@ joints:
   right_foot: {parent: right_lower_leg, child: right_foot, connect_at: right_ankle}
   right_toes: {parent: right_foot, child: right_toes}
   right_heel: {parent: right_lower_leg, child: right_heel, connect_at: right_ankle}
+
+# ── Chains (the ontology's chain layer) ────────────────────────────────
+#
+# Declared multi-segment paths over the joints above - the unit multi-segment
+# math (forward synthesis, inverse kinematics, twist backfill) owns. Each entry
+# lists its segments proximal -> distal; consecutive entries must be joined by
+# a joint. A chain is 3+ segments; branching fans arrive with coupled
+# constraints.
+chains:
+  spine:
+    - pelvis
+    - lumbar_spine
+    - chest
+    - cervical_spine
+    - skull
+  left_arm:
+    - left_clavicle
+    - left_upper_arm
+    - left_lower_arm
+    - left_carpals
+  right_arm:
+    - right_clavicle
+    - right_upper_arm
+    - right_lower_arm
+    - right_carpals
+  left_leg:
+    - left_upper_leg
+    - left_lower_leg
+    - left_foot
+    - left_toes
+  right_leg:
+    - right_upper_leg
+    - right_lower_leg
+    - right_foot
+    - right_toes

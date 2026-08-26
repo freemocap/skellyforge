@@ -30,15 +30,17 @@ skellyforge/
 │   ├── skeleton/                         the typed model
 │   │   ├── skeleton_definition.py        #   SkeletonDefinition.from_yaml, global checks
 │   │   ├── skeleton_pose.py              #   SegmentPose / SkeletonPose / PoseSolution
-│   │   ├── components/                   #   the leaf model types + naming/resolver helpers
-│   │   │   ├── anatomical_landmark.py    #   AnatomicalLandmark
-│   │   │   ├── rigid_body_segment.py     #   RigidBodySegment + calculate_bases_for_segments
-│   │   │   ├── segment_basis_solver.py   #   per-segment basis solver
-│   │   │   ├── landmark_name_resolver.py #   alias → canonical, resolved once at load
-│   │   │   ├── face_blendshapes.py       #   FaceBlendShapes (52 ARKit, NOT a component)
-│   │   │   ├── segment_linkage.py        #   SegmentLinkage (placeholder, layer pending)
-│   │   │   ├── kinematic_chain.py        #   KinematicChain (placeholder, layer pending)
-│   │   │   └── naming.py                 #   snake_case + alias rules
+ │   │   ├── components/                   #   the leaf model types + naming/resolver helpers
+ │   │   │   ├── anatomical_landmark.py    #   AnatomicalLandmark
+ │   │   │   ├── rigid_body_segment.py     #   RigidBodySegment + calculate_bases_for_segments
+ │   │   │   ├── segment_basis_solver.py   #   per-segment basis solver
+ │   │   │   ├── landmark_name_resolver.py #   alias → canonical, resolved once at load
+ │   │   │   ├── face_blendshapes.py       #   FaceBlendShapes (52 ARKit, NOT a component)
+ │   │   │   └── naming.py                 #   snake_case + alias rules
+ │   │   ├── linkage/                      # the joint layer: JointDefinition, EulerConvention,
+ │   │   │                                 #   relative_orientation, JointPose + provenance
+ │   │   ├── chain/                        # the multi-segment layer: KinematicChain declarations
+ │   │   │                                 #   + forward synthesis; IK / twist backfill pending
 │   │   ├── loading/                      #   the YAML loader pipeline
 │   │   │   ├── component_building.py     #   $include → lowercase → sided → reference frames → objects
 │   │   │   ├── include_resolution.py     #   $include
@@ -73,9 +75,13 @@ skellyforge/
 **Status.** The whole human skeleton loads (61 segments / 124 landmarks / 52 face
 blendshapes) and hydrates: `RestPose`, `hydrate_skeleton`, `ContinuousRollResolver` and
 `estimate_segment_lengths` all work on the shipped definitions, and the viewer exercises
-the whole path end to end. The **linkage and chain layers are still placeholders** — the
-hierarchy currently lives in `rest_pose.yaml`'s `parent` / `connect_at` fields, and
-reconciling those two is what building the linkage layer means.
+the whole path end to end. The **linkage layer is built**: `human_skeleton.yaml`'s
+`joints:` section is the authoritative topology (the rest pose is orientation-only),
+`relative_orientation` + per-joint euler conventions decompose to named angles, and
+every `JointPose` carries input provenance. The **chain layer's declarations and
+forward synthesis are built**: declared chains compile with contiguity validation, and
+`synthesize_pose` walks joint angles -> whole-body poses, gated by the FK-closure
+tests. Chain IK and twist backfill are the next pending pieces.
 
 ## Commands
 
