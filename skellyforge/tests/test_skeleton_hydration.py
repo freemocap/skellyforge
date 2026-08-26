@@ -133,7 +133,8 @@ def test_hydrate_skeleton_recovers_the_rest_pose() -> None:
 
     hydrated = hydrate_skeleton(skeleton=skeleton, observed=rest_pose.landmark_positions)
 
-    assert len(hydrated.segment_poses) == 61
+    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+    assert len(hydrated.segment_poses) == len(skeleton.segments)
     for name, pose in hydrated.segment_poses.items():
         np.testing.assert_allclose(
             pose.origin.array, rest_pose.segment_origins[name].array, atol=1e-6

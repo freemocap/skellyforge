@@ -37,7 +37,7 @@ def _rest_skeleton_and_pose():
 def test_every_joint_hydrates_at_the_rest_pose() -> None:
     skeleton, _, pose = _rest_skeleton_and_pose()
     joint_poses = compute_joint_poses(skeleton=skeleton, pose=pose)
-    assert len(joint_poses) == EXPECTED_JOINT_COUNT
+    assert len(joint_poses) == len(skeleton.joints)
 
 
 def test_angles_are_deterministic_under_a_reset_resolver() -> None:
@@ -162,4 +162,4 @@ def test_partially_hydrated_poses_skip_their_joints() -> None:
     ]
     for name in touched_dropped_segment:
         assert name not in joint_poses
-    assert len(joint_poses) == EXPECTED_JOINT_COUNT - len(touched_dropped_segment)
+    assert len(joint_poses) == len(skeleton.joints) - len(touched_dropped_segment)

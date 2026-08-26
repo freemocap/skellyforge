@@ -37,6 +37,7 @@ def expand_sided_entries(*, component: Mapping[str, object]) -> dict[str, dict[s
     component_is_sided = bool(component.get("sided", False))
     landmarks = _section(component=component, section="landmarks")
     segments = _section(component=component, section="segments")
+    joints = _section(component=component, section="joints")
     sided_names = {
         name
         for entries in (landmarks, segments)
@@ -68,7 +69,25 @@ def expand_sided_entries(*, component: Mapping[str, object]) -> dict[str, dict[s
                 entry=entry, side=side, sided_names=sided_names
             )
 
-    return {"landmarks": expanded_landmarks, "segments": expanded_segments}
+    expanded_joints: dict[str, dict[str, object]] = {}
+    for name, entry in joints.items():
+        resolved = {k: v for k, v in (entry or {}).items() if k != "sided"}
+        is_joint_sided = bool((entry or {}).get("sided", component_is_sided))
+        if not is_joint_sided:
+            expanded_joints[name] = resolved
+            continue
+        for side in SIDE_PREFIXES:
+            expanded = dict(resolved)
+            for field in ("parent", "child"):
+                ref = str(expanded.get(field, ""))
+                if ref in sided_names:
+                    expanded[field] = f"{side}_{ref}"
+            connect_at = expanded.get("connect_at")
+            if connect_at is not None and str(connect_at) in sided_names:
+                expanded["connect_at"] = f"{side}_{connect_at}"
+            expanded_joints[f"{side}_{name}"] = expanded
+
+    return {"landmarks": expanded_landmarks, "segments": expanded_segments, "joints": expanded_joints}
 
 
 def _section(

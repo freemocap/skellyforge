@@ -42,6 +42,18 @@ _ANATOMICAL_BY_SKELETON_SEGMENT: dict[str, str] = {
     "left_toes": "foot",
     "right_toes": "foot",
 }
+"""Skeleton segment name → de Leva anatomical segment name.
+
+This mapping is DEFINITIONAL: it states which skeleton segments make up each
+anatomical segment. It is not derivable from aliases because the relationship
+is many-to-one and crosses naming conventions (a hand = carpals + phalanges).
+When a new segment type is added to the skeleton, add its anatomical home here.
+"""
+
+# Suffixes that identify a skeleton segment as belonging to a bilateral
+# anatomical segment's hand, matched by substring rather than listed
+# exhaustively (there are many phalanx/metacarpal variants per side).
+_HAND_BONE_SUFFIXES = ("phalanx", "metacarpal")
 
 
 def anatomical_segment_name(*, skeleton_segment_name: str) -> str:
@@ -53,7 +65,7 @@ def anatomical_segment_name(*, skeleton_segment_name: str) -> str:
     mapped = _ANATOMICAL_BY_SKELETON_SEGMENT.get(skeleton_segment_name)
     if mapped is not None:
         return mapped
-    if "phalanx" in skeleton_segment_name or "metacarpal" in skeleton_segment_name:
+    if any(suffix in skeleton_segment_name for suffix in _HAND_BONE_SUFFIXES):
         return "hand"
     raise KeyError(
         f"unknown skeleton segment {skeleton_segment_name!r} - cannot map it to an "

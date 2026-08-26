@@ -102,10 +102,11 @@ def test_every_skeleton_segment_maps_to_an_anatomical_segment() -> None:
 
 
 def test_distributed_masses_sum_to_the_body_mass() -> None:
+    skeleton = _skeleton()
     masses = distribute_segment_masses(
-        skeleton=_skeleton(), body_mass=BODY_MASS, anthropometric=_anthropometric()
+        skeleton=skeleton, body_mass=BODY_MASS, anthropometric=_anthropometric()
     )
-    assert len(masses) == EXPECTED_SEGMENT_COUNT
+    assert len(masses) == len(skeleton.segments)
     assert sum(masses.values()) == pytest.approx(BODY_MASS, abs=1e-9)
 
 

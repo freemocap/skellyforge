@@ -291,6 +291,39 @@ class SkeletonDefinition:
                 what="segment",
             )
 
+        # Expand sided joints: a joint marked `sided: true` whose parent/child/
+        # connect_at reference sided segment or landmark names expands into a
+        # left_ and a right_ copy. Unsided joints pass through untouched.
+        #
+        # The expansion needs to know which base names are sided so it can
+        # prefix parent/child/connect_at references. We derive that from the
+        # loaded segments: every segment with a left_/right_ pair contributes
+        # its base name.
+        sided_base_names = {
+            name.removeprefix("left_").removeprefix("right_")
+            for name in segments
+            if name.startswith("left_") or name.startswith("right_")
+        }
+        # Also include sided landmark base names (for connect_at references).
+        sided_base_names.update(
+            landmark_name.removeprefix("left_").removeprefix("right_")
+            for landmark_name in landmarks
+            if landmark_name.startswith("left_") or landmark_name.startswith("right_")
+        )
+
+        from skellyforge.core.skeleton.loading.sided_expansion import (
+            expand_sided_entries,
+        )
+
+        joints_node = expand_sided_entries(
+            component={
+                "landmarks": {name: {"sided": True} for name in sided_base_names},
+                "segments": {name: {"sided": True} for name in sided_base_names},
+                "joints": joints_node,
+                "sided": False,
+            }
+        )["joints"]
+
         joints = _build_joint_definitions(
             path=path,
             joints_node=joints_node,

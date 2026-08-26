@@ -59,8 +59,9 @@ def _written_variant(*, directory: Path, mutate) -> Path:
 
 def test_the_rest_pose_resolves_every_segment_and_landmark() -> None:
     pose = _pose()
-    assert len(pose.segment_orientations) == EXPECTED_SEGMENT_COUNT
-    assert len(pose.landmark_positions) == EXPECTED_LANDMARK_COUNT
+    skeleton = _skeleton()
+    assert len(pose.segment_orientations) == len(skeleton.segments)
+    assert set(pose.landmark_positions) == set(skeleton.landmarks)
     assert pose.root_segment_name == "pelvis"
 
 

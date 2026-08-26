@@ -29,62 +29,127 @@ joints:
   thoracic: {parent: sacrolumbar, child: thoracic, connect_at: chest_center}
   cervical_spine: {parent: thoracic, child: cervical_spine, connect_at: neck_center}
   skull: {parent: cervical_spine, child: skull, connect_at: craniocervical_junction}
-  left_clavicle: {parent: thoracic, child: left_clavicle, connect_at: left_sternoclavicular}
-  left_upper_arm: {parent: left_clavicle, child: left_upper_arm, connect_at: left_acromion}
-  left_lower_arm: {parent: left_upper_arm, child: left_lower_arm}
-  left_carpals: {parent: left_lower_arm, child: left_carpals, connect_at: left_wrist}
-  left_thumb_metacarpal: {parent: left_carpals, child: left_thumb_metacarpal}
-  left_thumb_proximal_phalanx: {parent: left_thumb_metacarpal, child: left_thumb_proximal_phalanx}
-  left_thumb_distal_phalanx: {parent: left_thumb_proximal_phalanx, child: left_thumb_distal_phalanx}
-  left_index_metacarpal: {parent: left_carpals, child: left_index_metacarpal}
-  left_index_proximal_phalanx: {parent: left_index_metacarpal, child: left_index_proximal_phalanx}
-  left_index_middle_phalanx: {parent: left_index_proximal_phalanx, child: left_index_middle_phalanx}
-  left_index_distal_phalanx: {parent: left_index_middle_phalanx, child: left_index_distal_phalanx}
-  left_middle_metacarpal: {parent: left_carpals, child: left_middle_metacarpal}
-  left_middle_proximal_phalanx: {parent: left_middle_metacarpal, child: left_middle_proximal_phalanx}
-  left_middle_middle_phalanx: {parent: left_middle_proximal_phalanx, child: left_middle_middle_phalanx}
-  left_middle_distal_phalanx: {parent: left_middle_middle_phalanx, child: left_middle_distal_phalanx}
-  left_ring_metacarpal: {parent: left_carpals, child: left_ring_metacarpal}
-  left_ring_proximal_phalanx: {parent: left_ring_metacarpal, child: left_ring_proximal_phalanx}
-  left_ring_middle_phalanx: {parent: left_ring_proximal_phalanx, child: left_ring_middle_phalanx}
-  left_ring_distal_phalanx: {parent: left_ring_middle_phalanx, child: left_ring_distal_phalanx}
-  left_pinky_metacarpal: {parent: left_carpals, child: left_pinky_metacarpal}
-  left_pinky_proximal_phalanx: {parent: left_pinky_metacarpal, child: left_pinky_proximal_phalanx}
-  left_pinky_middle_phalanx: {parent: left_pinky_proximal_phalanx, child: left_pinky_middle_phalanx}
-  left_pinky_distal_phalanx: {parent: left_pinky_middle_phalanx, child: left_pinky_distal_phalanx}
-  left_upper_leg: {parent: pelvis, child: left_upper_leg, connect_at: left_hip_socket}
-  left_lower_leg: {parent: left_upper_leg, child: left_lower_leg}
-  left_foot: {parent: left_lower_leg, child: left_foot, connect_at: left_ankle}
-  left_toes: {parent: left_foot, child: left_toes}
-  left_heel: {parent: left_lower_leg, child: left_heel, connect_at: left_ankle}
-  right_clavicle: {parent: thoracic, child: right_clavicle, connect_at: right_sternoclavicular}
-  right_upper_arm: {parent: right_clavicle, child: right_upper_arm, connect_at: right_acromion}
-  right_lower_arm: {parent: right_upper_arm, child: right_lower_arm}
-  right_carpals: {parent: right_lower_arm, child: right_carpals, connect_at: right_wrist}
-  right_thumb_metacarpal: {parent: right_carpals, child: right_thumb_metacarpal}
-  right_thumb_proximal_phalanx: {parent: right_thumb_metacarpal, child: right_thumb_proximal_phalanx}
-  right_thumb_distal_phalanx: {parent: right_thumb_proximal_phalanx, child: right_thumb_distal_phalanx}
-  right_index_metacarpal: {parent: right_carpals, child: right_index_metacarpal}
-  right_index_proximal_phalanx: {parent: right_index_metacarpal, child: right_index_proximal_phalanx}
-  right_index_middle_phalanx: {parent: right_index_proximal_phalanx, child: right_index_middle_phalanx}
-  right_index_distal_phalanx: {parent: right_index_middle_phalanx, child: right_index_distal_phalanx}
-  right_middle_metacarpal: {parent: right_carpals, child: right_middle_metacarpal}
-  right_middle_proximal_phalanx: {parent: right_middle_metacarpal, child: right_middle_proximal_phalanx}
-  right_middle_middle_phalanx: {parent: right_middle_proximal_phalanx, child: right_middle_middle_phalanx}
-  right_middle_distal_phalanx: {parent: right_middle_middle_phalanx, child: right_middle_distal_phalanx}
-  right_ring_metacarpal: {parent: right_carpals, child: right_ring_metacarpal}
-  right_ring_proximal_phalanx: {parent: right_ring_metacarpal, child: right_ring_proximal_phalanx}
-  right_ring_middle_phalanx: {parent: right_ring_proximal_phalanx, child: right_ring_middle_phalanx}
-  right_ring_distal_phalanx: {parent: right_ring_middle_phalanx, child: right_ring_distal_phalanx}
-  right_pinky_metacarpal: {parent: right_carpals, child: right_pinky_metacarpal}
-  right_pinky_proximal_phalanx: {parent: right_pinky_metacarpal, child: right_pinky_proximal_phalanx}
-  right_pinky_middle_phalanx: {parent: right_pinky_proximal_phalanx, child: right_pinky_middle_phalanx}
-  right_pinky_distal_phalanx: {parent: right_pinky_middle_phalanx, child: right_pinky_distal_phalanx}
-  right_upper_leg: {parent: pelvis, child: right_upper_leg, connect_at: right_hip_socket}
-  right_lower_leg: {parent: right_upper_leg, child: right_lower_leg}
-  right_foot: {parent: right_lower_leg, child: right_foot, connect_at: right_ankle}
-  right_toes: {parent: right_foot, child: right_toes}
-  right_heel: {parent: right_lower_leg, child: right_heel, connect_at: right_ankle}
+
+  clavicle:
+    sided: true
+    parent: thoracic
+    child: clavicle
+    connect_at: sternoclavicular
+  upper_arm:
+    sided: true
+    parent: clavicle
+    child: upper_arm
+    connect_at: acromion
+  lower_arm:
+    sided: true
+    parent: upper_arm
+    child: lower_arm
+  carpals:
+    sided: true
+    parent: lower_arm
+    child: carpals
+    connect_at: wrist
+
+  thumb_metacarpal:
+    sided: true
+    parent: carpals
+    child: thumb_metacarpal
+  thumb_proximal_phalanx:
+    sided: true
+    parent: thumb_metacarpal
+    child: thumb_proximal_phalanx
+  thumb_distal_phalanx:
+    sided: true
+    parent: thumb_proximal_phalanx
+    child: thumb_distal_phalanx
+  index_metacarpal:
+    sided: true
+    parent: carpals
+    child: index_metacarpal
+  index_proximal_phalanx:
+    sided: true
+    parent: index_metacarpal
+    child: index_proximal_phalanx
+  index_middle_phalanx:
+    sided: true
+    parent: index_proximal_phalanx
+    child: index_middle_phalanx
+  index_distal_phalanx:
+    sided: true
+    parent: index_middle_phalanx
+    child: index_distal_phalanx
+  middle_metacarpal:
+    sided: true
+    parent: carpals
+    child: middle_metacarpal
+  middle_proximal_phalanx:
+    sided: true
+    parent: middle_metacarpal
+    child: middle_proximal_phalanx
+  middle_middle_phalanx:
+    sided: true
+    parent: middle_proximal_phalanx
+    child: middle_middle_phalanx
+  middle_distal_phalanx:
+    sided: true
+    parent: middle_middle_phalanx
+    child: middle_distal_phalanx
+  ring_metacarpal:
+    sided: true
+    parent: carpals
+    child: ring_metacarpal
+  ring_proximal_phalanx:
+    sided: true
+    parent: ring_metacarpal
+    child: ring_proximal_phalanx
+  ring_middle_phalanx:
+    sided: true
+    parent: ring_proximal_phalanx
+    child: ring_middle_phalanx
+  ring_distal_phalanx:
+    sided: true
+    parent: ring_middle_phalanx
+    child: ring_distal_phalanx
+  pinky_metacarpal:
+    sided: true
+    parent: carpals
+    child: pinky_metacarpal
+  pinky_proximal_phalanx:
+    sided: true
+    parent: pinky_metacarpal
+    child: pinky_proximal_phalanx
+  pinky_middle_phalanx:
+    sided: true
+    parent: pinky_proximal_phalanx
+    child: pinky_middle_phalanx
+  pinky_distal_phalanx:
+    sided: true
+    parent: pinky_middle_phalanx
+    child: pinky_distal_phalanx
+
+  upper_leg:
+    sided: true
+    parent: pelvis
+    child: upper_leg
+    connect_at: hip_socket
+  lower_leg:
+    sided: true
+    parent: upper_leg
+    child: lower_leg
+  foot:
+    sided: true
+    parent: lower_leg
+    child: foot
+    connect_at: ankle
+  toes:
+    sided: true
+    parent: foot
+    child: toes
+  heel:
+    sided: true
+    parent: lower_leg
+    child: heel
+    connect_at: ankle
 
 chains:
   spine:

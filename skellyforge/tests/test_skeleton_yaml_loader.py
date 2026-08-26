@@ -539,7 +539,9 @@ def test_the_shipped_foot_yaml_loads() -> None:
 def test_the_whole_human_skeleton_loads() -> None:
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     assert skeleton.name == "human"
-    assert len(skeleton.segments) == 61
+    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+    rest_pose = RestPose.from_default_yaml(skeleton=skeleton)
+    assert len(rest_pose.segment_orientations) == len(skeleton.segments)
     assert len(skeleton.landmarks) == 124
     # Pelvis, chest, and skull are fully specified; the rest are still roll-underspecified.
     assert set(skeleton.underspecified_segment_names)

@@ -67,9 +67,9 @@ landmarks:
       - thoracolumbar_junction
       - thoracolumbar_joint
       - t12_l1_junction
-    definition: "Authored mid-torso point at the T12/L1 level, between the hip and shoulder lines"
+    definition: "Authored mid-torso point at the T12/L1 level, on the hip-center to shoulder-midpoint line"
     reference_frame: sacrolumbar
-    local_position: [0, -35, 260]
+    local_position: [0, 0, 260]
 
   NECK_CENTER:
     aliases:
@@ -79,7 +79,7 @@ landmarks:
       - shoulder_midpoint
     definition: "Midpoint of the shoulder line, at the C7/T1 level"
     reference_frame: thoracic
-    local_position: [0, 0, 328]
+    local_position: [0, 0, 210]
 
   CRANIOCERVICAL_JUNCTION:
     # World position coincides with the skull-authored head_center (the ear
