@@ -1,17 +1,15 @@
-"""The skeleton's rest pose: each segment's parent and T-pose orientation.
+"""The rest pose (T-pose): per-segment parent-relative orientations.
 
 The rest pose is the neutral T-pose the skeleton is authored in, mirroring the VRM
-default humanoid. Each segment names its parent and a parent-relative rotation; walking
-the tree composes them into per-segment world transforms. Lengths stay derived from the
-landmarks' rest positions, so the rest pose adds only the hierarchy and the roll that the
-per-segment reference frames leave unspecified.
+default humanoid. The segment tree itself lives on the skeleton's joints (the
+linkage layer); this file adds only what the joints cannot say - each segment's
+parent-relative rest rotation - and composes the two into world transforms.
+Lengths stay derived from the landmarks' rest positions.
 
-The loader repairs nothing. Every segment of the skeleton must have an entry, every entry
-must name a segment that exists, exactly one segment may be the root, and the landmark a
-segment connects at must be owned by its parent - whether that landmark was named
-explicitly or defaulted to the segment's own origin. A rest pose that does not satisfy
-those conditions is a rest pose whose geometry would be silently wrong, so it raises
-instead of loading.
+The loader repairs nothing. Every segment of the skeleton must have an entry and
+the entries may carry nothing but an `orientation` (a PARENT-RELATIVE
+[w, x, y, z] quaternion, defaulting to identity) - anything else is a rest pose
+whose geometry would be silently wrong, so it raises instead of loading.
 """
 
 from __future__ import annotations
@@ -27,7 +25,7 @@ from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
-SEGMENT_ENTRY_KEYS = frozenset({"parent", "connect_at", "orientation"})
+SEGMENT_ENTRY_KEYS = frozenset({"orientation"})
 NUMBER_OF_QUATERNION_COMPONENTS = 4
 
 
@@ -54,8 +52,9 @@ def build_rest_pose(
         skeleton: the skeleton whose segments to place.
         parents: each segment's parent, or `None` for the single root.
         connect_ats: each segment's already-resolved connection landmark, which must be
-            owned by that segment's parent. `RestPose.from_yaml` resolves and validates
-            these; callers building the maps by hand are asserting the same invariants.
+            owned by that segment's parent. `RestPose.from_yaml` sources these from the
+            skeleton's joints; callers building the maps by hand are asserting the same
+            invariants.
         orientations: each segment's parent-relative rotation.
 
     Raises:
@@ -98,7 +97,7 @@ def build_rest_pose(
         owning_segment = skeleton.owning_segment_name_of(landmark=landmark)
         offset = Displacement.from_prevalidated_array(
             array=world_orientations[owning_segment].rotate_vector(
-                    vector=landmark.local_position.array
+                vector=landmark.local_position.array
             )
         )
         landmark_positions[landmark.name] = world_origins[owning_segment] + offset
@@ -113,7 +112,8 @@ class RestPose:
     Attributes:
         name: what this rest pose is called.
         root_segment_name: the one segment with no parent; everything hangs off it.
-        parents: each segment's parent, `None` for the root.
+        parents: each segment's parent, `None` for the root (sourced from the
+            skeleton's joints).
         connect_ats: each segment's resolved connection landmark, owned by its parent.
             The root's entry is its own origin landmark, which it sits on at the world
             origin.
@@ -137,18 +137,19 @@ class RestPose:
         """Load a rest pose and resolve it against a skeleton, refusing anything malformed."""
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(document, Mapping):
-            raise ValueError(
-                f"{path} must parse to a mapping, got {type(document).__name__}"
-            )
+            raise ValueError(f"{path} must parse to a mapping, got {type(document).__name__}")
 
         entries = document.get("segments")
         if not isinstance(entries, Mapping):
             raise ValueError(f"{path} needs a 'segments' mapping")
 
-        parents, connect_ats, relative_orientations = _read_segment_entries(
+        parents, connect_ats = _topology_from_skeleton(path=path, skeleton=skeleton)
+        relative_orientations = _read_segment_entries(
             path=path, entries=entries, skeleton=skeleton
         )
-        root_segment_name = _single_root_of(path=path, parents=parents)
+        root_segment_name = next(
+            name for name, parent in parents.items() if parent is None
+        )
 
         world_orientations, world_origins, landmark_positions = build_rest_pose(
             skeleton=skeleton,
@@ -180,17 +181,45 @@ class RestPose:
         return cls.from_yaml(path=path, skeleton=skeleton)
 
 
+def _topology_from_skeleton(
+    *, path: Path, skeleton: SkeletonDefinition
+) -> tuple[
+    dict[RigidBodySegmentName, RigidBodySegmentName | None],
+    dict[RigidBodySegmentName, LandmarkNameString],
+]:
+    """The parent map and resolved connect points, read off the skeleton's joints.
+
+    The root's connect point defaults to its own origin landmark, which it sits
+    on at the world origin.
+    """
+    if not skeleton.joints:
+        raise ValueError(
+            f"{path}: skeleton {skeleton.name!r} defines no joints, so there is no "
+            f"segment tree for a rest pose to hang orientations on - add the "
+            f"`joints:` section to its YAML"
+        )
+
+    parents: dict[RigidBodySegmentName, RigidBodySegmentName | None] = {
+        segment.name: None for segment in skeleton.segments.values()
+    }
+    connect_ats: dict[RigidBodySegmentName, LandmarkNameString] = {}
+    for joint in skeleton.joints.values():
+        parents[joint.child.name] = joint.parent.name
+        connect_ats[joint.child.name] = joint.connect_at.name
+
+    root_name = next(name for name, parent in parents.items() if parent is None)
+    root = skeleton.segments[root_name]
+    connect_ats[root_name] = root.frame_definition.origin_point_name
+    return parents, connect_ats
+
+
 def _read_segment_entries(
     *,
     path: Path,
     entries: Mapping[str, object],
     skeleton: SkeletonDefinition,
-) -> tuple[
-    dict[RigidBodySegmentName, RigidBodySegmentName | None],
-    dict[RigidBodySegmentName, LandmarkNameString],
-    dict[RigidBodySegmentName, RotationQuaternion],
-]:
-    """Validate every entry against the skeleton and return the three resolved maps."""
+) -> dict[RigidBodySegmentName, RotationQuaternion]:
+    """Validate every entry against the skeleton and parse its orientation."""
     unknown_segments = sorted(str(name) for name in entries if name not in skeleton.segments)
     if unknown_segments:
         raise ValueError(
@@ -202,14 +231,10 @@ def _read_segment_entries(
     if missing_segments:
         raise ValueError(
             f"{path}: every segment of skeleton {skeleton.name!r} needs a rest pose "
-            f"entry - missing {missing_segments}. Give a segment `{{}}` to make it the "
-            "root, or a `parent` to hang it off one."
+            f"entry - missing {missing_segments}"
         )
 
-    parents: dict[RigidBodySegmentName, RigidBodySegmentName | None] = {}
-    connect_ats: dict[RigidBodySegmentName, LandmarkNameString] = {}
     relative_orientations: dict[RigidBodySegmentName, RotationQuaternion] = {}
-
     for segment in skeleton.segments.values():
         entry = entries[segment.name] or {}
         if not isinstance(entry, Mapping):
@@ -221,39 +246,14 @@ def _read_segment_entries(
         if unknown_keys:
             raise ValueError(
                 f"{path}: rest pose entry for {segment.name!r} has unknown keys "
-                f"{unknown_keys} - expected {sorted(SEGMENT_ENTRY_KEYS)}"
+                f"{unknown_keys} - expected {sorted(SEGMENT_ENTRY_KEYS)}. Segment "
+                "topology (parent / connect_at) lives in the skeleton's `joints:` "
+                "section, not here."
             )
-
-        parent = entry.get("parent")
-        if parent is not None and parent not in skeleton.segments:
-            raise ValueError(
-                f"{path}: rest pose names parent {parent!r} for {segment.name!r}, which "
-                "is not a segment of this skeleton"
-            )
-        if parent == segment.name:
-            raise ValueError(f"{path}: segment {segment.name!r} is its own parent")
-
-        parents[segment.name] = parent
         relative_orientations[segment.name] = _orientation_of(
             path=path, segment_name=segment.name, value=entry.get("orientation")
         )
-
-    # The tree's shape is checked before its geometry: "which segment is the root" is a
-    # more basic question than "does this segment attach to its parent in the right
-    # place", and answering the basic one first keeps the error message useful.
-    _single_root_of(path=path, parents=parents)
-
-    for segment in skeleton.segments.values():
-        entry = entries[segment.name] or {}
-        connect_ats[segment.name] = _connect_at_of(
-            path=path,
-            segment_name=segment.name,
-            parent=parents[segment.name],
-            value=entry.get("connect_at"),
-            skeleton=skeleton,
-        )
-
-    return parents, connect_ats, relative_orientations
+    return relative_orientations
 
 
 def _orientation_of(
@@ -273,55 +273,3 @@ def _orientation_of(
         )
     w, x, y, z = (float(component) for component in value)
     return RotationQuaternion.from_components(w=w, x=x, y=y, z=z)
-
-
-def _connect_at_of(
-    *,
-    path: Path,
-    segment_name: RigidBodySegmentName,
-    parent: RigidBodySegmentName | None,
-    value: object,
-    skeleton: SkeletonDefinition,
-) -> LandmarkNameString:
-    """The landmark this segment's origin sits on, defaulted and validated.
-
-    Defaulting to the segment's own origin landmark is exactly right for a shared joint -
-    the elbow belongs to the upper arm and is the lower arm's origin - which is also why
-    the default is checked for parent ownership just as hard as an explicit value is.
-    """
-    connect_at = (
-        skeleton.segments[segment_name].frame_definition.origin_point_name
-        if value is None
-        else str(value)
-    )
-    if connect_at not in skeleton.landmarks:
-        raise ValueError(
-            f"{path}: rest pose connects {segment_name!r} at {connect_at!r}, which is not "
-            "a landmark of this skeleton"
-        )
-    if parent is None:
-        return connect_at
-    owning_segment = skeleton.owning_segment_name_of(
-        landmark=skeleton.landmarks[connect_at]
-    )
-    if owning_segment != parent:
-        source = "its own origin landmark" if value is None else "connect_at"
-        raise ValueError(
-            f"{path}: rest pose connects {segment_name!r} at {connect_at!r} ({source}), "
-            f"which is owned by {owning_segment!r} and must be owned by its parent "
-            f"{parent!r}"
-        )
-    return connect_at
-
-
-def _single_root_of(
-    *, path: Path, parents: Mapping[RigidBodySegmentName, RigidBodySegmentName | None]
-) -> RigidBodySegmentName:
-    """The one segment with no parent, refusing zero roots or several."""
-    roots = sorted(name for name, parent in parents.items() if parent is None)
-    if len(roots) != 1:
-        raise ValueError(
-            f"{path}: a rest pose needs exactly one root segment (one entry with no "
-            f"`parent`) - found {len(roots)}: {roots}"
-        )
-    return roots[0]

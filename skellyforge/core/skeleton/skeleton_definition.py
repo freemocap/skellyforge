@@ -26,6 +26,12 @@ from skellyforge.core.math.geometry.coordinate_systems.coordinate_system_registr
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
 from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
+from skellyforge.core.skeleton.linkage.joint_definition import (
+    DEFAULT_JOINT_TYPE,
+    DEFAULT_EULER_SEQUENCE,
+    EulerConvention,
+    JointDefinition,
+)
 from skellyforge.core.skeleton.loading import (
     build_component,
     load_component,
@@ -33,6 +39,7 @@ from skellyforge.core.skeleton.loading import (
 )
 from skellyforge.type_overloads import (
     LandmarkNameString,
+    LinkageNameString,
     RigidBodySegmentName,
     SkeletonNameString,
 )
@@ -40,12 +47,15 @@ from skellyforge.type_overloads import (
 
 @dataclass(frozen=True, slots=True, eq=False)
 class SkeletonDefinition:
-    """Every landmark and segment of one skeleton, keyed by name.
+    """Every landmark, segment and joint of one skeleton, keyed by name.
 
     Attributes:
         name: what this skeleton is called.
         landmarks: every landmark, keyed by its canonical lowercase name.
         segments: every segment, keyed by its canonical lowercase name.
+        joints: the linkage layer - every parent->child edge with its
+            convention, keyed by joint name. The authoritative topology; the
+            rest pose reads its tree from here.
         coordinate_system: the coordinate-system convention (from the registry) the
             authored positions and local frames are expressed in - "blender" for the
             shipped human.
@@ -54,6 +64,7 @@ class SkeletonDefinition:
     name: SkeletonNameString
     landmarks: Mapping[LandmarkNameString, AnatomicalLandmark]
     segments: Mapping[RigidBodySegmentName, RigidBodySegment]
+    joints: Mapping[LinkageNameString, JointDefinition] = field(default_factory=dict)
     coordinate_system: str = "blender"
     _landmark_name_resolver: LandmarkNameResolver = field(init=False, repr=False)
     _canonical_segment_name_by_known_name: Mapping[
@@ -69,6 +80,11 @@ class SkeletonDefinition:
             )
         if not self.segments:
             raise ValueError(f"skeleton {self.name!r} has no segments")
+
+        if self.joints:
+            _validate_joint_topology(
+                skeleton_name=self.name, segments=self.segments, joints=self.joints
+            )
 
         object.__setattr__(
             self,
@@ -207,6 +223,13 @@ class SkeletonDefinition:
         if not isinstance(components, Mapping) or not components:
             raise ValueError(f"{path} needs a non-empty `components` mapping")
 
+        joints_node = document.get("joints")
+        if not isinstance(joints_node, Mapping) or not joints_node:
+            raise ValueError(
+                f"{path} needs a non-empty `joints` mapping - the parent/child "
+                "topology that the linkage layer (and the rest pose) is built from"
+            )
+
         coordinate_system = document.get("coordinate_system", "blender")
         if not isinstance(coordinate_system, str) or not coordinate_system:
             raise ValueError(
@@ -249,10 +272,18 @@ class SkeletonDefinition:
                 what="segment",
             )
 
+        joints = _build_joint_definitions(
+            path=path,
+            joints_node=joints_node,
+            landmarks=landmarks,
+            segments=segments,
+        )
+
         return cls(
             name=str(document.get("name", path.stem)),
             landmarks=landmarks,
             segments=segments,
+            joints=joints,
             coordinate_system=coordinate_system,
         )
 
@@ -276,6 +307,160 @@ class SkeletonDefinition:
         """
         landmarks, segments = load_component(path=path, name=name)
         return cls(name=name, landmarks=landmarks, segments=segments)
+
+
+def _build_joint_definitions(
+    *,
+    path: Path,
+    joints_node: Mapping[str, object],
+    landmarks: Mapping[LandmarkNameString, AnatomicalLandmark],
+    segments: Mapping[RigidBodySegmentName, RigidBodySegment],
+) -> dict[LinkageNameString, JointDefinition]:
+    """Compile the `joints:` YAML into JointDefinition objects with resolved refs.
+
+    Every name in the node is resolved against the just-loaded components here -
+    the first place the whole skeleton exists at once - so a typo fails this load
+    naming its line's joint, never silently at solve time.
+    """
+    alias_index = _index_segment_names(skeleton_name=str(path), segments=segments)
+    known_landmarks = sorted(landmarks)
+
+    def resolve_segment(name: object, joint_name: str, role: str) -> RigidBodySegment:
+        if not isinstance(name, str):
+            raise ValueError(
+                f"{path}: joint {joint_name!r} needs a string {role!r} segment name"
+            )
+        canonical = alias_index.get(name)
+        if canonical is None:
+            raise ValueError(
+                f"{path}: joint {joint_name!r} names {role} segment {name!r}, which "
+                f"this skeleton does not have. Known segment names and aliases: "
+                f"{sorted(alias_index)}"
+            )
+        return segments[canonical]
+
+    definitions: dict[LinkageNameString, JointDefinition] = {}
+    for joint_key, entry in joints_node.items():
+        joint_name = str(joint_key)
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"{path}: joint {joint_name!r} must be a mapping - got "
+                f"{type(entry).__name__}"
+            )
+        unexpected_keys = sorted(set(entry) - {"parent", "child", "connect_at", "type", "convention"})
+        if unexpected_keys:
+            raise ValueError(
+                f"{path}: joint {joint_name!r} has unknown keys {unexpected_keys} - "
+                f"expected {{parent, child, connect_at, type, convention}}"
+            )
+
+        parent = resolve_segment(name=entry.get("parent"), joint_name=joint_name, role="parent")
+        child = resolve_segment(name=entry.get("child"), joint_name=joint_name, role="child")
+
+        connect_at_node = entry.get("connect_at")
+        if connect_at_node is None:
+            # The long-standing default: a shared joint means the child's origin
+            # IS the connection point, so its own origin landmark is it.
+            connect_at_name = child.frame_definition.origin_point_name
+        elif isinstance(connect_at_node, str):
+            connect_at_name = connect_at_node
+        else:
+            raise ValueError(
+                f"{path}: joint {joint_name!r} 'connect_at' must be a landmark name"
+            )
+        canonical_landmark = landmarks.get(connect_at_name.lower())
+        if canonical_landmark is None:
+            raise ValueError(
+                f"{path}: joint {joint_name!r} connects at {connect_at_name!r}, which "
+                f"is not a landmark of this skeleton. Known landmarks: {known_landmarks}"
+            )
+
+        convention_node = entry.get("convention")
+        convention = EulerConvention.from_sequence(sequence=DEFAULT_EULER_SEQUENCE)
+        if convention_node is not None:
+            if not isinstance(convention_node, Mapping):
+                raise ValueError(
+                    f"{path}: joint {joint_name!r} 'convention' must be a mapping"
+                )
+            unexpected_convention_keys = sorted(
+                set(convention_node) - {"sequence", "angle_names", "zero_offsets"}
+            )
+            if unexpected_convention_keys:
+                raise ValueError(
+                    f"{path}: joint {joint_name!r} convention has unknown keys "
+                    f"{unexpected_convention_keys}"
+                )
+            sequence = convention_node.get("sequence", DEFAULT_EULER_SEQUENCE)
+            angle_names = convention_node.get("angle_names")
+            zero_offsets = convention_node.get("zero_offsets", (0.0, 0.0, 0.0))
+            if angle_names is not None and (
+                not isinstance(angle_names, list) or len(angle_names) != 3
+            ):
+                raise ValueError(
+                    f"{path}: joint {joint_name!r} 'angle_names' must be a 3-item list"
+                )
+            convention = EulerConvention(
+                sequence=str(sequence),
+                angle_names=tuple(str(name) for name in angle_names) if angle_names else None,
+                zero_offsets=tuple(float(offset) for offset in zero_offsets),
+            )
+
+        definitions[joint_name] = JointDefinition(
+            name=joint_name,
+            parent=parent,
+            child=child,
+            connect_at=canonical_landmark,
+            joint_type=str(entry.get("type", DEFAULT_JOINT_TYPE)),
+            convention=convention,
+        )
+    return definitions
+
+
+def _validate_joint_topology(
+    *,
+    skeleton_name: SkeletonNameString,
+    segments: Mapping[RigidBodySegmentName, RigidBodySegment],
+    joints: Mapping[LinkageNameString, JointDefinition],
+) -> None:
+    """The whole-tree checks no single joint can make for itself.
+
+    Exactly one root (one segment with no parent edge), every other segment
+    claimed as a child exactly once, and no cycles - a topology that violates
+    any of these would make forward kinematics walk forever or strand segments
+    unplaced.
+    """
+    children_by_name: dict[RigidBodySegmentName, RigidBodySegment] = {}
+    parent_of: dict[RigidBodySegmentName, RigidBodySegmentName] = {}
+    for joint in joints.values():
+        previous_joint = children_by_name.get(joint.child.name)
+        if previous_joint is not None:
+            raise ValueError(
+                f"skeleton {skeleton_name!r}: segment {joint.child.name!r} is the "
+                f"child of both joint {previous_joint.name!r} and joint "
+                f"{joint.name!r} - every segment has exactly one parent joint"
+            )
+        children_by_name[joint.child.name] = joint
+        parent_of[joint.child.name] = joint.parent.name
+
+    roots = [name for name in segments if name not in parent_of]
+    if len(roots) != 1:
+        raise ValueError(
+            f"skeleton {skeleton_name!r}: its joints must produce exactly one root "
+            f"segment (no parent edge) - found {len(roots)}: {sorted(roots)}"
+        )
+
+    # Cycle check: walk each segment's parent chain; a cycle revisits itself.
+    for start in segments:
+        seen: set[RigidBodySegmentName] = set()
+        current = start
+        while current in parent_of:
+            if current in seen:
+                raise ValueError(
+                    f"skeleton {skeleton_name!r}: its joints contain a parent cycle "
+                    f"through {current!r}"
+                )
+            seen.add(current)
+            current = parent_of[current]
 
 
 def _index_segment_names(

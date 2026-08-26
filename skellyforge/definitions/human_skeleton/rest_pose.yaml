@@ -4,13 +4,12 @@
 # and what to check a change here against.
 #
 # The coordinate system is Blender's: right-handed, +x right, +y forward, +z up, with the
-# feet standing on the z = 0 ground plane. Each segment names its parent, an optional
-# connect_at (the PARENT-owned landmark its origin sits on - defaulting to the segment's
-# own origin landmark, which is exactly right for a shared joint), and an optional
-# orientation: a PARENT-RELATIVE [w, x, y, z] quaternion, defaulting to identity. Walking
-# the tree composes these into world transforms. RestPose.from_yaml requires an entry for
-# every segment of the skeleton and exactly one root, and refuses a connect_at the parent
-# does not own.
+# feet standing on the z = 0 ground plane. This file carries ONLY per-segment rest
+# geometry: each entry's optional `orientation` is a PARENT-RELATIVE [w, x, y, z]
+# quaternion, defaulting to identity. The parent/child topology lives in
+# human_skeleton.yaml's `joints:` section (the linkage layer); walking joints x
+# orientations composes the world transforms. RestPose.from_yaml requires an entry for
+# every segment of the skeleton.
 #
 # Every segment's local +z runs proximal -> distal, so an identity orientation means "this
 # segment continues straight on from its parent". Only the following need to say more, and
@@ -31,101 +30,79 @@
 #               plane rather than a heel in the air.
 #   toes        a half turn that lands the toes flat and forward from the ball.
 #               Self-mirroring, so both sides are identical.
-#
+
 name: human
 segments:
   pelvis: {}
-  lumbar_spine: {parent: pelvis, connect_at: sacrum_top}
-  chest: {parent: lumbar_spine, connect_at: thoracolumbar_junction}
-  cervical_spine: {parent: chest, connect_at: cervicothoracic_junction}
-  skull: {parent: cervical_spine, connect_at: craniocervical_junction}
+  lumbar_spine: {}
+  chest: {}
+  cervical_spine: {}
+  skull: {}
   left_clavicle:
-    parent: chest
-    connect_at: left_sternoclavicular
     orientation: [0.969918, 0, 0, 0.243434]
   left_upper_arm:
-    parent: left_clavicle
-    connect_at: left_acromion
     orientation: [-0.363242, -0.363242, 0.606676, 0.606676]
-  left_lower_arm: {parent: left_upper_arm}
-  left_carpals: {parent: left_lower_arm, connect_at: left_wrist}
-  left_thumb_metacarpal: {parent: left_carpals}
-  left_thumb_proximal_phalanx: {parent: left_thumb_metacarpal}
-  left_thumb_distal_phalanx: {parent: left_thumb_proximal_phalanx}
-  left_index_metacarpal: {parent: left_carpals}
-  left_index_proximal_phalanx: {parent: left_index_metacarpal}
-  left_index_middle_phalanx: {parent: left_index_proximal_phalanx}
-  left_index_distal_phalanx: {parent: left_index_middle_phalanx}
-  left_middle_metacarpal: {parent: left_carpals}
-  left_middle_proximal_phalanx: {parent: left_middle_metacarpal}
-  left_middle_middle_phalanx: {parent: left_middle_proximal_phalanx}
-  left_middle_distal_phalanx: {parent: left_middle_middle_phalanx}
-  left_ring_metacarpal: {parent: left_carpals}
-  left_ring_proximal_phalanx: {parent: left_ring_metacarpal}
-  left_ring_middle_phalanx: {parent: left_ring_proximal_phalanx}
-  left_ring_distal_phalanx: {parent: left_ring_middle_phalanx}
-  left_pinky_metacarpal: {parent: left_carpals}
-  left_pinky_proximal_phalanx: {parent: left_pinky_metacarpal}
-  left_pinky_middle_phalanx: {parent: left_pinky_proximal_phalanx}
-  left_pinky_distal_phalanx: {parent: left_pinky_middle_phalanx}
+  left_lower_arm: {}
+  left_carpals: {}
+  left_thumb_metacarpal: {}
+  left_thumb_proximal_phalanx: {}
+  left_thumb_distal_phalanx: {}
+  left_index_metacarpal: {}
+  left_index_proximal_phalanx: {}
+  left_index_middle_phalanx: {}
+  left_index_distal_phalanx: {}
+  left_middle_metacarpal: {}
+  left_middle_proximal_phalanx: {}
+  left_middle_middle_phalanx: {}
+  left_middle_distal_phalanx: {}
+  left_ring_metacarpal: {}
+  left_ring_proximal_phalanx: {}
+  left_ring_middle_phalanx: {}
+  left_ring_distal_phalanx: {}
+  left_pinky_metacarpal: {}
+  left_pinky_proximal_phalanx: {}
+  left_pinky_middle_phalanx: {}
+  left_pinky_distal_phalanx: {}
   left_upper_leg:
-    parent: pelvis
-    connect_at: left_hip_socket
     orientation: [0, 1, 0, 0]
-  left_lower_leg: {parent: left_upper_leg}
+  left_lower_leg: {}
   left_foot:
-    parent: left_lower_leg
-    connect_at: left_ankle
     orientation: [0.848728, 0.52883, 0, 0]
   left_toes:
-    parent: left_foot
     orientation: [0, 0, -0.226028, 0.974121]
   left_heel:
-    parent: left_lower_leg
-    connect_at: left_ankle
     orientation: [0.96276, -0.270359, 0, 0]
   right_clavicle:
-    parent: chest
-    connect_at: right_sternoclavicular
     orientation: [0.969918, 0, 0, -0.243434]
   right_upper_arm:
-    parent: right_clavicle
-    connect_at: right_acromion
     orientation: [0.363242, 0.363242, 0.606676, 0.606676]
-  right_lower_arm: {parent: right_upper_arm}
-  right_carpals: {parent: right_lower_arm, connect_at: right_wrist}
-  right_thumb_metacarpal: {parent: right_carpals}
-  right_thumb_proximal_phalanx: {parent: right_thumb_metacarpal}
-  right_thumb_distal_phalanx: {parent: right_thumb_proximal_phalanx}
-  right_index_metacarpal: {parent: right_carpals}
-  right_index_proximal_phalanx: {parent: right_index_metacarpal}
-  right_index_middle_phalanx: {parent: right_index_proximal_phalanx}
-  right_index_distal_phalanx: {parent: right_index_middle_phalanx}
-  right_middle_metacarpal: {parent: right_carpals}
-  right_middle_proximal_phalanx: {parent: right_middle_metacarpal}
-  right_middle_middle_phalanx: {parent: right_middle_proximal_phalanx}
-  right_middle_distal_phalanx: {parent: right_middle_middle_phalanx}
-  right_ring_metacarpal: {parent: right_carpals}
-  right_ring_proximal_phalanx: {parent: right_ring_metacarpal}
-  right_ring_middle_phalanx: {parent: right_ring_proximal_phalanx}
-  right_ring_distal_phalanx: {parent: right_ring_middle_phalanx}
-  right_pinky_metacarpal: {parent: right_carpals}
-  right_pinky_proximal_phalanx: {parent: right_pinky_metacarpal}
-  right_pinky_middle_phalanx: {parent: right_pinky_proximal_phalanx}
-  right_pinky_distal_phalanx: {parent: right_pinky_middle_phalanx}
+  right_lower_arm: {}
+  right_carpals: {}
+  right_thumb_metacarpal: {}
+  right_thumb_proximal_phalanx: {}
+  right_thumb_distal_phalanx: {}
+  right_index_metacarpal: {}
+  right_index_proximal_phalanx: {}
+  right_index_middle_phalanx: {}
+  right_index_distal_phalanx: {}
+  right_middle_metacarpal: {}
+  right_middle_proximal_phalanx: {}
+  right_middle_middle_phalanx: {}
+  right_middle_distal_phalanx: {}
+  right_ring_metacarpal: {}
+  right_ring_proximal_phalanx: {}
+  right_ring_middle_phalanx: {}
+  right_ring_distal_phalanx: {}
+  right_pinky_metacarpal: {}
+  right_pinky_proximal_phalanx: {}
+  right_pinky_middle_phalanx: {}
+  right_pinky_distal_phalanx: {}
   right_upper_leg:
-    parent: pelvis
-    connect_at: right_hip_socket
     orientation: [0, 1, 0, 0]
-  right_lower_leg: {parent: right_upper_leg}
+  right_lower_leg: {}
   right_foot:
-    parent: right_lower_leg
-    connect_at: right_ankle
     orientation: [0.848728, 0.52883, 0, 0]
   right_toes:
-    parent: right_foot
     orientation: [0, 0, -0.226028, 0.974121]
   right_heel:
-    parent: right_lower_leg
-    connect_at: right_ankle
     orientation: [0.96276, -0.270359, 0, 0]

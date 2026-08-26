@@ -176,15 +176,10 @@ def test_the_rest_pose_exposes_the_tree_it_was_built_from() -> None:
 
 
 # ── what the rest pose refuses ────────────────────────────────────────
-
-
-def test_a_connect_at_must_belong_to_the_parent_segment(tmp_path: Path) -> None:
-    def name_a_skull_landmark(document: dict) -> None:
-        document["segments"]["lumbar_spine"]["connect_at"] = "head_vertex"
-
-    path = _written_variant(directory=tmp_path, mutate=name_a_skull_landmark)
-    with pytest.raises(ValueError, match="must be owned by its parent"):
-        RestPose.from_yaml(path=path, skeleton=_skeleton())
+#
+# Topology refusals (parent / connect_at / root count) live in
+# test_joint_definitions.py - the joints section owns those now. This file
+# refuses only what a rest pose itself is responsible for.
 
 
 def test_an_entry_naming_an_unknown_segment_is_rejected(tmp_path: Path) -> None:
@@ -207,38 +202,26 @@ def test_a_segment_with_no_entry_is_rejected(tmp_path: Path) -> None:
         RestPose.from_yaml(path=path, skeleton=_skeleton())
 
 
-def test_more_than_one_root_is_rejected(tmp_path: Path) -> None:
-    def orphan_the_skull(document: dict) -> None:
-        document["segments"]["skull"].pop("parent")
-
-    path = _written_variant(directory=tmp_path, mutate=orphan_the_skull)
-    with pytest.raises(ValueError, match="exactly one root segment"):
-        RestPose.from_yaml(path=path, skeleton=_skeleton())
-
-
-def test_no_root_at_all_is_rejected(tmp_path: Path) -> None:
-    def hang_the_pelvis_off_the_chest(document: dict) -> None:
-        document["segments"]["pelvis"]["parent"] = "chest"
-        document["segments"]["chest"]["parent"] = "lumbar_spine"
-
-    path = _written_variant(directory=tmp_path, mutate=hang_the_pelvis_off_the_chest)
-    with pytest.raises(ValueError, match="exactly one root segment"):
-        RestPose.from_yaml(path=path, skeleton=_skeleton())
-
-
-def test_a_segment_cannot_be_its_own_parent(tmp_path: Path) -> None:
-    def make_the_chest_its_own_parent(document: dict) -> None:
-        document["segments"]["chest"]["parent"] = "chest"
-
-    path = _written_variant(directory=tmp_path, mutate=make_the_chest_its_own_parent)
-    with pytest.raises(ValueError, match="its own parent"):
-        RestPose.from_yaml(path=path, skeleton=_skeleton())
-
-
 def test_an_unknown_entry_key_is_rejected(tmp_path: Path) -> None:
     def add_a_typo_key(document: dict) -> None:
         document["segments"]["chest"]["orientaton"] = [1, 0, 0, 0]
 
     path = _written_variant(directory=tmp_path, mutate=add_a_typo_key)
     with pytest.raises(ValueError, match="unknown keys"):
+        RestPose.from_yaml(path=path, skeleton=_skeleton())
+
+
+def test_topology_keys_in_the_rest_pose_are_rejected(tmp_path: Path) -> None:
+    """The joints section owns parent / connect_at now; a rest pose entry carrying
+    them is stale authoring and must fail loudly rather than be silently obeyed."""
+
+    def leave_stale_parent_fields(document: dict) -> None:
+        document["segments"]["chest"] = {
+            "parent": "lumbar_spine",
+            "connect_at": "thoracolumbar_junction",
+            "orientation": [1.0, 0.0, 0.0, 0.0],
+        }
+
+    path = _written_variant(directory=tmp_path, mutate=leave_stale_parent_fields)
+    with pytest.raises(ValueError, match="joints:"):
         RestPose.from_yaml(path=path, skeleton=_skeleton())

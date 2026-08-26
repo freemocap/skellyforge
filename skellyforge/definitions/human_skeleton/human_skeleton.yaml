@@ -10,3 +10,78 @@ components:
   leg: { $include: components/leg.yaml }
   foot: { $include: components/foot.yaml }
 #  face: { $include: components/face.yaml } #TODO - implement this
+
+# ── Joints (the ontology's linkage layer) ──────────────────────────────
+#
+# The authoritative parent/child topology of the skeleton. Each entry is one
+# joint: `parent` and `child` name segments, and `connect_at` names the
+# PARENT-owned landmark the child's origin sits on - defaulting to the child's
+# own origin landmark, which is exactly right for a shared joint. Joint keys
+# form their own namespace and may be renamed freely without touching topology
+# (they currently match their child segment's name for readability).
+#
+# Every joint defaults to a 3-dof ball with a zyx euler convention; a joint
+# can override any of that with an explicit `convention:` block (sequence +
+# angle_names) when a named clinical decomposition matters. Refining a
+# convention is a data edit here, never a code change.
+joints:
+  lumbar_spine: {parent: pelvis, child: lumbar_spine, connect_at: sacrum_top}
+  chest: {parent: lumbar_spine, child: chest, connect_at: thoracolumbar_junction}
+  cervical_spine: {parent: chest, child: cervical_spine, connect_at: cervicothoracic_junction}
+  skull: {parent: cervical_spine, child: skull, connect_at: craniocervical_junction}
+  left_clavicle: {parent: chest, child: left_clavicle, connect_at: left_sternoclavicular}
+  left_upper_arm: {parent: left_clavicle, child: left_upper_arm, connect_at: left_acromion}
+  left_lower_arm: {parent: left_upper_arm, child: left_lower_arm}
+  left_carpals: {parent: left_lower_arm, child: left_carpals, connect_at: left_wrist}
+  left_thumb_metacarpal: {parent: left_carpals, child: left_thumb_metacarpal}
+  left_thumb_proximal_phalanx: {parent: left_thumb_metacarpal, child: left_thumb_proximal_phalanx}
+  left_thumb_distal_phalanx: {parent: left_thumb_proximal_phalanx, child: left_thumb_distal_phalanx}
+  left_index_metacarpal: {parent: left_carpals, child: left_index_metacarpal}
+  left_index_proximal_phalanx: {parent: left_index_metacarpal, child: left_index_proximal_phalanx}
+  left_index_middle_phalanx: {parent: left_index_proximal_phalanx, child: left_index_middle_phalanx}
+  left_index_distal_phalanx: {parent: left_index_middle_phalanx, child: left_index_distal_phalanx}
+  left_middle_metacarpal: {parent: left_carpals, child: left_middle_metacarpal}
+  left_middle_proximal_phalanx: {parent: left_middle_metacarpal, child: left_middle_proximal_phalanx}
+  left_middle_middle_phalanx: {parent: left_middle_proximal_phalanx, child: left_middle_middle_phalanx}
+  left_middle_distal_phalanx: {parent: left_middle_middle_phalanx, child: left_middle_distal_phalanx}
+  left_ring_metacarpal: {parent: left_carpals, child: left_ring_metacarpal}
+  left_ring_proximal_phalanx: {parent: left_ring_metacarpal, child: left_ring_proximal_phalanx}
+  left_ring_middle_phalanx: {parent: left_ring_proximal_phalanx, child: left_ring_middle_phalanx}
+  left_ring_distal_phalanx: {parent: left_ring_middle_phalanx, child: left_ring_distal_phalanx}
+  left_pinky_metacarpal: {parent: left_carpals, child: left_pinky_metacarpal}
+  left_pinky_proximal_phalanx: {parent: left_pinky_metacarpal, child: left_pinky_proximal_phalanx}
+  left_pinky_middle_phalanx: {parent: left_pinky_proximal_phalanx, child: left_pinky_middle_phalanx}
+  left_pinky_distal_phalanx: {parent: left_pinky_middle_phalanx, child: left_pinky_distal_phalanx}
+  left_upper_leg: {parent: pelvis, child: left_upper_leg, connect_at: left_hip_socket}
+  left_lower_leg: {parent: left_upper_leg, child: left_lower_leg}
+  left_foot: {parent: left_lower_leg, child: left_foot, connect_at: left_ankle}
+  left_toes: {parent: left_foot, child: left_toes}
+  left_heel: {parent: left_lower_leg, child: left_heel, connect_at: left_ankle}
+  right_clavicle: {parent: chest, child: right_clavicle, connect_at: right_sternoclavicular}
+  right_upper_arm: {parent: right_clavicle, child: right_upper_arm, connect_at: right_acromion}
+  right_lower_arm: {parent: right_upper_arm, child: right_lower_arm}
+  right_carpals: {parent: right_lower_arm, child: right_carpals, connect_at: right_wrist}
+  right_thumb_metacarpal: {parent: right_carpals, child: right_thumb_metacarpal}
+  right_thumb_proximal_phalanx: {parent: right_thumb_metacarpal, child: right_thumb_proximal_phalanx}
+  right_thumb_distal_phalanx: {parent: right_thumb_proximal_phalanx, child: right_thumb_distal_phalanx}
+  right_index_metacarpal: {parent: right_carpals, child: right_index_metacarpal}
+  right_index_proximal_phalanx: {parent: right_index_metacarpal, child: right_index_proximal_phalanx}
+  right_index_middle_phalanx: {parent: right_index_proximal_phalanx, child: right_index_middle_phalanx}
+  right_index_distal_phalanx: {parent: right_index_middle_phalanx, child: right_index_distal_phalanx}
+  right_middle_metacarpal: {parent: right_carpals, child: right_middle_metacarpal}
+  right_middle_proximal_phalanx: {parent: right_middle_metacarpal, child: right_middle_proximal_phalanx}
+  right_middle_middle_phalanx: {parent: right_middle_proximal_phalanx, child: right_middle_middle_phalanx}
+  right_middle_distal_phalanx: {parent: right_middle_middle_phalanx, child: right_middle_distal_phalanx}
+  right_ring_metacarpal: {parent: right_carpals, child: right_ring_metacarpal}
+  right_ring_proximal_phalanx: {parent: right_ring_metacarpal, child: right_ring_proximal_phalanx}
+  right_ring_middle_phalanx: {parent: right_ring_proximal_phalanx, child: right_ring_middle_phalanx}
+  right_ring_distal_phalanx: {parent: right_ring_middle_phalanx, child: right_ring_distal_phalanx}
+  right_pinky_metacarpal: {parent: right_carpals, child: right_pinky_metacarpal}
+  right_pinky_proximal_phalanx: {parent: right_pinky_metacarpal, child: right_pinky_proximal_phalanx}
+  right_pinky_middle_phalanx: {parent: right_pinky_proximal_phalanx, child: right_pinky_middle_phalanx}
+  right_pinky_distal_phalanx: {parent: right_pinky_middle_phalanx, child: right_pinky_distal_phalanx}
+  right_upper_leg: {parent: pelvis, child: right_upper_leg, connect_at: right_hip_socket}
+  right_lower_leg: {parent: right_upper_leg, child: right_lower_leg}
+  right_foot: {parent: right_lower_leg, child: right_foot, connect_at: right_ankle}
+  right_toes: {parent: right_foot, child: right_toes}
+  right_heel: {parent: right_lower_leg, child: right_heel, connect_at: right_ankle}
