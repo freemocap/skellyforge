@@ -341,13 +341,6 @@ class SkeletonDefinition:
         if not isinstance(components, Mapping) or not components:
             raise ValueError(f"{path} needs a non-empty `components` mapping")
 
-        joints_node = document.get("joints")
-        if not isinstance(joints_node, Mapping) or not joints_node:
-            raise ValueError(
-                f"{path} needs a non-empty `joints` mapping - the parent/child "
-                "topology that the linkage layer (and the rest pose) is built from"
-            )
-
         derived_node = document.get("derived_quantities", [])
         if not isinstance(derived_node, Sequence) or isinstance(derived_node, (str, bytes)):
             raise ValueError(
@@ -373,6 +366,8 @@ class SkeletonDefinition:
         segments: dict[RigidBodySegmentName, RigidBodySegment] = {}
         landmark_groups: dict[str, LandmarkGroup] = {}
         landmark_connections: dict[str, LandmarkConnectionGroup] = {}
+        component_joints: dict[str, object] = {}
+        component_chains: dict[str, object] = {}
         for component_name, component_node in components.items():
             resolved = resolve_includes(
                 node=component_node,
@@ -409,7 +404,37 @@ class SkeletonDefinition:
                 component_name=str(component_name),
                 what="landmark connection group",
             )
+            _merge_into(
+                merged=component_joints,
+                additions=component.joints,
+                component_name=str(component_name),
+                what="joint",
+            )
+            _merge_into(
+                merged=component_chains,
+                additions=component.chains,
+                component_name=str(component_name),
+                what="chain",
+            )
 
+        # Joints may live with the component that owns their child segment (the
+        # compositional home) or at this top level; either way they merge into ONE
+        # namespace where every name is unique. The single sided-expansion pass below
+        # runs over the merged result against ALL loaded segments.
+        joints_node_raw: dict[str, object] = dict(document.get("joints") or {})
+        overlap = sorted(set(joints_node_raw) & set(component_joints))
+        if overlap:
+            raise ValueError(
+                f"{path}: joints {overlap} are declared both at the top level and in a "
+                "component - each joint has exactly one home"
+            )
+        joints_node_raw.update(component_joints)
+        if not joints_node_raw:
+            raise ValueError(
+                f"{path} needs a non-empty `joints` mapping (at the top level or in its "
+                "components) - the parent/child topology that the linkage layer (and "
+                "the rest pose) is built from"
+            )
         # Expand sided joints: a joint marked `sided: true` whose parent/child/
         # connect_at reference sided segment or landmark names expands into a
         # left_ and a right_ copy. Unsided joints pass through untouched.
@@ -434,18 +459,18 @@ class SkeletonDefinition:
             expand_sided_entries,
         )
 
-        joints_node = expand_sided_entries(
+        expanded_joints = expand_sided_entries(
             component={
                 "landmarks": {name: {"sided": True} for name in sided_base_names},
                 "segments": {name: {"sided": True} for name in sided_base_names},
-                "joints": joints_node,
+                "joints": joints_node_raw,
                 "sided": False,
             }
         )["joints"]
 
         joints = _build_joint_definitions(
             path=path,
-            joints_node=joints_node,
+            joints_node=expanded_joints,
             landmarks=landmarks,
             segments=segments,
         )
@@ -456,8 +481,15 @@ class SkeletonDefinition:
             skeleton_name=str(path), segments=segments, joints=joints
         )
 
-        chains_node = document.get("chains") or {}
-        if not isinstance(chains_node, Mapping):
+        chains_node_raw: dict[str, object] = dict(document.get("chains") or {})
+        chain_overlap = sorted(set(chains_node_raw) & set(component_chains))
+        if chain_overlap:
+            raise ValueError(
+                f"{path}: chains {chain_overlap} are declared both at the top level and "
+                "in a component - each chain has exactly one home"
+            )
+        chains_node_raw.update(component_chains)
+        if not isinstance(chains_node_raw, Mapping):
             raise ValueError(f"{path}: 'chains' must be a mapping of name -> segment list")
         chains = {
             str(chain_name): KinematicChain.from_yaml_entry(
@@ -465,7 +497,7 @@ class SkeletonDefinition:
                 segment_names=segment_names,
                 joints=joints,
             )
-            for chain_name, segment_names in chains_node.items()
+            for chain_name, segment_names in chains_node_raw.items()
         }
 
         return cls(

@@ -373,3 +373,91 @@ landmarks:
     - 0.0
     - 0.0
     - 0.009719
+
+# ── Joints ─────────────────────────────────────────────────────────────────
+# The hand's linkage: the wrist connects to the arm's carpals; each ray hangs
+# off its neighbor. `sided: true` above means every entry here expands into
+# left_/right_ copies at the skeleton level.
+joints:
+  carpals:
+    sided: true
+    parent: lower_arm
+    child: carpals
+    connect_at: wrist
+
+  thumb_metacarpal:
+    sided: true
+    parent: carpals
+    child: thumb_metacarpal
+  thumb_proximal_phalanx:
+    sided: true
+    parent: thumb_metacarpal
+    child: thumb_proximal_phalanx
+  thumb_distal_phalanx:
+    sided: true
+    parent: thumb_proximal_phalanx
+    child: thumb_distal_phalanx
+  index_metacarpal:
+    sided: true
+    parent: carpals
+    child: index_metacarpal
+  index_proximal_phalanx:
+    sided: true
+    parent: index_metacarpal
+    child: index_proximal_phalanx
+  index_middle_phalanx:
+    sided: true
+    parent: index_proximal_phalanx
+    child: index_middle_phalanx
+  index_distal_phalanx:
+    sided: true
+    parent: index_middle_phalanx
+    child: index_distal_phalanx
+  middle_metacarpal:
+    sided: true
+    parent: carpals
+    child: middle_metacarpal
+  middle_proximal_phalanx:
+    sided: true
+    parent: middle_metacarpal
+    child: middle_proximal_phalanx
+  middle_middle_phalanx:
+    sided: true
+    parent: middle_proximal_phalanx
+    child: middle_middle_phalanx
+  middle_distal_phalanx:
+    sided: true
+    parent: middle_middle_phalanx
+    child: middle_distal_phalanx
+  ring_metacarpal:
+    sided: true
+    parent: carpals
+    child: ring_metacarpal
+  ring_proximal_phalanx:
+    sided: true
+    parent: ring_metacarpal
+    child: ring_proximal_phalanx
+  ring_middle_phalanx:
+    sided: true
+    parent: ring_proximal_phalanx
+    child: ring_middle_phalanx
+  ring_distal_phalanx:
+    sided: true
+    parent: ring_middle_phalanx
+    child: ring_distal_phalanx
+  pinky_metacarpal:
+    sided: true
+    parent: carpals
+    child: pinky_metacarpal
+  pinky_proximal_phalanx:
+    sided: true
+    parent: pinky_metacarpal
+    child: pinky_proximal_phalanx
+  pinky_middle_phalanx:
+    sided: true
+    parent: pinky_proximal_phalanx
+    child: pinky_middle_phalanx
+  pinky_distal_phalanx:
+    sided: true
+    parent: pinky_middle_phalanx
+    child: pinky_distal_phalanx

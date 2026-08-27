@@ -130,21 +130,10 @@ landmark_groups:
       - LEFT_EAR
       - RIGHT_EAR
 
-landmark_connections:
-  SKULL_OUTLINE:
-    tags: [face]
-    pairs:
-      - [LEFT_EAR, HEAD_VERTEX]
-      - [RIGHT_EAR, HEAD_VERTEX]
-      - [LEFT_EAR, CHIN]
-      - [RIGHT_EAR, CHIN]
-      - [HEAD_VERTEX, NOSE]
-      - [NOSE, CHIN]
-  EYE_LINE:
-    tags: [eye, face]
-    pairs:
-      - [LEFT_EYE_OUTER, LEFT_EYE]
-      - [LEFT_EYE, LEFT_EYE_INNER]
-      - [LEFT_EYE_INNER, RIGHT_EYE_INNER]
-      - [RIGHT_EYE_INNER, RIGHT_EYE]
-      - [RIGHT_EYE, RIGHT_EYE_OUTER]
+# No `landmark_connections`: the skull's markers are sparse anatomical points on a
+# smooth surface, and drawing edges between them reads as a scribbled polygon over
+# the face. The FACE_SURFACE group is the model's declaration of what these points
+# ARE; whether to draw them and how is the renderer's business.
+
+joints:
+  skull: {parent: cervical_spine, child: skull, connect_at: craniocervical_junction}

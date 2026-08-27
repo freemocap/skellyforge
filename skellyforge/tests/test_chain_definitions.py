@@ -82,9 +82,17 @@ def test_chains_section_may_be_absent(tmp_path: Path) -> None:
     """A skeleton without declared chains loads fine - they are optional authoring."""
     target = tmp_path / "human_skeleton"
     shutil.copytree(SHIPPED_DEFINITIONS_DIR, target)
+    # The shipped human declares its chains compositionally, in the components that
+    # walk them; strip those AND the top-level section (if present) to author a
+    # genuinely chain-less skeleton.
+    for component_path in sorted((target / "components").glob("*.yaml")):
+        component = yaml.safe_load(component_path.read_text(encoding="utf-8")) or {}
+        if "chains" in component:
+            del component["chains"]
+            component_path.write_text(yaml.safe_dump(component), encoding="utf-8")
     skeleton_path = target / "human_skeleton.yaml"
     document = yaml.safe_load(skeleton_path.read_text(encoding="utf-8"))
-    document.pop("chains")
+    document.pop("chains", None)
     skeleton_path.write_text(yaml.safe_dump(document), encoding="utf-8")
 
     skeleton = SkeletonDefinition.from_yaml(path=skeleton_path)

@@ -36,6 +36,27 @@ def _variant_definitions_dir(directory: Path, mutate) -> Path:
     shutil.copytree(SHIPPED_DEFINITIONS_DIR, target)
     skeleton_path = target / "human_skeleton.yaml"
     document = yaml.safe_load(skeleton_path.read_text(encoding="utf-8"))
+    # The shipped human declares its linkage COMPOSITIONALLY - each component owns
+    # the joints and chains of its parts. Variants here exercise the joint
+    # validators through one editable document, so lift those declarations up
+    # into the top level first; this changes no topology, only where the text lives.
+    for component_path in sorted((target / "components").glob("*.yaml")):
+        component = yaml.safe_load(component_path.read_text(encoding="utf-8")) or {}
+        moved_any = False
+        for section in ("joints", "chains"):
+            moved = component.pop(section, None)
+            if not moved:
+                continue
+            existing = document.setdefault(section, {})
+            collision = sorted(set(existing) & set(moved))
+            if collision:
+                raise AssertionError(
+                    f"shipped definition declares {collision} twice - names must be unique"
+                )
+            existing.update(moved)
+            moved_any = True
+        if moved_any:
+            component_path.write_text(yaml.safe_dump(component), encoding="utf-8")
     mutate(document)
     skeleton_path.write_text(yaml.safe_dump(document), encoding="utf-8")
     return target

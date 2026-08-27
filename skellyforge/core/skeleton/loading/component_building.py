@@ -39,7 +39,15 @@ SEGMENT_KEYS: Final[frozenset[str]] = frozenset(
 )
 NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
 COMPONENT_SECTION_KEYS: Final[frozenset[str]] = frozenset(
-    {"landmarks", "segments", "joints", "sided", "landmark_groups", "landmark_connections"}
+    {
+        "landmarks",
+        "segments",
+        "joints",
+        "chains",
+        "sided",
+        "landmark_groups",
+        "landmark_connections",
+    }
 )
 
 
@@ -55,12 +63,19 @@ class LoadedComponent:
         segments: this file's segments, each owning its own landmarks.
         landmark_groups: named sets of landmarks, keyed by group name.
         landmark_connections: named sets of landmark edges, keyed by group name.
+        joints: this component's raw `joints:` entries (name -> entry), VERBATIM and
+            un-expanded. The skeleton level performs the ONE sided-expansion pass over
+            every component's contributions plus its own, against the full segment set -
+            a joint may reference a parent segment another component owns.
+        chains: this component's raw `chains:` entries (name -> segment list), verbatim.
     """
 
     landmarks: dict[LandmarkNameString, AnatomicalLandmark]
     segments: dict[RigidBodySegmentName, RigidBodySegment]
     landmark_groups: dict[str, LandmarkGroup] = field(default_factory=dict)
     landmark_connections: dict[str, LandmarkConnectionGroup] = field(default_factory=dict)
+    joints: dict[str, object] = field(default_factory=dict)
+    chains: dict[str, object] = field(default_factory=dict)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -116,9 +131,11 @@ def build_component(*, component: Mapping[str, object], name: str) -> LoadedComp
         )
         for segment_name, entry in expanded["segments"].items()
     }
-    # Groupings are read from the lowercased document rather than the sided expansion:
-    # they name their landmarks explicitly (including `left_`/`right_` ones), so there is
-    # no base name for the expansion to mirror and nothing for it to do.
+    # Groupings and linkage are read from the lowercased document rather than the
+    # sided expansion: groupings name their landmarks explicitly (including
+    # `left_`/`right_` ones), so there is no base name for the expansion to mirror;
+    # joints and chains are handed over VERBATIM so the skeleton level performs the
+    # single expansion pass against every component's segments at once.
     return LoadedComponent(
         landmarks=landmarks,
         segments=segments,
@@ -134,6 +151,8 @@ def build_component(*, component: Mapping[str, object], name: str) -> LoadedComp
                 component=lowercased, section="landmark_connections", component_name=name
             ).items()
         },
+        joints=dict(lowercased.get("joints", {})),
+        chains=dict(lowercased.get("chains", {})),
     )
 
 

@@ -49,3 +49,35 @@ landmarks:
     - 0.0
     - 0.0
     - 0.24904
+
+# ── Joints and chains ──────────────────────────────────────────────────────
+# The leg's linkage: both leg rays hang off the pelvis (the pelvis component's
+# business), and the heel mirrors the foot ray at the ankle. `sided: true`
+# expands at the skeleton level.
+joints:
+  upper_leg:
+    sided: true
+    parent: pelvis
+    child: upper_leg
+    connect_at: hip_socket
+  lower_leg:
+    sided: true
+    parent: upper_leg
+    child: lower_leg
+  heel:
+    sided: true
+    parent: lower_leg
+    child: heel
+    connect_at: ankle
+
+chains:
+  left_leg:
+    - left_upper_leg
+    - left_lower_leg
+    - left_foot
+    - left_toes
+  right_leg:
+    - right_upper_leg
+    - right_lower_leg
+    - right_foot
+    - right_toes

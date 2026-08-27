@@ -51,3 +51,16 @@ landmarks:
     - 0.0
     - 0.0
     - 0.027334
+
+# ── Joints ─────────────────────────────────────────────────────────────────
+# The foot's linkage: the foot and toe ray hang off the lower leg at the ankle.
+joints:
+  foot:
+    sided: true
+    parent: lower_leg
+    child: foot
+    connect_at: ankle
+  toes:
+    sided: true
+    parent: foot
+    child: toes

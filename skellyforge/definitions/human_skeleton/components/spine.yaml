@@ -119,3 +119,23 @@ landmarks:
     - 0.0
     - 0.078964
     - 0.033408
+
+# ── Joints and chains ──────────────────────────────────────────────────────
+# This component's linkage: every parent->child edge whose CHILD segment lives
+# here. Authored verbatim in the linkage layer's shape (`connect_at` names the
+# PARENT-owned landmark the child's origin sits on); `sided` expansion runs ONCE
+# at the skeleton level against all loaded segments, so a parent may live in
+# another component. The spinal chain is the component's natural declaration even
+# though it ends at the skull: it IS the spine.
+joints:
+  sacrolumbar: {parent: pelvis, child: sacrolumbar, connect_at: pelvis_origin}
+  thoracic: {parent: sacrolumbar, child: thoracic, connect_at: chest_center}
+  cervical_spine: {parent: thoracic, child: cervical_spine, connect_at: neck_center}
+
+chains:
+  spine:
+    - pelvis
+    - sacrolumbar
+    - thoracic
+    - cervical_spine
+    - skull

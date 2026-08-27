@@ -46,3 +46,35 @@ landmarks:
     - 0.0
     - 0.0
     - 0.157928
+
+# ── Joints and chains ──────────────────────────────────────────────────────
+# The arm's linkage: clavicle hangs off the thorax, the arm hangs off the
+# clavicle. `sided: true` expands at the skeleton level - the thoracic parent is
+# the spine component's business, not repeated here.
+joints:
+  clavicle:
+    sided: true
+    parent: thoracic
+    child: clavicle
+    connect_at: sternoclavicular
+  upper_arm:
+    sided: true
+    parent: clavicle
+    child: upper_arm
+    connect_at: acromion
+  lower_arm:
+    sided: true
+    parent: upper_arm
+    child: lower_arm
+
+chains:
+  left_arm:
+    - left_clavicle
+    - left_upper_arm
+    - left_lower_arm
+    - left_carpals
+  right_arm:
+    - right_clavicle
+    - right_upper_arm
+    - right_lower_arm
+    - right_carpals
