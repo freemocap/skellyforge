@@ -3,12 +3,23 @@ tracker_name: RTMPose
 
 #=================================
 # Aspect Order
-#=================================     
-order: 
+#=================================
+# Must match the flat point order the RTMPose wholebody detector actually
+# emits (skellytracker's rtmpose_wholebody_detector.py _MODEL_TO_SCHEMA_PERM
+# comment: body(0..22) + right_hand(23..43) + left_hand(44..64) + face(65..132)).
+# This order previously listed face before left/right hand, which does not
+# match that layout: Human.add_tracked_points_numpy() slices the flat
+# (frames, 133, 3) array by this order, so the mismatch put 21 real
+# right-hand points + 21 real left-hand points into the first 42 "face"
+# landmark slots, and only the last 26 slots held real (correctly
+# positioned) face data. Fixing the order here makes the slicing match the
+# detector's real layout, so face lands in one coherent cluster instead of
+# being split into a floating, disconnected group.
+order:
   - body
-  - face
-  - left_hand
   - right_hand
+  - left_hand
+  - face
 
 aspects:
   #=================================
