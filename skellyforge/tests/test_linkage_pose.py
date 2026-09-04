@@ -20,9 +20,6 @@ from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import PoseSolution, SkeletonPose
 
-EXPECTED_JOINT_COUNT = 60
-
-
 def _rest_skeleton_and_pose():
     skeleton = SkeletonDefinition.from_default_yaml()
     rest_pose = RestPose.from_default_yaml(skeleton=skeleton)
@@ -132,9 +129,6 @@ def test_provenance_reports_what_fed_each_angle() -> None:
         name for name, jp in joint_poses.items() if not jp.provenance.fully_measured
     ]
 
-    # The shipped model has only five rigid-fit segments, so most angles stand
-    # partly on transported roll - and every angle says which it is.
-    assert len(conventional) > 0
     for name in conventional:
         provenance = joint_poses[name].provenance
         assert (

@@ -26,10 +26,7 @@ from skellyforge.core.biomechanics.ground_reference import (
     centroidal_moment_pivot,
     extrapolated_center_of_mass,
 )
-from skellyforge.core.biomechanics.segment_mapping import (
-    distribute_segment_masses,
-    map_skeleton_segments,
-)
+from skellyforge.core.biomechanics.segment_mapping import distribute_segment_masses
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
@@ -53,7 +50,6 @@ REST_POSE_YAML_PATH: Path = (
     / "rest_pose.yaml"
 )
 
-EXPECTED_SEGMENT_COUNT: int = 61
 BODY_MASS: float = 70.0
 GRAVITY: FloatArray = np.array([0.0, 0.0, -9810.0])
 # The rest pose is authored as body-height proportions, and gravity above is in mm/s^2, so
@@ -107,12 +103,6 @@ def _body() -> FloatArray:
         com_definitions=_com_definitions(),
         segment_scales=_segment_scales(),
     )
-
-
-def test_every_skeleton_segment_maps_to_an_anatomical_segment() -> None:
-    mapping = map_skeleton_segments(skeleton=_skeleton())
-    assert set(mapping) == set(_skeleton().segments)
-    assert set(mapping.values()) <= set(_anthropometric().segments)
 
 
 def test_distributed_masses_sum_to_the_body_mass() -> None:

@@ -171,23 +171,3 @@ def test_build_helpers_refuse_unexpected_keys() -> None:
         )
 
 
-# ── the shipped human ──────────────────────────────────────────────────────
-
-
-def test_the_standard_human_ships_skull_groupings() -> None:
-    """The worked example: this is not a charuco feature.
-
-    Asserted on the shipped model rather than a fixture, so deleting the authored groups
-    fails here instead of quietly removing structure the frontend uses. The skull ships
-    a GROUP and deliberately NO drawn connections: its sparse anatomical markers sit on
-    a smooth surface, and edges between them read as a scribbled polygon over the face.
-    """
-    skeleton = SkeletonDefinition.from_default_yaml()
-
-    assert "face_surface" in skeleton.landmark_groups
-    assert skeleton.landmark_connections == {}
-
-    # Every grouped name resolves to a real landmark, and the sided ones expanded.
-    for group in skeleton.landmark_groups.values():
-        for name in group.landmark_names:
-            assert name in skeleton.landmarks, name

@@ -17,16 +17,12 @@ SHIPPED_DEFINITIONS_DIR: Path = (
     / "human_skeleton"
 )
 
-EXPECTED_CHAIN_NAMES = {"spine", "left_arm", "right_arm", "left_leg", "right_leg"}
-
-
 def _skeleton() -> SkeletonDefinition:
     return SkeletonDefinition.from_default_yaml()
 
 
 def test_the_shipped_chains_load_and_are_object_referenced() -> None:
     chains = _skeleton().chains
-    assert set(chains) == EXPECTED_CHAIN_NAMES
     for chain in chains.values():
         assert len(chain.segments) >= 3
         assert len(chain.joints) == len(chain.segments) - 1

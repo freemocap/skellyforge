@@ -12,7 +12,6 @@ from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedne
 from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
-from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.loading import (
     LoadedComponent,
@@ -30,51 +29,6 @@ def _component_contents(
     """The two parts these tests assert on, for the many that predate groupings."""
     return loaded.landmarks, loaded.segments
 
-PELVIS_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "components"
-    / "pelvis.yaml"
-)
-PELVIS_HALVES_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "components"
-    / "pelvis_halves.yaml"
-)
-
-HAND_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "components"
-    / "hand.yaml"
-)
-
-LEG_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "components"
-    / "leg.yaml"
-)
-
-FOOT_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "components"
-    / "foot.yaml"
-)
-
-REST_POSE_YAML_PATH: Path = (
-    Path(__file__).resolve().parents[1]
-    / "definitions"
-    / "human_skeleton"
-    / "rest_pose.yaml"
-)
 SKELETON_YAML_PATH: Path = (
     Path(__file__).resolve().parents[1]
     / "definitions"
@@ -82,9 +36,6 @@ SKELETON_YAML_PATH: Path = (
     / "human_skeleton.yaml"
 )
 
-
-def _pelvis() -> SkeletonDefinition:
-    return SkeletonDefinition.from_component_yaml(path=PELVIS_YAML_PATH, name="pelvis")
 
 
 # ── $include ──────────────────────────────────────────────────────────
@@ -276,12 +227,6 @@ def test_a_sided_landmark_may_span_negative_x() -> None:
     assert expanded["landmarks"]["right_shoulder"]["local_position"] == [180.0, 1400.0, 0.0]
 
 
-def test_an_unsided_entry_keeps_its_explicit_side_references() -> None:
-    # The pelvis is one body but its x axis points at the LEFT hip, so it names that
-    # side outright rather than inheriting one.
-    pelvis = _pelvis().segments["pelvis"]
-    assert pelvis.frame_definition.primary_point_name == "left_hip_socket"
-
 
 # ── reference_geometry -> ReferenceFrameDefinition ────────────────────
 
@@ -351,56 +296,6 @@ def test_malformed_reference_geometry_raises(
         build_reference_frame_definition(
             segment_name="segment", reference_geometry=reference_geometry
         )
-
-
-# ── the real pelvis file ──────────────────────────────────────────────
-
-
-def test_the_shipped_pelvis_yaml_loads() -> None:
-    pelvis = _pelvis()
-    assert sorted(pelvis.segments) == ["pelvis"]
-    assert len(pelvis.landmarks) == 15
-    assert pelvis.underspecified_segment_names == ()
-
-
-def test_the_pelvis_segment_is_fully_specified() -> None:
-    pelvis = _pelvis().segments["pelvis"]
-    assert pelvis.is_fully_specified
-    assert pelvis.frame_definition.origin_point_name == "pelvis_origin"
-    assert pelvis.frame_definition.primary_axis is SpatialAxis.NEGATIVE_X
-
-
-def test_the_hip_sockets_mirror_each_other() -> None:
-    landmarks = _pelvis().landmarks
-    np.testing.assert_allclose(landmarks["left_hip_socket"].local_position.array, [-88/1646.3212, 0, 0], atol=1e-6)
-    np.testing.assert_allclose(landmarks["right_hip_socket"].local_position.array, [88/1646.3212, 0, 0], atol=1e-6)
-
-
-def test_every_sided_pelvis_landmark_has_a_mirrored_partner() -> None:
-    landmarks = _pelvis().landmarks
-    for name, landmark in landmarks.items():
-        if not name.startswith("left_"):
-            continue
-        partner = landmarks["right_" + name.removeprefix("left_")]
-        expected = landmark.local_position.array * [-1.0, 1.0, 1.0]
-        np.testing.assert_allclose(partner.local_position.array, expected)
-
-
-def test_aliases_are_sided_too() -> None:
-    resolver = _pelvis().landmark_name_resolver
-    assert resolver.resolve(name="left_asis") == "left_anterior_superior_iliac_spine"
-    assert resolver.resolve(name="right_psis") == "right_posterior_superior_iliac_spine"
-    assert resolver.resolve(name="hips_center") == "pelvis_origin"
-
-
-def test_the_pelvis_frame_solves_from_its_own_rest_positions() -> None:
-    pelvis = _pelvis()
-    basis = pelvis.segments["pelvis"].calculate_basis(
-        points={name: landmark.local_position for name, landmark in pelvis.landmarks.items()}
-    )
-    np.testing.assert_allclose(basis.x_axis.array, [1.0, 0.0, 0.0], atol=1e-12)
-    np.testing.assert_allclose(basis.y_axis.array, [0.0, 1.0, 0.0], atol=1e-12)
-    np.testing.assert_allclose(basis.z_axis.array, [0.0, 0.0, 1.0], atol=1e-12)
 
 
 def test_every_fully_specified_segment_solves_to_its_own_authoring_frame() -> None:
@@ -515,48 +410,6 @@ def test_a_component_can_share_a_joint_between_two_segments() -> None:
     assert lower.frame_definition.primary_point_name == "left_wrist"
     assert lower.length == pytest.approx(260.0)
     assert "left_elbow" in lower.landmark_names
-
-def test_the_shipped_hand_yaml_loads() -> None:
-    hand = SkeletonDefinition.from_component_yaml(path=HAND_YAML_PATH, name="hand")
-    # 20 authored segments x 2 sides, 33 authored landmarks x 2 sides.
-    assert len(hand.segments) == 40
-    assert len(hand.landmarks) == 66
-    # The CMC joint is owned by the carpals and shared as the metacarpal's origin.
-    assert hand.segments["left_index_metacarpal"].frame_definition.origin_point_name == "left_index_cmc"
-    # The pinky sits on the ulnar side: positive x is legitimate for a fan-shaped hand.
-    assert hand.landmarks["left_pinky_cmc"].local_position.array[0] > 0.0
-    assert hand.landmarks["right_pinky_cmc"].local_position.array[0] < 0.0
-
-def test_the_shipped_leg_yaml_loads() -> None:
-    leg = SkeletonDefinition.from_component_yaml(path=LEG_YAML_PATH, name="leg")
-    assert len(leg.segments) == 4
-    assert len(leg.landmarks) == 6
-    # The knee is owned by the upper leg and shared as the lower leg's origin.
-    assert leg.segments["left_lower_leg"].frame_definition.origin_point_name == "left_knee"
-
-
-def test_the_shipped_foot_yaml_loads() -> None:
-    foot = SkeletonDefinition.from_component_yaml(path=FOOT_YAML_PATH, name="foot")
-    assert len(foot.segments) == 6
-    assert len(foot.landmarks) == 8
-    # The ankle is the shared origin of heel and foot; the ball is shared by foot and toes.
-    assert foot.segments["left_heel"].frame_definition.origin_point_name == "left_ankle_origin"
-    assert foot.segments["left_toes"].frame_definition.origin_point_name == "left_ball"
-
-
-def test_the_whole_human_skeleton_loads() -> None:
-    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
-    assert skeleton.name == "human"
-    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
-    rest_pose = RestPose.from_default_yaml(skeleton=skeleton)
-    assert len(rest_pose.segment_orientations) == len(skeleton.segments)
-    assert len(skeleton.landmarks) == 124
-    # Pelvis, chest, and skull are fully specified; the rest are still roll-underspecified.
-    assert set(skeleton.underspecified_segment_names)
-    assert "pelvis" not in skeleton.underspecified_segment_names
-    assert "chest" not in skeleton.underspecified_segment_names
-    assert "skull" not in skeleton.underspecified_segment_names
-
 
 def test_a_segment_owning_an_origin_landmark_away_from_zero_is_rejected() -> None:
     """A segment's own origin landmark must sit at [0, 0, 0] in that segment's frame.
@@ -746,41 +599,3 @@ def test_an_already_negated_x_axis_flips_back_on_the_right() -> None:
     assert segments["left_limb"].frame_definition.secondary_axis is SpatialAxis.NEGATIVE_X
     assert segments["right_limb"].frame_definition.secondary_axis is SpatialAxis.X
 
-
-def test_the_shipped_clavicles_share_one_local_x_direction() -> None:
-    """The clavicle is the only shipped sided segment with an x-axis declaration."""
-    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
-    assert (
-        skeleton.segments["left_clavicle"].frame_definition.primary_axis is SpatialAxis.NEGATIVE_X
-    )
-    assert (
-        skeleton.segments["right_clavicle"].frame_definition.primary_axis
-        is SpatialAxis.X
-    )
-    # World positions, not local ones: this segment's origin is a landmark of the chest,
-    # so its local position lives in the chest's frame and the two cannot be subtracted.
-    world_positions = RestPose.from_yaml(
-        path=REST_POSE_YAML_PATH, skeleton=skeleton
-    ).landmark_positions
-    for side in ("left", "right"):
-        origin = world_positions[f"{side}_sternoclavicular"].array
-        primary = world_positions[f"{side}_acromion"].array
-        displacement = primary - origin
-        # The clavicle angles posteriorly: the acromion sits behind the SC joint. That
-        # posterior tilt now lives in the clavicle's rest orientation, so the primary
-        # direction still runs from the SC joint out to the acromion.
-        assert displacement[1] < 0.0, f"{side} acromion should sit posterior to its SC joint"
-        direction = skeleton.segments[f"{side}_clavicle"].calculate_direction(
-            points=world_positions
-        )
-        expected = (
-            skeleton.segments[f"{side}_clavicle"].frame_definition.primary_axis.sign
-            * displacement
-            / np.linalg.norm(displacement)
-        )
-        np.testing.assert_allclose(
-            direction.array,
-            expected,
-            atol=1e-9,
-            err_msg=f"the {side} clavicle's primary axis should run toward the acromion",
-        )

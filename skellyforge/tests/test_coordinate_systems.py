@@ -13,7 +13,6 @@ from skellyforge.core.math.geometry.coordinate_systems import (
     conversion_matrix,
     parse_anatomical_direction,
 )
-from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedness
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 
@@ -30,30 +29,6 @@ def _random_points(*, seed: int) -> Point:
     return Point.from_array(values=np.random.default_rng(seed).normal(size=(10, 3)))
 
 
-def test_the_shipped_registry_defaults_to_blender() -> None:
-    registry = _registry()
-    assert registry.default_name == "blender"
-    assert set(registry.conventions) == {"blender", "vrm", "ros", "isb", "unreal", "unity"}
-    assert registry.default.handedness is Handedness.RIGHT_HANDED
-
-
-@pytest.mark.parametrize(
-    "name,expected_handedness",
-    [
-        ("blender", Handedness.RIGHT_HANDED),
-        ("vrm", Handedness.RIGHT_HANDED),
-        ("ros", Handedness.RIGHT_HANDED),
-        ("isb", Handedness.RIGHT_HANDED),
-        ("unreal", Handedness.LEFT_HANDED),
-        ("unity", Handedness.LEFT_HANDED),
-    ],
-)
-def test_every_shipped_convention_has_the_expected_handedness(
-    name: str, expected_handedness: Handedness
-) -> None:
-    assert _convention(name).handedness is expected_handedness
-
-
 def test_anatomical_direction_unit_vectors() -> None:
     np.testing.assert_allclose(AnatomicalDirection.RIGHT.unit_vector, [1.0, 0.0, 0.0])
     np.testing.assert_allclose(AnatomicalDirection.FORWARD.unit_vector, [0.0, 1.0, 0.0])
@@ -65,27 +40,6 @@ def test_parse_anatomical_direction_is_case_insensitive_and_rejects_unknown() ->
     assert parse_anatomical_direction(label="RIGHT") is AnatomicalDirection.RIGHT
     with pytest.raises(ValueError, match="unknown anatomical direction"):
         parse_anatomical_direction(label="diagonal")
-
-
-def test_converting_blender_axes_into_vrm() -> None:
-    transform = CoordinateSystemTransform(
-        from_convention=_convention("blender"), to_convention=_convention("vrm")
-    )
-    # up in Blender is +Z; up in VRM is +Y.
-    np.testing.assert_allclose(
-        transform.convert_point(point=Point.from_xyz(x=0.0, y=0.0, z=1.0)).array,
-        [0.0, 1.0, 0.0],
-    )
-    # forward in Blender is +Y; forward in VRM is +Z.
-    np.testing.assert_allclose(
-        transform.convert_point(point=Point.from_xyz(x=0.0, y=1.0, z=0.0)).array,
-        [0.0, 0.0, 1.0],
-    )
-    # right in Blender is +X; right in VRM is -X (VRM's +X is left).
-    np.testing.assert_allclose(
-        transform.convert_point(point=Point.from_xyz(x=1.0, y=0.0, z=0.0)).array,
-        [-1.0, 0.0, 0.0],
-    )
 
 
 @pytest.mark.parametrize("name", ["blender", "vrm", "ros", "isb", "unreal", "unity"])

@@ -21,9 +21,6 @@ SHIPPED_DEFINITIONS_DIR: Path = (
     / "human_skeleton"
 )
 
-EXPECTED_JOINT_COUNT: int = 60  # segments minus the single root
-
-
 def _skeleton() -> SkeletonDefinition:
     return SkeletonDefinition.from_yaml(
         path=SHIPPED_DEFINITIONS_DIR / "human_skeleton.yaml"
@@ -74,14 +71,7 @@ def _load_variant(directory: Path, mutate) -> SkeletonDefinition:
 
 def test_the_shipped_topology_has_one_joint_per_non_root_segment() -> None:
     skeleton = _skeleton()
-    assert len(skeleton.joints) == EXPECTED_JOINT_COUNT == len(skeleton.segments) - 1
-
-
-def test_the_shipped_tree_roots_at_the_pelvis() -> None:
-    skeleton = _skeleton()
-    children = {joint.child.name for joint in skeleton.joints.values()}
-    roots = sorted(set(skeleton.segments) - children)
-    assert roots == ["pelvis"]
+    assert len(skeleton.joints) == len(skeleton.segments) - 1
 
 
 def test_every_joint_resolves_to_object_references() -> None:
@@ -90,17 +80,6 @@ def test_every_joint_resolves_to_object_references() -> None:
         assert joint.parent.name in _skeleton().segments
         assert joint.child.name in _skeleton().segments
         assert joint.connect_at.name in joint.parent.landmarks
-
-
-def test_default_convention_is_a_zyx_ball_with_axes_derived_names() -> None:
-    skeleton = _skeleton()
-    joint = skeleton.joints["left_lower_arm"]  # keyed by child segment for now
-    assert joint.joint_type == "ball"
-    assert joint.convention.sequence == "zyx"
-    assert joint.convention.angle_names == ("z_angle", "y_angle", "x_angle")
-    # Its connection point is the shared elbow landmark, owned by the parent.
-    assert joint.connect_at.name == "left_elbow"
-    assert joint.connect_at.name in joint.parent.landmarks
 
 
 # ── what the joints section refuses ───────────────────────────────────

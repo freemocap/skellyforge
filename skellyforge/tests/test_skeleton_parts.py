@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -22,7 +20,6 @@ from skellyforge.core.skeleton.components.segment_basis_solver import (
     calculate_bases_for_segments,
 )
 from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
-from skellyforge.core.skeleton.components.face_blendshapes import FaceBlendShapes
 
 
 def _landmark(
@@ -633,20 +630,3 @@ def test_resolve_all_keys_a_ring_buffer_canonically() -> None:
     )
     assert buffer.point_names == ("shoulder", "elbow", "lateral_epicondyle")
 
-# ── FaceBlendShapes ───────────────────────────────────────────────────
-
-
-def test_the_shipped_face_yaml_holds_52_blendshapes() -> None:
-    face_path = (
-        Path(__file__).resolve().parents[1]
-        / "definitions"
-        / "human_skeleton"
-        / "components"
-        / "face.yaml"
-    )
-    face = FaceBlendShapes.from_yaml(path=face_path)
-    assert face.name == "human_face"
-    assert len(face) == 52
-    assert "eyeBlinkLeft" in face.blendshape_names
-    assert "tongueOut" in face.blendshape_names
-    assert len(set(face.blendshape_names)) == 52

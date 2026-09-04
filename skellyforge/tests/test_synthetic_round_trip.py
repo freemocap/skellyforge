@@ -39,8 +39,10 @@ REST_POSE_YAML_PATH: Path = (
 
 # Landmark coordinates are authored in body-height fractions (H = 1.0 = floor
 # to skull top). Convert the physically-meaningful millimetre constants into
-# that unit so the thresholds below stay legible.
-BODY_HEIGHT_MILLIMETRES: float = 1646.3212
+# that unit so the thresholds below stay legible. The body height is a round
+# nominal value - it only fixes how many millimetres a template unit is, so the
+# noise and segment-length thresholds below read as millimetres.
+BODY_HEIGHT_MILLIMETRES: float = 1700.0
 NOISE_SCALE = 2.0 / BODY_HEIGHT_MILLIMETRES
 SHORT_SEGMENT_LENGTH = 50.0 / BODY_HEIGHT_MILLIMETRES
 

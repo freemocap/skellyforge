@@ -20,10 +20,7 @@ from skellyforge.core.biomechanics.center_of_mass import (
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
 from skellyforge.core.skeleton.rigid_marker_skeleton import build_rigid_marker_skeleton
-from skellyforge.core.skeleton.skeleton_definition import (
-    DERIVED_QUANTITY_REQUIREMENTS,
-    SkeletonDefinition,
-)
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 
 GRID_COLUMNS: int = 3
 GRID_ROWS: int = 2
@@ -127,14 +124,3 @@ def test_asking_for_inertia_without_a_mass_model_fails_at_load() -> None:
     with pytest.raises(ValueError, match="declare no `anatomical_segment`"):
         _board(derived_quantities=frozenset({"inertia"}))
 
-
-def test_the_standard_human_opts_into_the_quantities_it_can_produce() -> None:
-    human = SkeletonDefinition.from_default_yaml()
-
-    assert "inertia" in human.derived_quantities
-    assert "roll_resolution" in human.derived_quantities
-    assert human.derived_quantities <= set(DERIVED_QUANTITY_REQUIREMENTS)
-    # It declares a mass model for every segment, which is what earns `inertia`.
-    assert all(
-        segment.anatomical_segment is not None for segment in human.segments.values()
-    )

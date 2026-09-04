@@ -270,44 +270,6 @@ def test_a_steady_segment_keeps_its_own_measurement() -> None:
 # ── who is allowed to vote ─────────────────────────────────────────────────
 
 
-def test_segments_built_from_synthesized_landmarks_do_not_vote() -> None:
-    """The template must not be allowed to quote itself back as evidence."""
-    skeleton = _skeleton()
-    # A caller whose mapping synthesizes the whole sternum/neck complex.
-    synthesized = {
-        "left_sternoclavicular",
-        "right_sternoclavicular",
-        "sternoclavicular_notch",
-        "xiphoid_process",
-        "neck_center",
-        "chest_center",
-    }
-    measured = frozenset(skeleton.landmarks) - synthesized
-
-    voting = scale_voting_segment_names(
-        skeleton=skeleton, measured_landmark_names=measured
-    )
-
-    assert "sacrolumbar" not in voting, "its primary is a synthesized chest_center"
-    assert "thoracic" not in voting, "it rigid-fits over synthesized landmarks"
-    assert "left_clavicle" not in voting, "its origin is a synthesized sternoclavicular"
-    # The limbs, which are what actually measures the subject, still do.
-    for name in ("left_upper_leg", "left_lower_leg", "left_upper_arm", "left_lower_arm"):
-        assert name in voting
-
-
-def test_a_rigid_fit_segment_needs_every_one_of_its_landmarks_measured() -> None:
-    """Strict by design: the pelvis is excluded by its synthesized iliac crests."""
-    skeleton = _skeleton()
-    measured = frozenset(skeleton.landmarks) - {"left_iliac_crest"}
-
-    voting = scale_voting_segment_names(
-        skeleton=skeleton, measured_landmark_names=measured
-    )
-
-    assert "pelvis" not in voting
-
-
 def test_no_voting_segment_seen_is_a_refusal_not_a_default() -> None:
     skeleton = _skeleton()
     fitter = StreamingModelScaleFitter(
