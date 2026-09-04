@@ -22,10 +22,3 @@ components:
   leg: { $include: components/leg.yaml }
   foot: { $include: components/foot.yaml }
 #  face: { $include: components/face.yaml } #TODO - implement this
-
-# Joints and chains are NOT declared here. Every joint lives in the component
-# that owns its CHILD segment (the compositional home: move a part, its joints
-# move with it), and chains live in the component that walks them. The loader
-# merges each component's `joints:`/`chains:` into one namespace - which is why
-# names must not collide across files - and runs one sided-expansion pass over
-# all of them against the full loaded segment set.
