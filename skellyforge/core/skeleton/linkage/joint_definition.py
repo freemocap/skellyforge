@@ -84,6 +84,12 @@ class JointDefinition:
     joint_type: str = DEFAULT_JOINT_TYPE
     convention: EulerConvention = field(default_factory=lambda: EulerConvention.from_sequence(sequence=DEFAULT_EULER_SEQUENCE))
 
+    @property
+    def angle_names(self) -> tuple[str, str, str]:
+        """Qualified scalar names in the convention's decomposition order."""
+        first, second, third = self.convention.angle_names
+        return f"{self.name}.{first}", f"{self.name}.{second}", f"{self.name}.{third}"
+
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("joint name must be non-empty")

@@ -111,6 +111,23 @@ class SkeletonPose:
 
     segment_poses: Mapping[RigidBodySegmentName, SegmentPose]
 
+    def parent_relative_orientations(
+        self, *, parents: Mapping[RigidBodySegmentName, RigidBodySegmentName | None]
+    ) -> dict[RigidBodySegmentName, RotationQuaternion]:
+        """Roots use world orientation; a child requires its parent's observed pose."""
+        if not set(self.segment_poses).issubset(parents):
+            raise ValueError("Observed segments must belong to the parent map")
+        if any(parent is not None and parent not in parents for parent in parents.values()):
+            raise ValueError("Parent map refers to an unknown segment")
+        orientations: dict[RigidBodySegmentName, RotationQuaternion] = {}
+        for name, pose in self.segment_poses.items():
+            parent = parents[name]
+            if parent is None:
+                orientations[name] = pose.orientation
+            elif parent in self.segment_poses:
+                orientations[name] = self.segment_poses[parent].orientation.inverse() * pose.orientation
+        return orientations
+
     @property
     def segment_names_with_free_roll(self) -> tuple[RigidBodySegmentName, ...]:
         """Segments solved by direction only, whose roll a downstream pass must supply."""
