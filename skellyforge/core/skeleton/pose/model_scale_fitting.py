@@ -62,12 +62,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+import math
 
 import numpy as np
 
 from skellyforge.core.skeleton.loading.sided_expansion import unsided_name_of
-from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton.skeleton_pose import SkeletonPose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition  # noqa: TC001 - runtime type checking
+from skellyforge.core.skeleton.skeleton_pose import SkeletonPose  # noqa: TC001 - runtime type checking
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
 DEFAULT_SCALE_WINDOW_FRAMES: int = 30
@@ -121,7 +122,7 @@ class SegmentScaleReading:
     sample_count: int
 
 
-@dataclass(frozen=True, slots=True, eq=False)
+@dataclass(frozen=True, slots=True)
 class ModelScaleFit:
     """A fitted body: one height, and the scale and length of every segment.
 
@@ -149,10 +150,22 @@ class ModelScaleFit:
     voting_segment_names: frozenset[RigidBodySegmentName]
 
     def __post_init__(self) -> None:
-        if not self.fitted_scale > 0.0:
+        if not math.isfinite(self.fitted_scale) or not self.fitted_scale > 0.0:
             raise ValueError(
                 f"fitted_scale must be positive - got {self.fitted_scale!r}"
             )
+        if not self.segment_scales or set(self.segment_scales) != set(self.segment_lengths):
+            raise ValueError("Fit scales and lengths must cover the same nonempty segment set")
+        if any(not name for name in self.segment_scales):
+            raise ValueError("Fit segment names must be nonempty")
+        if any(not math.isfinite(value) or value <= 0.0 for value in self.segment_scales.values()):
+            raise ValueError("Segment scales must be finite and positive")
+        if any(not math.isfinite(value) or value < 0.0 for value in self.segment_lengths.values()):
+            raise ValueError("Segment lengths must be finite and nonnegative")
+        if not self.measured_segment_names.issubset(self.segment_scales):
+            raise ValueError("Measured segments must belong to the fit")
+        if not self.voting_segment_names.issubset(self.measured_segment_names):
+            raise ValueError("Voting segments must have measured evidence")
 
 
 def scale_voting_segment_names(
