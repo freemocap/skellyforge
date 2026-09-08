@@ -15,6 +15,8 @@ from skellyforge.core.math.geometry.numeric_tolerances import ORTHONORMALITY_TOL
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Displacement
 from skellyforge.core.math.geometry.transform_math import Transform
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.skeleton_pose import PoseSolution, SegmentPose
 from skellyforge.type_overloads import FloatArray, RigidBodySegmentName
 
 
@@ -58,6 +60,50 @@ class BodyReferenceTrack:
     world_from_body: FloatArray
     origins: FloatArray
     quality: FloatArray
+
+    @classmethod
+    def from_segment_poses(
+        cls,
+        *,
+        segment_name: RigidBodySegmentName,
+        poses: tuple[SegmentPose | None, ...],
+        rest_pose: RestPose,
+        timestamps_seconds: FloatArray,
+        quality: FloatArray,
+    ) -> BodyReferenceTrack:
+        """Convert measured segment orientations to canonical body-reference axes.
+
+        The relative rotation is observed-world-from-segment times the inverse of
+        rest-world-from-segment. Direction-only and transported-roll solutions do not
+        measure a full orientation and contribute no alignment evidence.
+        """
+        if len(poses) != len(timestamps_seconds) or quality.shape != (len(poses),):
+            raise ValueError("Pose, timestamp and quality counts must match")
+        if not np.all(np.isfinite(quality)) or np.any((quality < 0) | (quality > 1)):
+            raise ValueError("Pose quality must be finite and in [0,1]")
+        rest_inverse = (
+            rest_pose.segment_orientations[segment_name].to_rotation_matrix().T
+        )
+        rotations = np.full((len(poses), 3, 3), np.nan)
+        origins = np.full((len(poses), 3), np.nan)
+        evidence_quality = np.zeros(len(poses))
+        for index, pose in enumerate(poses):
+            if pose is None:
+                continue
+            if pose.segment_name != segment_name:
+                raise ValueError("Body reference track cannot mix segment identities")
+            if pose.solved_by is not PoseSolution.RIGID_FIT:
+                continue
+            rotations[index] = pose.orientation.to_rotation_matrix() @ rest_inverse
+            origins[index] = pose.origin.array
+            evidence_quality[index] = quality[index]
+        return cls(
+            segment_name=segment_name,
+            timestamps_seconds=timestamps_seconds.copy(),
+            world_from_body=rotations,
+            origins=origins,
+            quality=evidence_quality,
+        )
 
     def __post_init__(self) -> None:
         times = self.timestamps_seconds
