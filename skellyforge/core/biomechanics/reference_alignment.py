@@ -1,7 +1,8 @@
-"""Select one reference transform without replacing an explicit ground reference."""
+"""Select one reference transform while respecting the caller's existing frame."""
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Self
 
 from skellyforge.core.biomechanics.body_alignment import (
     BodyAlignmentConfig,
@@ -19,17 +20,25 @@ from skellyforge.core.math.geometry.transform_math import Transform
 
 
 class ReferenceAlignmentOutcome(StrEnum):
-    EXPLICIT_GROUND = "explicit_ground"
+    PRESERVED_REFERENCE = "preserved_reference"
     DISABLED = "disabled"
     FOOT_SUPPORT = "foot_support"
     BODY_REFERENCE = "body_reference"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
 
+    @classmethod
+    def _missing_(cls, value: object) -> Self | None:
+        # Older recordings used a ground-specific name for preserving any frame.
+        if value == "explicit_ground":
+            return cls.PRESERVED_REFERENCE
+        return None
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ReferenceAlignmentRequest:
     enabled: bool
-    has_explicit_ground: bool
+    preserve_reference_frame: bool
+    """Keep supplied geometry; this does not assert that a floor was estimated."""
     body_tracks: tuple[BodyReferenceTrack, ...]
     foot_contacts: tuple[FootContactTrack, ...]
     body_config: BodyAlignmentConfig
@@ -52,11 +61,11 @@ def estimate_reference_alignment(
     An identity transform means no additional alignment; it never reverses an existing
     calibration transform. This function estimates once and does not own a live lifecycle.
     """
-    if request.has_explicit_ground or not request.enabled:
+    if request.preserve_reference_frame or not request.enabled:
         return ReferenceAlignmentResult(
             outcome=(
-                ReferenceAlignmentOutcome.EXPLICIT_GROUND
-                if request.has_explicit_ground
+                ReferenceAlignmentOutcome.PRESERVED_REFERENCE
+                if request.preserve_reference_frame
                 else ReferenceAlignmentOutcome.DISABLED
             ),
             transform=Transform.identity(),

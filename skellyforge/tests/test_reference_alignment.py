@@ -16,16 +16,16 @@ from skellyforge.core.biomechanics.reference_alignment import (
 
 
 @pytest.mark.parametrize(
-    ("enabled", "ground", "outcome"),
+    ("enabled", "preserve", "outcome"),
     [
         (False, False, ReferenceAlignmentOutcome.DISABLED),
-        (True, True, ReferenceAlignmentOutcome.EXPLICIT_GROUND),
-        (False, True, ReferenceAlignmentOutcome.EXPLICIT_GROUND),
+        (True, True, ReferenceAlignmentOutcome.PRESERVED_REFERENCE),
+        (False, True, ReferenceAlignmentOutcome.PRESERVED_REFERENCE),
         (True, False, ReferenceAlignmentOutcome.BODY_REFERENCE),
     ],
 )
 def test_reference_policy(
-    *, enabled: bool, ground: bool, outcome: ReferenceAlignmentOutcome
+    *, enabled: bool, preserve: bool, outcome: ReferenceAlignmentOutcome
 ) -> None:
     track = BodyReferenceTrack(
         segment_name="skull",
@@ -37,7 +37,7 @@ def test_reference_policy(
     result = estimate_reference_alignment(
         request=ReferenceAlignmentRequest(
             enabled=enabled,
-            has_explicit_ground=ground,
+            preserve_reference_frame=preserve,
             body_tracks=(track,),
             foot_contacts=(),
             body_config=BodyAlignmentConfig(),
@@ -49,3 +49,13 @@ def test_reference_policy(
     assert result.outcome is outcome
     expected = -50.0 if outcome is ReferenceAlignmentOutcome.BODY_REFERENCE else 0.0
     np.testing.assert_allclose(result.transform.translation.array, np.full(3, expected))
+    if preserve or not enabled:
+        np.testing.assert_allclose(result.transform.rotation.to_rotation_matrix(), np.eye(3))
+        assert result.body_evidence is None
+        assert result.ground_evidence is None
+
+
+def test_legacy_preservation_outcome_uses_generic_name() -> None:
+    outcome = ReferenceAlignmentOutcome("explicit_ground")
+    assert outcome is ReferenceAlignmentOutcome.PRESERVED_REFERENCE
+    assert outcome.value == "preserved_reference"
