@@ -2,8 +2,76 @@
 
 import numpy as np
 import pytest
+from types import SimpleNamespace
 
 from scripts.recording_data import attach_keypoints, decode_rows, recording_path
+
+
+def saved_fixture():
+    # Deliberately unrelated to the default human skeleton and landmark positions.
+    return (
+        {
+            "origins": {"bone": np.array([10.0, 20.0, 30.0])},
+            "rotations": {"bone": np.array([np.sqrt(0.5), 0.0, 0.0, np.sqrt(0.5)])},
+        },
+        {
+            "landmarks": [{"name": "tip", "position": [2.0, 0.0, 0.0]}],
+            "segments": [{"name": "bone", "frame": {"primary_point": "tip"}}],
+        },
+        SimpleNamespace(segment_scales={"bone": 3.0}, segment_lengths={"bone": 6.0}),
+    )
+
+
+def test_drawing_uses_saved_transform_geometry_and_fixed_scale():
+    from scripts.generate_real_skeleton_viewer import saved_segments
+
+    record, skeleton, fit = saved_fixture()
+    result = saved_segments(record, skeleton, fit)["bone"]
+    np.testing.assert_array_equal(result["origin"], [10.0, 20.0, 30.0])
+    np.testing.assert_allclose(result["end"], [10.0, 26.0, 30.0], atol=1e-12)
+    np.testing.assert_array_equal(
+        result["quaternion_wxyz"], record["rotations"]["bone"]
+    )
+    np.testing.assert_allclose(result["axes"][0], [0.0, 1.0, 0.0], atol=1e-12)
+
+
+def test_missing_saved_pose_is_not_reconstructed():
+    from scripts.generate_real_skeleton_viewer import saved_segments
+
+    record, skeleton, fit = saved_fixture()
+    record["rotations"] = {}
+    assert saved_segments(record, skeleton, fit) == {}
+
+
+@pytest.mark.parametrize("bad", ["quaternion", "length"])
+def test_saved_pose_inconsistency_fails_without_repair(bad):
+    from scripts.generate_real_skeleton_viewer import saved_segments
+
+    record, skeleton, fit = saved_fixture()
+    if bad == "quaternion":
+        record["rotations"]["bone"] *= 2
+    else:
+        fit.segment_lengths["bone"] = 8.0
+    with pytest.raises(ValueError):
+        saved_segments(record, skeleton, fit)
+
+
+def test_quaternion_channel_preserves_wxyz_and_missing_values():
+    samples = [
+        dict(
+            frame_number=0,
+            timestamp_s=0.0,
+            name="bone",
+            component=c,
+            value=v,
+            units="1",
+        )
+        for c, v in zip("wxyz", [1.0, 0.0, 0.0, 0.0])
+    ]
+    result = decode_rows(samples, ["bone"], "wxyz", "1")
+    np.testing.assert_array_equal(result[0]["points"]["bone"], [1.0, 0.0, 0.0, 0.0])
+    samples[0]["value"] = None
+    assert decode_rows(samples, ["bone"], "wxyz", "1")[0]["points"] == {}
 
 
 def test_keypoints_remain_distinct_from_same_named_landmarks():
@@ -23,41 +91,6 @@ def test_keypoint_overlay_rejects_misaligned_frames(field, value):
     keypoints[0][field] = value
     with pytest.raises(ValueError, match="identical frame"):
         attach_keypoints(landmarks, keypoints)
-
-
-def test_fitted_parent_does_not_rotate_unfitted_descendants_again():
-    from scripts.generate_real_skeleton_viewer import combine_fitted_world_rotations
-    from skellyforge.core.math.geometry.rotation_quaternion import (
-        RotationQuaternion as Q,
-    )
-
-    parents = {
-        "pelvis": None,
-        "chest": "pelvis",
-        "clavicle": "chest",
-        "arm": "clavicle",
-        "hand": "arm",
-        "head": "chest",
-    }
-    world = {
-        n: Q.from_rotation_vector(
-            rotation_vector=np.array([0.13 * i, -0.07 * i, 0.11 * i])
-        )
-        for i, n in enumerate(parents)
-    }
-    fitted = {
-        n: Q.from_rotation_vector(rotation_vector=np.array([0.4, -0.2, 0.6])) * world[n]
-        for n in ("chest", "clavicle")
-    }
-    local = combine_fitted_world_rotations(
-        parents=parents, reference_world=world, fitted_world=fitted
-    )
-    rebuilt = {"pelvis": world["pelvis"]}
-    for n, parent in parents.items():
-        if parent is not None:
-            rebuilt[n] = rebuilt[parent] * local[n]
-    for n in parents:
-        assert rebuilt[n].is_same_rotation(other=fitted.get(n, world[n]))
 
 
 def rows():

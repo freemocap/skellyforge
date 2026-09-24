@@ -84,6 +84,7 @@ def test_missing_and_degenerate_defining_points_do_not_fall_back(name):
     points = evidence()
     points["neck_center"] = Point.from_xyz(x=100.0, y=0.0, z=0.0)
     points["left_acromion"] = Point.from_xyz(x=-100.0, y=0.0, z=0.0)
+    points["chest_center"] = Point.from_xyz(x=0.0, y=0.0, z=0.0)
     with pytest.raises(DegenerateObservations):
         hydrate_segment(segment=segment, observed=points)
 
@@ -117,7 +118,7 @@ def test_frame_requires_two_axes():
         )
 
 
-def test_raised_shoulder_preserves_side_axis_and_projects_up():
+def test_raised_shoulder_preserves_spine_axis_and_projects_side():
     skeleton = SkeletonDefinition.from_default_yaml()
     points = evidence()
     points["left_acromion"] = Point.from_xyz(x=-200.0, y=0.0, z=750.0)
@@ -126,13 +127,28 @@ def test_raised_shoulder_preserves_side_axis_and_projects_up():
     pose = hydrate_segment(segment=skeleton.segments["thoracic"], observed=points)
     matrix = pose.orientation.to_rotation_matrix()
     side = np.array([400.0, 0.0, -150.0])
-    side /= np.linalg.norm(side)
     up = np.array([0.0, 0.0, 1.0])
-    up -= side * np.dot(up, side)
-    up /= np.linalg.norm(up)
+    side -= up * np.dot(side, up)
+    side /= np.linalg.norm(side)
     np.testing.assert_allclose(matrix[:, 0], side, atol=1e-12)
     np.testing.assert_allclose(matrix[:, 2], up, atol=1e-12)
     assert np.linalg.det(matrix) == pytest.approx(1.0)
+
+
+def test_thoracic_axis_tracks_chest_to_neck_without_changing_fixed_length():
+    skeleton = SkeletonDefinition.from_default_yaml()
+    fixed_length = 270.0
+    for chest in ([23., -35., 310.], [-40., 15., 380.]):
+        points = evidence()
+        points["chest_center"] = Point.from_array(values=np.array(chest))
+        pose = hydrate_segment(segment=skeleton.segments["thoracic"], observed=points)
+        span = points["neck_center"].array - points["chest_center"].array
+        axis = pose.orientation.to_rotation_matrix()[:, 2]
+        np.testing.assert_allclose(axis, span / np.linalg.norm(span), atol=1e-12)
+        # Fixed-length rendering follows the axis; it need not reach the landmark.
+        endpoint = pose.origin.array + fixed_length * axis
+        assert np.linalg.norm(endpoint - pose.origin.array) == pytest.approx(fixed_length)
+        assert not np.isclose(np.linalg.norm(span), fixed_length)
 
 
 def test_observation_frame_remains_usable_for_body_alignment():

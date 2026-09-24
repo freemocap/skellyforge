@@ -57,25 +57,23 @@ invariance, omitted targets, invalid evidence and bounded jitter. Test weights
 (5 position units and 0.5 radians) are explicit test conditions, not production
 defaults. Test agreement is a geometric contract, not anatomical ground truth.
 
-Develop and review this solver within SkellyForge using
-`scripts/generate_real_skeleton_viewer.py --serve`. It reads the prepared Parquet
-at the standard home-folder location, without importing FreeMoCap or SkellyTracker.
-The synthetic viewer remains separate and shares its display helpers with the
-real viewer. Model weights are CLI options; termination and residuals are shown
-per frame. The real viewer reuses saved processed landmarks and refits fixed
-dimensions once with current Forge, retaining the saved scale-voting selection.
-It does not rerun tracker mapping. After fitting the upper body, the viewer
-recomputes descendant local rotations to preserve their reconstructed world
-rotations; their origins still follow the connected skeleton.
-Only update FreeMoCap when ready to integrate the reviewed feature into its actual
-pipeline. A FreeMoCap dependency refresh is not required to iterate on Forge.
+The real recording viewer now replays saved production results only. Its previous
+local hydration, scale refitting and shoulder solver calls have been removed.
+This solver remains experimental and is not evidence of production post hoc
+behavior. Do not restore it as a production-output layer without integrating and
+validating it through the actual pipeline first.
+
+`scripts/generate_real_skeleton_viewer.py --serve` reads saved segment origins,
+world quaternions, fixed dimensions and skeleton geometry from Parquet alongside
+landmarks and keypoints. The synthetic viewer remains separate. No FreeMoCap or
+SkellyTracker import is needed in Forge.
 
 Not yet implemented: anatomical joint limits, variable spine lengths, temporal
 regularization, automatic target confidence weighting, or BVH/glTF writers.
 
 ## Prepared recording mismatch found during visual review
 
-The current prepared test recording retains the old SC offset: the distance from
+The earlier prepared test recording retained the old SC offset: the distance from
 neck_center to the mean SC point is exactly 0.1 times shoulder width (median
 37.6 mm in the final quarter). Current Tracker mappings use anterior coefficient
 0.234362559. Forge's fixed thoracic template places SC attachments approximately
@@ -83,8 +81,10 @@ neck_center to the mean SC point is exactly 0.1 times shoulder width (median
 can therefore pull the torso backward to accommodate incompatible geometry.
 The clavicle joints correctly connect at sternoclavicular, not neck_center.
 
-Next integration step: in FreeMoCap, inspect and refresh derived landmarks from
-saved keypoints with the corrected mapping, then regenerate this Forge viewer.
+Completed: refreshed derived landmarks in FreeMoCap from saved keypoints using
+the corrected mapping and production post hoc reconstruction. The direct replay
+still shows a thoracic endpoint mismatch; investigate the production definition
+and fixed-fit behavior next, without forcing display endpoints onto landmarks.
 Reuse saved reconstruction evidence where supported; do not rerun video detection
 or calibration unnecessarily. Refitting dimensions alone does not refresh mapped
 landmark offsets. Do not compensate by moving the viewer or changing attachments

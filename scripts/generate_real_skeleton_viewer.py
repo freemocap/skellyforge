@@ -1,25 +1,11 @@
-"""Build a standalone real-recording skeleton viewer using only local Forge."""
+"""Display saved posthoc results without rerunning skeleton calculations."""
 
 import argparse
-import hashlib
 import json
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-
 import numpy as np
-
-from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton.pose.rest_pose import RestPose
-from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
-from skellyforge.core.skeleton.pose.model_scale_fitting import fit_model_scale
-from skellyforge.core.skeleton.pose.roll_resolution import ContinuousRollResolver
-from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose
-from skellyforge.core.skeleton.pose.fit_connected_pose import (
-    fit_connected_pose,
-    LandmarkTarget,
-)
-from skellyforge.core.math.geometry.spatial_vectors import Point
 
 if __package__:
     from .recording_data import recording_path, read_recording
@@ -31,190 +17,72 @@ else:
 FOLDER = Path(__file__).resolve().parent
 
 
-def build_data(
-    path, sensor_group=None, position_tolerance=5.0, rotation_tolerance_deg=30.0
-):
-    if (
-        not np.isfinite([position_tolerance, rotation_tolerance_deg]).all()
-        or min(position_tolerance, rotation_tolerance_deg) <= 0
+def saved_segments(record, skeleton, fit):
+    """Convert recorded rigid transforms to drawing endpoints, without fitting."""
+    landmarks = {p["name"]: p for p in skeleton["landmarks"]}
+    segments = {s["name"]: s for s in skeleton["segments"]}
+    if set(segments) != set(fit.segment_lengths) or set(segments) != set(
+        fit.segment_scales
     ):
-        raise ValueError("Fitting tolerances must be finite and positive")
-    recorded, saved_fit, provenance = read_recording(path, sensor_group)
-    skeleton = SkeletonDefinition.from_default_yaml()
-    # Saved fits may have been produced by older segment definitions. Re-estimate
-    # dimensions once from the prepared landmarks, using current hydration.
-    poses = [
-        hydrate_skeleton(
-            skeleton=skeleton,
-            observed={
-                n: Point.from_array(values=p) for n, p in record["points"].items()
-            },
-            require_all=False,
+        raise ValueError("Saved skeleton and dimensions must cover the same segments")
+    if (set(record["origins"]) | set(record["rotations"])) - set(segments):
+        raise ValueError("Saved poses contain unknown segments")
+    result = {}
+    for name, segment in segments.items():
+        if name not in record["origins"] or name not in record["rotations"]:
+            continue
+        q = record["rotations"][name]
+        if not np.isclose(np.linalg.norm(q), 1.0, atol=1e-6, rtol=0):
+            raise ValueError(f"Saved rotation is not a unit quaternion: {name}")
+        w, x, y, z = q
+        matrix = np.array(
+            [
+                [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+            ]
         )
-        for record in recorded
-    ]
-    samples = {
-        n: [
-            pose.segment_poses[n].scale_estimate
-            for pose in poses
-            if n in pose.segment_poses
-        ]
-        for n in skeleton.segments
-    }
-    fit = fit_model_scale(
-        skeleton=skeleton,
-        scale_samples=samples,
-        voting_segment_names=saved_fit.voting_segment_names,
-    )
-    provenance["saved_segment_lengths_mm"] = dict(saved_fit.segment_lengths)
-    provenance["current_segment_lengths_mm"] = dict(fit.segment_lengths)
-    rest = RestPose.from_default_yaml(skeleton=skeleton)
-    resolver = ContinuousRollResolver.for_skeleton(
-        skeleton=skeleton, rest_relative_orientations=rest.relative_orientations
-    )
-    root = rest.root_segment_name
+        vector = (
+            np.array(landmarks[segment["frame"]["primary_point"]]["position"])
+            * fit.segment_scales[name]
+        )
+        if not np.isclose(
+            np.linalg.norm(vector), fit.segment_lengths[name], rtol=1e-9, atol=1e-9
+        ):
+            raise ValueError(f"Saved dimensions disagree with saved geometry: {name}")
+        origin = record["origins"][name]
+        result[name] = dict(
+            origin=origin.tolist(),
+            end=(origin + matrix @ vector).tolist(),
+            axes=matrix.T.tolist(),
+            quaternion_wxyz=q.tolist(),
+        )
+    return result
+
+
+def build_data(path, sensor_group=None):
+    recorded, fit, provenance = read_recording(path, sensor_group)
+    skeleton = provenance.pop("skeleton")
     frames = []
-    upper = frozenset(
-        ("pelvis", "sacrolumbar", "thoracic", "left_clavicle", "right_clavicle")
-    )
-    for index, record in enumerate(recorded):
-        observed = {n: Point.from_array(values=p) for n, p in record["points"].items()}
-        pose = resolver.resolve_pose(pose=poses[index])
-        selected = set()
-
-        def include(n):
-            if n not in pose.segment_poses:
-                return False
-            parent = rest.parents[n]
-            if parent is not None and not include(parent):
-                return False
-            selected.add(n)
-            return True
-
-        for n in pose.segment_poses:
-            include(n)
-        connected = {}
-        fitted = {}
-        status = {"termination": "unavailable"}
-        if root in selected:
-            local = pose.parent_relative_orientations(parents=rest.parents)
-            local = {n: local[n] for n in selected if n != root}
-            args = dict(
-                skeleton=skeleton,
-                fit=fit,
-                segment_relative_orientations=local,
-                root_origin=pose.segment_poses[root].origin,
-                root_world_orientation=pose.segment_poses[root].orientation,
-                segment_names=frozenset(selected),
-            )
-            world, origins, _ = synthesize_fitted_pose(**args)
-            connected = serialize(skeleton, fit, world, origins)
-            available = upper & selected
-            targets = {
-                n: LandmarkTarget(position=observed[n], tolerance=position_tolerance)
-                for n in ("left_acromion", "right_acromion")
-                if n in observed and skeleton.landmarks[n].segment in available
-            }
-            if targets and {"pelvis", "sacrolumbar", "thoracic"}.issubset(available):
-                result = fit_connected_pose(
-                    **{
-                        **args,
-                        "segment_names": frozenset(available),
-                        "segment_relative_orientations": {
-                            n: local[n] for n in available if n != root
-                        },
-                    },
-                    targets=targets,
-                    rotation_tolerances_radians={
-                        n: float(np.deg2rad(rotation_tolerance_deg))
-                        for n in available
-                        if n != root
-                    },
-                )
-                corrected = combine_fitted_world_rotations(
-                    parents=rest.parents,
-                    reference_world={
-                        n: pose.segment_poses[n].orientation for n in selected
-                    },
-                    fitted_world=result.world_orientations,
-                )
-                world, origins, _ = synthesize_fitted_pose(
-                    **{**args, "segment_relative_orientations": corrected}
-                )
-                fitted = serialize(skeleton, fit, world, origins)
-                status = dict(
-                    termination=result.termination,
-                    iterations=result.iterations,
-                    shoulder_errors_mm=result.target_errors,
-                    targets_within_tolerance=result.targets_within_tolerance,
-                    initial_cost=result.initial_cost,
-                    final_cost=result.final_cost,
-                )
-        independent = serialize(
-            skeleton,
-            fit,
-            {n: p.orientation for n, p in pose.segment_poses.items()},
-            {n: p.origin for n, p in pose.segment_poses.items()},
-        )
+    for record in recorded:
+        segments = saved_segments(record, skeleton, fit)
         frames.append(
             dict(
                 number=record["number"],
                 time=record["time"],
                 points={n: p.tolist() for n, p in record["points"].items()},
                 keypoints={n: p.tolist() for n, p in record["keypoints"].items()},
-                independent=independent,
-                connected=connected,
-                fitted=fitted,
-                status=status,
+                saved=segments,
+                status=dict(
+                    saved_segments=len(segments),
+                    missing_segments=len(fit.segment_lengths) - len(segments),
+                ),
             )
         )
-        if index % 25 == 0:
-            print(f"Prepared {index+1}/{len(recorded)} frames", flush=True)
     provenance["fit_policy"] = (
-        "Refit fixed dimensions once using current Forge hydration of saved landmarks; "
-        "reuse the saved scale-voting segment selection. No tracker remapping or video processing."
+        "Use the recorded fixed scale fit unchanged. Local default skeleton definitions are not used."
     )
-    provenance["position_tolerance_mm"] = position_tolerance
-    provenance["rotation_tolerance_deg"] = rotation_tolerance_deg
-    import skellyforge.core.skeleton.pose.hydration as hydration
-    import skellyforge.core.skeleton.pose.fit_connected_pose as fitter
-
-    provenance["local_sources"] = {
-        str(p): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in (Path(hydration.__file__), Path(fitter.__file__), Path(__file__))
-    }
     return dict(frames=frames, lengths=dict(fit.segment_lengths), provenance=provenance)
-
-
-def combine_fitted_world_rotations(*, parents, reference_world, fitted_world):
-    """Move fitted branches while preserving unfitted segments' world rotations.
-
-    Descendant positions still follow the connected tree. Their relative rotations
-    must compensate for fitted parent rotations; retaining old locals rotates them
-    a second time even though those segments were not part of the fitting problem.
-    """
-    world = {**reference_world, **fitted_world}
-    return {
-        n: world[parents[n]].inverse() * q
-        for n, q in world.items()
-        if parents[n] is not None
-    }
-
-
-def serialize(skeleton, fit, rotations, origins):
-    result = {}
-    for n, q in rotations.items():
-        origin = origins[n].array
-        primary = skeleton.segments[n].frame_definition.primary_point_name
-        vector = (
-            skeleton.landmarks[primary].local_position.array * fit.segment_scales[n]
-        )
-        result[n] = dict(
-            origin=origin.tolist(),
-            end=(origin + q.rotate_vector(vector=vector)).tolist(),
-            axes=q.to_rotation_matrix().T.tolist(),
-        )
-    return result
 
 
 def main():
@@ -222,16 +90,12 @@ def main():
     parser.add_argument("--dataset", choices=("test", "sample"), default="test")
     parser.add_argument("--parquet", type=Path)
     parser.add_argument("--sensor-group")
-    parser.add_argument("--position-tolerance-mm", type=float, default=5.0)
-    parser.add_argument("--rotation-tolerance-deg", type=float, default=30.0)
     parser.add_argument("--serve", action="store_true")
     parser.add_argument("--port", type=int, default=8771)
     args = parser.parse_args()
     data = build_data(
         args.parquet or recording_path(args.dataset),
         args.sensor_group,
-        args.position_tolerance_mm,
-        args.rotation_tolerance_deg,
     )
     template = FOLDER.joinpath("real_skeleton_viewer.html.template").read_text(
         encoding="utf-8"

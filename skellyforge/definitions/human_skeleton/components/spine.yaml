@@ -11,8 +11,10 @@ segments:
   THORACIC:
     observation_frame:
       origin: neck_center
-      x_axis: {landmark: left_acromion, type: exact, negate: true}
-      z_axis: {landmark: pelvis_origin, type: approximate, negate: true}
+      # The segment's long axis follows chest -> neck. Shoulder evidence fixes
+      # the perpendicular axis; a raised shoulder must not tilt the long axis.
+      z_axis: {landmark: chest_center, type: exact, negate: true}
+      x_axis: {landmark: left_acromion, type: approximate, negate: true}
     anatomical_segment: upper_trunk
     aliases:
     - chest

@@ -7,7 +7,7 @@ scene.add(new THREE.AmbientLight(0xffffff,.7));const light=new THREE.Directional
 const v=p=>new THREE.Vector3(...p);
 const names=Object.keys(DATA.lengths),layers={};
 const landmarkRadius=13;
-for(const [name,color] of Object.entries({independent:0xffa860,connected:0x888888,fitted:0x00e5ff})) {
+for(const [name,color] of Object.entries({saved:0xffa860})) {
   const group=new THREE.Group(), meshes={};scene.add(group);
   for(const n of names) {const mesh=SkeletonGeometry.cylinder(DATA.lengths[n],landmarkRadius/2,color,1);mesh.userData.label=`Segment: ${n} (${name})`;group.add(mesh);meshes[n]=mesh;}
   layers[name]={group,meshes};
@@ -57,7 +57,7 @@ function draw() {
   group.visible=el(field).checked;
   for(const [name,mesh] of Object.entries(meshes)) {const p=f[field][name];mesh.visible=Boolean(p);if(p)mesh.position.copy(v(p));}
  }
- const selected=f[el('axisLayer').value][el('segment').value];
+ const selected=f.saved[el('segment').value];
  axes.forEach((axis,k)=>{axis.visible=Boolean(selected&&el('axes').checked);if(selected){axis.position.copy(v(selected.origin));axis.setDirection(v(selected.axes[k]));}});
  el('clock').textContent=`Frame ${f.number} / sample ${index} / ${(f.time-DATA.frames[0].time).toFixed(3)} s`;
  el('status').textContent=JSON.stringify(f.status,null,2);el('frame').value=index;
@@ -73,7 +73,7 @@ function focus(shoulders=false) {
 }
 el('play').onclick=()=>{playing=!playing;el('play').textContent=playing?'Pause':'Play';accum=0;};
 el('frame').oninput=()=>{index=Number(el('frame').value);playing=false;el('play').textContent='Play';accum=0;draw();};
-for(const id of ['independent','connected','fitted','points','keypoints','axes','segment','axisLayer'])el(id).onchange=draw;
+for(const id of ['saved','points','keypoints','axes','segment'])el(id).onchange=draw;
 el('fit').onclick=()=>focus();el('shoulders').onclick=()=>focus(true);
 el('late').onclick=()=>{first=Math.floor(DATA.frames.length*.75);index=first;accum=0;draw();focus();};
 el('all').onclick=()=>{first=0;index=0;accum=0;draw();focus();};

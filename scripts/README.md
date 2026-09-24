@@ -17,7 +17,7 @@ required. Changes retain the current frame and camera while recomputing the
 observations, recovered poses, connected poses and plots. Controls disable during
 computation; an error leaves the previous data visible with an explicit message.
 
-Noise has its own switch and a standard deviation in millimetres (0–20 per
+Noise has its own switch and a standard deviation in millimetres (0â€“20 per
 coordinate). It is independent Gaussian landmark noise, with a fixed seed for
 repeatable comparisons. With noise off, residuals cannot be attributed to injected
 noise; inspect the reconstruction and orientation conventions instead.
@@ -30,8 +30,8 @@ connecting them changes the origins. Turn overlays off to reduce clutter.
 
 Use **Left hand** or **Right hand** to focus the camera. Finger bones and landmark
 markers are smaller so axes remain legible. **Spread fingers** starts enabled and
-poses the metacarpals in a fan (thumb -35°, index -12°, middle 0°, ring 10°, pinky
-22°, mirrored on the other side). It exercises the normal FK/observation/recovery
+poses the metacarpals in a fan (thumb -35Â°, index -12Â°, middle 0Â°, ring 10Â°, pinky
+22Â°, mirrored on the other side). It exercises the normal FK/observation/recovery
 path; these display-pose angles are not anatomical limits or edits to the shared
 rest skeleton. Disable it to inspect the original straight-finger pose.
 
@@ -116,33 +116,31 @@ it is never selected automatically. `--parquet PATH` overrides discovery and
 Missing processed data produces a preparation instruction; the viewer does not
 download raw videos or run another repository's pipeline.
 
-Orange shows current Forge hydration/roll resolution from **saved processed
-landmarks**. Gray shows their connected FK before fitting. Cyan shows connected
-FK after joint shoulder fitting. Pink wireframe spheres are saved Forge landmarks;
-smaller green solid spheres are Tracker keypoints. Both point layers start visible
-and are wider than the bones. Hover any point or segment for its type and name;
-overlapping objects list together. Keypoints come from the exact saved raw/filtered
-3D channel named by the reconstruction metadata, with matching frames, timestamps,
-coordinate frame and units. The viewer does not remap or refilter them.
-Bones taper from a wide proximal end to a narrow distal tip.
-This is a local Forge calculation experiment, not a replay or validation of the
-production posthoc algorithm. The viewer's hydration, dimension fitting and
-shoulder optimization must not be treated as production pipeline output.
-Fixed dimensions are refitted once from the saved landmarks using current Forge
-and the recording's saved scale-voting selection. Old and new lengths are recorded
-in the source panel. Tracker mapping is not rerun: older mapped landmarks remain
-the inputs. After shoulder fitting, arms and head retain their reconstructed world
-rotations while their origins follow the connected skeleton.
-The source panel records this provenance and hashes the local calculation files.
+Orange bones display saved post hoc segment origins and world rotations. Their
+endpoints use the skeleton geometry and fixed scale fit embedded in the same
+recording. Local default definitions, hydration, roll resolution, scale fitting
+and shoulder optimization are not run by this viewer. The previous gray/cyan
+experimental layers have been removed because they were not production outputs.
 
-Use Play, the frame slider, last-quarter/whole-recording playback, layer toggles,
-segment XYZ axes, and Focus shoulders to inspect the result. Missing segments
-stay absent. Fitter status and shoulder-target distances appear for each frame;
-these are not anatomical accuracy scores. Default modeling tolerances are 5 mm
-for shoulder targets and 30 degrees for movable local rotations. Override with
-`--position-tolerance-mm` and `--rotation-tolerance-deg`, then regenerate. These
-are adjustable fitting preferences, not measured uncertainty or joint limits.
+Pink wireframe spheres are saved Forge landmarks; smaller green solid spheres are
+Tracker keypoints. Both point layers start visible. Hover any point or segment for
+its type and name; overlapping objects list together. Keypoints come from the exact
+saved raw/filtered 3D input channel named by the reconstruction metadata. All
+channels must match frame numbers, timestamps, coordinate frame and units.
 
-Saved data is opened read-only and checksum-checked. All per-frame calculations
-are in memory; only the single HTML artifact is overwritten. Ctrl+C stops the
-local server. Generation currently solves each frame offline and may take time.
+Bones have a 13 mm base diameter and a 3.25 mm distal diameter. Drawing endpoints
+are origin + recorded rotation applied to the saved, fixed-scale primary vector;
+no endpoint is snapped to a landmark. Missing poses remain absent. Invalid
+quaternions and inconsistent saved geometry/dimensions fail rather than being
+repaired. Gaps between independent segments remain visible.
+
+Use Play, frame scrubbing, last-quarter/whole-recording playback, layer toggles,
+segment XYZ axes and Focus shoulders to inspect the result. The source panel
+identifies the recording checksum, selected run and input channels. To change the
+reconstruction, run the production post hoc reconstruction in FreeMoCap and then
+regenerate this viewer. FreeMoCap's prepared-recording refresh helper can reuse
+saved 3D keypoints without detecting or calibrating the videos again.
+
+Saved data is opened read-only and checksum-checked. Only the single HTML artifact
+is overwritten. Ctrl+C stops the local server. No new dependencies are required
+beyond the existing optional Parquet reader.

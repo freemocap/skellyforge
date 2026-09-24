@@ -2,21 +2,18 @@
 <style>body{margin:0;background:#1a1a2e;color:#edf3fc;font:14px system-ui;display:flex;height:100vh}#scene{flex:1;min-width:0}aside{width:340px;padding:18px;overflow:auto}h1{font-size:20px}label{display:block;margin:12px 0}button,select,input{font:inherit}button{padding:6px;margin:3px}input[type=range]{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.note{color:#bac6d8;line-height:1.5}canvas{display:block}</style>
 <style>#tooltip{position:fixed;pointer-events:none;z-index:10;white-space:pre-line;background:#101522ee;border:1px solid #ccd6ee;border-radius:5px;padding:9px;max-width:320px;max-height:45vh;overflow:hidden}</style>
 <div id="tooltip" hidden></div><div id="scene"></div><aside><h1>SkellyForge: real recording</h1>
-<p class="note">Local Forge calculation experiment—not production posthoc output. Saved landmarks are inputs to viewer-side hydration, fixed-dimension fitting and shoulder optimization. This page does not validate the production pipeline.</p>
+<p class="note">Saved post hoc results: recorded segment origins, world rotations and fixed dimensions. No viewer-side reconstruction or fitting.</p>
 <button id="play">Play</button><button id="fit">Fit view</button><button id="shoulders">Focus shoulders</button>
 <input id="frame" type="range" aria-label="Frame"><p id="clock"></p>
 <button id="late">Last quarter</button><button id="all">Whole recording</button>
-<label><input id="independent" type="checkbox" checked> Orange: separate segment poses</label>
-<label><input id="connected" type="checkbox"> Gray: connected before fitting</label>
-<label><input id="fitted" type="checkbox" checked> Cyan: connected after shoulder fitting</label>
+<label><input id="saved" type="checkbox" checked> Orange: saved post hoc segment poses</label>
 <label><input id="points" type="checkbox" checked> Pink wire spheres: Forge landmarks</label>
 <label><input id="keypoints" type="checkbox" checked> Green solid spheres: Tracker keypoints</label>
 <p class="note">Both point layers use saved 3D coordinates. Keypoints are the recorded raw/filtered input used for reconstruction (see source details). Hover points or bones for names; overlapping items list together.</p>
 <label><input id="axes" type="checkbox" checked> Selected XYZ axes (red/green/blue)</label>
 <label>Segment <select id="segment"></select></label>
-<label>Axes on <select id="axisLayer"><option value="fitted">Fitted connected</option><option value="independent">Separate segments</option><option value="connected">Before fitting</option></select></label>
 <pre id="status"></pre>
-<p class="note">Bones are wide at the parent end and narrow at the distal tip. All layers use fixed recording-wide lengths. The cyan shoulder fit can move the spine away from observed landmarks. Distances are to saved shoulder targets, not anatomical accuracy. Stationary means the optimizer stopped at a local compromise; stalled/iteration_limit require review. Missing poses stay missing.</p>
-<details><summary>Fitting settings and source</summary><pre id="source"></pre></details>
-<p class="note">Landmarks are reused as saved, without tracker remapping. Old recorded dimensions are replaced in memory by a fit using current Forge code. Arms and head retain their reconstructed world rotations while their origins follow the connected tree. Change the modeling weights with --position-tolerance-mm and --rotation-tolerance-deg, then regenerate. Drag to orbit; scroll to zoom.</p>
+<p class="note">Bones have a 13 mm base diameter and a 3.25 mm distal diameter. Their origins and rotations come directly from Parquet; endpoints use the saved skeleton geometry and fixed scale fit. Missing poses stay absent. Gaps and mismatches are preserved.</p>
+<details><summary>Recording source</summary><pre id="source"></pre></details>
+<p class="note">The experimental connected/shoulder-fitted layers are removed because they are not saved production results. Drag to orbit; scroll to zoom.</p>
 </aside><script>__ASSETS__</script><script>const DATA=__DATA__;</script><script>__VIEWER__</script></html>

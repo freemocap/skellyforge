@@ -109,12 +109,32 @@ def read_recording(path, sensor_group=None):
         ):
             raise ValueError("Expected one matching saved XYZ keypoint input channel")
         keypoint_channel = keypoint_channels[0]
-        rows = {channel["kind"]: [], keypoint_channel["kind"]: []}
+        selected_channels = {
+            channel["kind"]: channel,
+            keypoint_channel["kind"]: keypoint_channel,
+        }
+        for kind, components in (
+            ("SEGMENT_ORIGINS", channel["components"]),
+            ("ROTATIONS_WORLD", {c: "1" for c in "wxyz"}),
+        ):
+            matches = [
+                c
+                for c in run["channels"]
+                if c["kind"] == kind
+                and all(
+                    c[k] == channel[k]
+                    for k in ("source", "sensor_group", "reference_frame")
+                )
+            ]
+            if len(matches) != 1 or matches[0]["components"] != components:
+                raise ValueError(f"Expected one compatible saved {kind} channel")
+            selected_channels[kind] = matches[0]
+        rows = {kind: [] for kind in selected_channels}
         for batch in parquet.iter_batches(batch_size=65536):
             columns = batch.to_pydict()
             for i, kind in enumerate(columns["channel"]):
-                selected = channel if kind == channel["kind"] else keypoint_channel
-                if kind != selected["kind"] or columns["run_id"][i] != run_id:
+                selected = selected_channels.get(kind)
+                if selected is None or columns["run_id"][i] != run_id:
                     continue
                 if any(
                     columns[k][i] != selected[k]
@@ -137,6 +157,14 @@ def read_recording(path, sensor_group=None):
     frames = decode_rows(rows[channel["kind"]], channel["names"])
     keypoints = decode_rows(rows[keypoint_channel["kind"]], keypoint_channel["names"])
     attach_keypoints(frames, keypoints)
+    for kind, field, components, units in (
+        ("SEGMENT_ORIGINS", "origins", "xyz", "mm"),
+        ("ROTATIONS_WORLD", "rotations", "wxyz", "1"),
+    ):
+        values = decode_rows(
+            rows[kind], selected_channels[kind]["names"], components, units
+        )
+        attach_series(frames, values, field)
     if digest(path) != before:
         raise RuntimeError("Recording changed while reading; regenerate the review")
     return (
@@ -148,24 +176,29 @@ def read_recording(path, sensor_group=None):
             run_id=run_id,
             channel=channel,
             keypoint_channel=keypoint_channel,
-            method="Reads saved processed landmarks and fit metadata. No tracker remapping or video processing.",
+            skeleton=run["models"]["standard_human"]["skeleton"],
+            method="Replay of saved segment origins, world rotations, fixed dimensions, landmarks and keypoints. No reconstruction, refitting or optimization in the viewer.",
         ),
     )
 
 
 def attach_keypoints(frames, keypoints):
     """Join distinct point namespaces only on the identical saved frame grid."""
+    attach_series(frames, keypoints, "keypoints")
+
+
+def attach_series(frames, keypoints, field):
     if [(f["number"], f["time"]) for f in frames] != [
         (f["number"], f["time"]) for f in keypoints
     ]:
         raise ValueError(
-            "Landmarks and keypoints must have identical frame numbers and timestamps"
+            "Saved channels must have identical frame numbers and timestamps"
         )
     for frame, points in zip(frames, keypoints, strict=True):
-        frame["keypoints"] = points["points"]
+        frame[field] = points["points"]
 
 
-def decode_rows(rows, names):
+def decode_rows(rows, names, components="xyz", units="mm"):
     frames = {}
     seen = set()
     names = set(names)
@@ -177,8 +210,8 @@ def decode_rows(rows, names):
         key = (frame, name, component)
         if (
             name not in names
-            or component not in ("x", "y", "z")
-            or row["units"] != "mm"
+            or component not in components
+            or row["units"] != units
             or key in seen
         ):
             raise ValueError("Unexpected or duplicate landmark sample")
@@ -188,12 +221,12 @@ def decode_rows(rows, names):
         entry = frames.setdefault(frame, dict(number=frame, time=time, points={}))
         if entry["time"] != time:
             raise ValueError("Inconsistent timestamps within a frame")
-        point = entry["points"].setdefault(name, np.full(3, np.nan))
+        point = entry["points"].setdefault(name, np.full(len(components), np.nan))
         value = row["value"]
         if value is not None:
             if not np.isfinite(value):
                 raise ValueError("Nonfinite landmark value must be null")
-            point["xyz".index(component)] = value
+            point[components.index(component)] = value
     result = [frames[n] for n in sorted(frames)]
     if not result or not np.all(np.diff([f["time"] for f in result]) > 0):
         raise ValueError("Expected nonempty, strictly increasing frame timestamps")
