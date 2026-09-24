@@ -74,7 +74,8 @@ class BodyReferenceTrack:
         """Convert measured segment orientations to canonical body-reference axes.
 
         The relative rotation is observed-world-from-segment times the inverse of
-        rest-world-from-segment. Direction-only and transported-roll solutions do not
+        rest-world-from-segment. Explicit observation frames also provide full axes.
+        Direction-only and transported-roll solutions do not
         measure a full orientation and contribute no alignment evidence.
         """
         if len(poses) != len(timestamps_seconds) or quality.shape != (len(poses),):
@@ -92,7 +93,10 @@ class BodyReferenceTrack:
                 continue
             if pose.segment_name != segment_name:
                 raise ValueError("Body reference track cannot mix segment identities")
-            if pose.solved_by is not PoseSolution.RIGID_FIT:
+            if pose.solved_by not in (
+                PoseSolution.RIGID_FIT,
+                PoseSolution.OBSERVATION_FRAME,
+            ):
                 continue
             rotations[index] = pose.orientation.to_rotation_matrix() @ rest_inverse
             origins[index] = pose.origin.array

@@ -123,6 +123,13 @@ def test_fk_closure(seed: int) -> None:
     for joint_name, joint in skeleton.joints.items():
         recovered = recovered_joints[joint_name]
         input_relative = joint_inputs[joint_name]
+        if joint.child.observation_frame is not None:
+            # These frames follow cross-segment observations, not independently
+            # authored joint rotations. Verify their declared axes instead.
+            from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basis import calculate_orthonormal_basis
+            expected = calculate_orthonormal_basis(points=landmarks, definition=joint.child.observation_frame)
+            np.testing.assert_allclose(resolved_pose.segment_poses[joint.child.name].orientation.to_rotation_matrix(), expected.world_from_local_matrix, atol=1e-10)
+            continue
 
         both_rigid = (
             resolved_pose.segment_poses[joint.parent.name].solved_by

@@ -32,7 +32,9 @@ from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basi
     calculate_orthonormal_basis,
     direction_along,
 )
-from skellyforge.core.math.geometry.orthonormal_basis.orthonormal_basis import OrthonormalBasis
+from skellyforge.core.math.geometry.orthonormal_basis.orthonormal_basis import (
+    OrthonormalBasis,
+)
 from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition import (
     ReferenceFrameDefinition,
 )
@@ -79,6 +81,12 @@ class RigidBodySegment:
     Authored alongside the segment definition because it is a definitional
     property, not a derivable one. Consumed by the biomechanics layer for
     mass distribution; ignored by kinematics."""
+    observation_frame: ReferenceFrameDefinition | None = None
+    """Explicit orientation from skeleton-wide observations, instead of a rigid fit.
+
+    Its origin may differ from the segment origin. Segment position and scale
+    still use reference_geometry's origin and primary point.
+    """
     # Both answers below are STATIC properties of the authored geometry, so they are
     # computed once here at construction - the per-frame hydration path reads them
     # without ever re-deriving an SVD or re-stacking local positions.
@@ -90,6 +98,11 @@ class RigidBodySegment:
     )
 
     def __post_init__(self) -> None:
+        if (
+            self.observation_frame is not None
+            and not self.observation_frame.is_fully_specified
+        ):
+            raise ValueError("observation_frame requires two defining axes")
         raise_unless_snake_case_segment_name(name=self.name)
         raise_unless_aliases_are_valid(name=self.name, aliases=self.aliases)
 
@@ -174,7 +187,9 @@ class RigidBodySegment:
         is one of this segment's. Either half being absent leaves roll unconstrained.
         """
         secondary_point_name = self.frame_definition.secondary_point_name
-        return secondary_point_name is not None and secondary_point_name in self.landmarks
+        return (
+            secondary_point_name is not None and secondary_point_name in self.landmarks
+        )
 
     @property
     def supports_rigid_fit(self) -> bool:
@@ -211,7 +226,9 @@ class RigidBodySegment:
         if len(self.landmarks) < MINIMUM_POINTS_FOR_RIGID_FIT:
             return False
         local_positions = np.stack(
-            arrays=[landmark.local_position.array for landmark in self.landmarks.values()],
+            arrays=[
+                landmark.local_position.array for landmark in self.landmarks.values()
+            ],
             axis=0,
         )
         centered = local_positions - local_positions.mean(axis=0)
@@ -247,7 +264,9 @@ class RigidBodySegment:
         the parent does, since a shared joint's rest position lives in the parent's frame -
         so the length is the primary's magnitude, with no special case either way.
         """
-        primary = self.landmarks[self.frame_definition.primary_point_name].local_position
+        primary = self.landmarks[
+            self.frame_definition.primary_point_name
+        ].local_position
         return float(np.linalg.norm(primary.array))
 
     def calculate_direction(self, *, points: Mapping[str, Point]) -> UnitVector:
@@ -287,7 +306,9 @@ class RigidBodySegment:
             ValueError: the segment is underspecified, so there is no triad to build.
         """
         self.raise_unless_fully_specified()
-        return calculate_orthonormal_basis(points=points, definition=self.frame_definition)
+        return calculate_orthonormal_basis(
+            points=points, definition=self.frame_definition
+        )
 
     def raise_unless_fully_specified(self) -> None:
         """Raise unless this segment has everything a full triad needs."""
@@ -307,7 +328,9 @@ class RigidBodySegment:
         )
 
     def __str__(self) -> str:
-        specification = "fully specified" if self.is_fully_specified else "underspecified"
+        specification = (
+            "fully specified" if self.is_fully_specified else "underspecified"
+        )
         return (
             f"{self.name} ({len(self.landmarks)} landmarks, {specification}, "
             f"length {self.length:.4g}): {self.frame_definition}"

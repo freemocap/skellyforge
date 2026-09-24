@@ -126,6 +126,9 @@ def _direction_errors(
             primary=_primary_direction(skeleton=skeleton, name=name),
         )
         for name in world_orientations
+        # Cross-segment observation frames do not invert arbitrary independent
+        # joint rotations; their geometric contract is tested separately.
+        if skeleton.segments[name].observation_frame is None
     }
 
 
@@ -188,6 +191,8 @@ def test_every_segment_reports_how_it_was_solved() -> None:
     assert len(hydrated.segment_poses) == len(skeleton.segments)
     for name, pose in hydrated.segment_poses.items():
         expected = (
+            PoseSolution.OBSERVATION_FRAME
+            if skeleton.segments[name].observation_frame is not None else
             PoseSolution.RIGID_FIT
             if skeleton.segments[name].supports_rigid_fit
             else PoseSolution.DIRECTION

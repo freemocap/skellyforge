@@ -145,11 +145,12 @@ def _sided_entry(
         resolved["reference_frame"] = _sided_reference(
             reference=str(resolved["reference_frame"]), side=side, sided_names=sided_names
         )
-    reference_geometry = resolved.get("reference_geometry")
-    if reference_geometry is not None:
-        resolved["reference_geometry"] = _sided_reference_geometry(
-            reference_geometry=reference_geometry, side=side, sided_names=sided_names
-        )
+    for key in ("reference_geometry", "observation_frame"):
+        reference_geometry = resolved.get(key)
+        if reference_geometry is not None:
+            resolved[key] = _sided_reference_geometry(
+                reference_geometry=reference_geometry, side=side, sided_names=sided_names
+            )
     return resolved
 
 

@@ -29,7 +29,9 @@ from skellyforge.core.skeleton.components.landmark_grouping import (
     LandmarkConnectionGroup,
     LandmarkGroup,
 )
-from skellyforge.core.skeleton.components.landmark_name_resolver import LandmarkNameResolver
+from skellyforge.core.skeleton.components.landmark_name_resolver import (
+    LandmarkNameResolver,
+)
 from skellyforge.core.skeleton.components.rigid_body_segment import RigidBodySegment
 from skellyforge.core.skeleton.linkage.joint_definition import (
     DEFAULT_JOINT_TYPE,
@@ -49,7 +51,6 @@ from skellyforge.type_overloads import (
     RigidBodySegmentName,
     SkeletonNameString,
 )
-
 
 DERIVED_QUANTITY_REQUIREMENTS: Mapping[str, str] = {
     # name -> what a skeleton must declare for it to be computable, "" when nothing extra.
@@ -159,9 +160,9 @@ class SkeletonDefinition:
                 f"aliases: {sorted(self._canonical_segment_name_by_known_name)}"
             )
 
-        owners_by_landmark_name: dict[LandmarkNameString, list[RigidBodySegmentName]] = {
-            name: [] for name in self.landmarks
-        }
+        owners_by_landmark_name: dict[
+            LandmarkNameString, list[RigidBodySegmentName]
+        ] = {name: [] for name in self.landmarks}
         for segment in self.segments.values():
             for landmark_name in segment.landmarks:
                 owners_by_landmark_name[landmark_name].append(segment.name)
@@ -190,7 +191,14 @@ class SkeletonDefinition:
             {
                 (segment.name, point_name)
                 for segment in self.segments.values()
-                for point_name in segment.frame_definition.point_names
+                for point_name in (
+                    *segment.frame_definition.point_names,
+                    *(
+                        segment.observation_frame.point_names
+                        if segment.observation_frame
+                        else ()
+                    ),
+                )
                 if point_name not in self.landmarks
             }
         )
@@ -217,7 +225,9 @@ class SkeletonDefinition:
                 if name not in self.landmarks
             )
             if missing:
-                ungrouped.append(f"connection group {connection_group.name!r} -> {missing}")
+                ungrouped.append(
+                    f"connection group {connection_group.name!r} -> {missing}"
+                )
         if ungrouped:
             raise ValueError(
                 f"skeleton {self.name!r}: these groupings name landmarks that do not "
@@ -268,7 +278,9 @@ class SkeletonDefinition:
         """
         return self._landmark_name_resolver
 
-    def resolve_segment_name(self, *, name: RigidBodySegmentName) -> RigidBodySegmentName:
+    def resolve_segment_name(
+        self, *, name: RigidBodySegmentName
+    ) -> RigidBodySegmentName:
         """The canonical name of the segment answering to `name`, canonical or alias."""
         canonical_name = self._canonical_segment_name_by_known_name.get(name)
         if canonical_name is None:
@@ -335,14 +347,18 @@ class SkeletonDefinition:
             raise FileNotFoundError(f"{path} is not a file")
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(document, Mapping):
-            raise ValueError(f"{path} must parse to a mapping, got {type(document).__name__}")
+            raise ValueError(
+                f"{path} must parse to a mapping, got {type(document).__name__}"
+            )
 
         components = document.get("components")
         if not isinstance(components, Mapping) or not components:
             raise ValueError(f"{path} needs a non-empty `components` mapping")
 
         derived_node = document.get("derived_quantities", [])
-        if not isinstance(derived_node, Sequence) or isinstance(derived_node, (str, bytes)):
+        if not isinstance(derived_node, Sequence) or isinstance(
+            derived_node, (str, bytes)
+        ):
             raise ValueError(
                 f"{path}: 'derived_quantities' must be a list of quantity names - got "
                 f"{derived_node!r}"
@@ -490,7 +506,9 @@ class SkeletonDefinition:
             )
         chains_node_raw.update(component_chains)
         if not isinstance(chains_node_raw, Mapping):
-            raise ValueError(f"{path}: 'chains' must be a mapping of name -> segment list")
+            raise ValueError(
+                f"{path}: 'chains' must be a mapping of name -> segment list"
+            )
         chains = {
             str(chain_name): KinematicChain.from_yaml_entry(
                 name=str(chain_name),
@@ -524,7 +542,9 @@ class SkeletonDefinition:
         return cls.from_yaml(path=path)
 
     @classmethod
-    def from_component_yaml(cls, *, path: Path, name: SkeletonNameString) -> SkeletonDefinition:
+    def from_component_yaml(
+        cls, *, path: Path, name: SkeletonNameString
+    ) -> SkeletonDefinition:
         """Load a single component file as a skeleton in its own right.
 
         Useful while components are still being brought up one at a time: a component that
@@ -578,15 +598,21 @@ def _build_joint_definitions(
                 f"{path}: joint {joint_name!r} must be a mapping - got "
                 f"{type(entry).__name__}"
             )
-        unexpected_keys = sorted(set(entry) - {"parent", "child", "connect_at", "type", "convention"})
+        unexpected_keys = sorted(
+            set(entry) - {"parent", "child", "connect_at", "type", "convention"}
+        )
         if unexpected_keys:
             raise ValueError(
                 f"{path}: joint {joint_name!r} has unknown keys {unexpected_keys} - "
                 f"expected {{parent, child, connect_at, type, convention}}"
             )
 
-        parent = resolve_segment(name=entry.get("parent"), joint_name=joint_name, role="parent")
-        child = resolve_segment(name=entry.get("child"), joint_name=joint_name, role="child")
+        parent = resolve_segment(
+            name=entry.get("parent"), joint_name=joint_name, role="parent"
+        )
+        child = resolve_segment(
+            name=entry.get("child"), joint_name=joint_name, role="child"
+        )
 
         connect_at_node = entry.get("connect_at")
         if connect_at_node is None:
@@ -632,7 +658,9 @@ def _build_joint_definitions(
                 )
             convention = EulerConvention(
                 sequence=str(sequence),
-                angle_names=tuple(str(name) for name in angle_names) if angle_names else None,
+                angle_names=(
+                    tuple(str(name) for name in angle_names) if angle_names else None
+                ),
                 zero_offsets=tuple(float(offset) for offset in zero_offsets),
             )
 

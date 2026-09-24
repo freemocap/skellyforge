@@ -1,5 +1,9 @@
 segments:
   PELVIS:
+    observation_frame:
+      origin: pelvis_origin
+      x_axis: {landmark: left_hip_socket, type: exact, negate: true}
+      z_axis: {landmark: neck_center, type: approximate}
     reference_geometry:
       origin: pelvis_origin
       x_axis:

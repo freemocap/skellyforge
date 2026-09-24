@@ -32,6 +32,8 @@ class PoseSolution(Enum):
 
     RIGID_FIT = "rigid_fit"
     """Kabsch over three or more non-collinear landmarks. The full orientation is pinned."""
+    OBSERVATION_FRAME = "observation_frame"
+    """Explicit geometric axes from observations; offset landmarks do not steer them."""
 
     DIRECTION = "direction"
     """Shortest-arc rotation from two landmarks. Roll about the long axis is arbitrary."""
@@ -85,6 +87,7 @@ class SegmentPose:
     def has_resolved_roll(self) -> bool:
         """Whether this pose carries a usable roll about the segment's long axis."""
         return self.solved_by in (
+            PoseSolution.OBSERVATION_FRAME,
             PoseSolution.RIGID_FIT,
             PoseSolution.TRANSPORTED_ROLL,
         )

@@ -7,7 +7,12 @@ turned into an orientation by the shortest-arc rotation, with roll left free for
 downstream roll convention to resolve. The input is a mapping of landmark name to world
 position, which freemocap fills from tracker keypoints - this module never sees keypoints.
 
-Which of the two a segment gets is a STATIC property of the segment, answered by
+An explicit observation_frame takes precedence over both fits. It constructs
+orientation from declared axes, and keeps the observed segment origin. Derived
+offset landmarks do not influence that frame. Missing or degenerate defining
+observations are not replaced with another fitting method.
+
+For segments without that declaration, which of the two a segment gets is a STATIC property, answered by
 `RigidBodySegment.supports_rigid_fit`, not a runtime accident. If a segment that can be
 rigid-fit is handed degenerate observations, that is an error and it is raised, not
 quietly downgraded to a direction fit.
@@ -28,9 +33,13 @@ import numpy as np
 from skellyforge.core.math.geometry.numeric_tolerances import MINIMUM_VECTOR_NORM
 from skellyforge.core.math.geometry.orthonormal_basis.calculate_orthonormal_basis import (
     direction_along,
+    calculate_orthonormal_basis,
 )
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
-from skellyforge.core.math.kinematics.coordinate_frame_ops import rotation_between_vectors
+from skellyforge.core.math.kinematics.coordinate_frame_ops import (
+    rotation_between_vectors,
+)
 from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
 )
@@ -81,10 +90,45 @@ def hydrate_segment(
             are degenerate; or its primary landmark sits on its own origin, so there is no
             local direction to rotate.
     """
+    if segment.observation_frame is not None:
+        definition = segment.observation_frame
+        origin_name = segment.frame_definition.origin_point_name
+        primary_name = segment.frame_definition.primary_point_name
+        required = {*definition.point_names, origin_name, primary_name}
+        missing = required - observed.keys()
+        if missing:
+            raise MissingLandmarkObservations(
+                f"{segment.name}: missing frame observations {sorted(missing)}"
+            )
+        if any(not np.isfinite(observed[n].array).all() for n in required):
+            raise DegenerateObservations(
+                f"{segment.name}: nonfinite frame observations"
+            )
+        try:
+            basis = calculate_orthonormal_basis(points=observed, definition=definition)
+            length = float((observed[primary_name] - observed[origin_name]).norm())
+            if length < MINIMUM_VECTOR_NORM:
+                raise ValueError("zero segment span")
+        except ValueError as error:
+            raise DegenerateObservations(
+                f"{segment.name}: degenerate observation frame"
+            ) from error
+        return SegmentPose(
+            segment_name=segment.name,
+            origin=observed[origin_name],
+            orientation=RotationQuaternion.from_rotation_matrix(
+                matrix=basis.world_from_local_matrix
+            ),
+            scale_estimate=length / segment.length,
+            solved_by=PoseSolution.OBSERVATION_FRAME,
+        )
     owned_names = tuple(segment.landmarks.keys())
     observed_owned = tuple(name for name in owned_names if name in observed)
 
-    if segment.supports_rigid_fit and len(observed_owned) >= MINIMUM_POINTS_FOR_RIGID_FIT:
+    if (
+        segment.supports_rigid_fit
+        and len(observed_owned) >= MINIMUM_POINTS_FOR_RIGID_FIT
+    ):
         try:
             fit = segment.rigid_point_set.fit_pose(observed=observed)
         except ValueError as error:

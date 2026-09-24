@@ -126,20 +126,25 @@ def apply_terminal_twist_backfills(
             parent_pose = pose.segment_poses.get(parent_name)
             if parent_pose is None:
                 break
-            if parent_pose.solved_by is PoseSolution.RIGID_FIT:
+            if parent_pose.solved_by in (
+                PoseSolution.RIGID_FIT,
+                PoseSolution.OBSERVATION_FRAME,
+            ):
                 break  # a measured parent needs no fill - and stays untouched
             rest_relative = rest_relative_orientations.get(child_name)
             child_orientation = current_orientation(child_name)
             parent_orientation = current_orientation(parent_name)
-            if rest_relative is None or child_orientation is None or parent_orientation is None:
+            if (
+                rest_relative is None
+                or child_orientation is None
+                or parent_orientation is None
+            ):
                 break
 
             reference = SegmentRollReference.for_segment(
                 skeleton=skeleton, segment_name=parent_name
             )
-            current_relative = (
-                parent_orientation.inverse() * child_orientation
-            )
+            current_relative = parent_orientation.inverse() * child_orientation
             # Express the delta in the PARENT frame, where primary_local lives.
             # Reversing this product expresses it in the child's rest frame.
             relative_change = current_relative * rest_relative.inverse()
@@ -148,9 +153,7 @@ def apply_terminal_twist_backfills(
                 local_axis=reference.primary_local,
             )
 
-            updated[parent_name] = (
-                current_orientation(parent_name) * twist
-            )
+            updated[parent_name] = current_orientation(parent_name) * twist
 
     if not updated:
         return pose

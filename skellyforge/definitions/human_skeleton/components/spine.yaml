@@ -9,6 +9,10 @@ segments:
         landmark: chest_center
         type: exact
   THORACIC:
+    observation_frame:
+      origin: neck_center
+      x_axis: {landmark: left_acromion, type: exact, negate: true}
+      z_axis: {landmark: pelvis_origin, type: approximate, negate: true}
     anatomical_segment: upper_trunk
     aliases:
     - chest

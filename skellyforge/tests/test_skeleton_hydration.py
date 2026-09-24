@@ -154,9 +154,10 @@ def test_hydrate_skeleton_require_all_false_skips_missing_segments() -> None:
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
 
-    # Observe only the pelvis's own landmarks, so most of the skeleton has nothing.
+    # Pelvis needs its external up reference as well as its own landmarks.
     pelvis_names = tuple(skeleton.segments["pelvis"].landmarks)
     partial = {name: rest_pose.landmark_positions[name] for name in pelvis_names}
+    partial['neck_center'] = rest_pose.landmark_positions['neck_center']
 
     with pytest.raises(MissingLandmarkObservations):
         hydrate_skeleton(skeleton=skeleton, observed=partial)
@@ -176,13 +177,14 @@ def test_hydrate_skeleton_require_all_false_skips_degenerate_segments() -> None:
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
 
-    # Collapse the pelvis (a fully-specified rigid-fit segment) onto a line, so its
-    # observed landmarks are degenerate and the Kabsch fit cannot recover a rotation.
+    # Collapse the pelvis frame's defining observations onto a line.
     observed = {name: point for name, point in rest_pose.landmark_positions.items()}
     pelvis = skeleton.segments["pelvis"]
     for name in pelvis.landmarks:
         position = observed[name].array
         observed[name] = Point.from_xyz(x=position[0], y=0.0, z=0.0)
+    # Collapse the external up reference onto the hip line as well.
+    observed['neck_center'] = Point.from_xyz(x=0.2, y=0.0, z=0.0)
 
     with pytest.raises(DegenerateObservations):
         hydrate_skeleton(skeleton=skeleton, observed=observed)
@@ -191,4 +193,5 @@ def test_hydrate_skeleton_require_all_false_skips_degenerate_segments() -> None:
         skeleton=skeleton, observed=observed, require_all=False
     )
     assert "pelvis" not in partial_pose.segment_poses
-    assert len(partial_pose.segment_poses) == len(skeleton.segments) - 1
+    assert "skull" in partial_pose.segment_poses
+    assert len(partial_pose.segment_poses) < len(skeleton.segments)

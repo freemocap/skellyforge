@@ -5,6 +5,7 @@ landmarks, segments, and the groupings that say what its landmarks are and which
 connect. Cross-component checks live on SkeletonDefinition, which is the first place that
 can see every component at once.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -35,7 +36,13 @@ LANDMARK_KEYS: Final[frozenset[str]] = frozenset(
     {"aliases", "definition", "reference_frame", "local_position", "sided"}
 )
 SEGMENT_KEYS: Final[frozenset[str]] = frozenset(
-    {"aliases", "reference_geometry", "sided", "anatomical_segment"}
+    {
+        "aliases",
+        "reference_geometry",
+        "sided",
+        "anatomical_segment",
+        "observation_frame",
+    }
 )
 NUMBER_OF_SPATIAL_DIMENSIONS: Final[int] = 3
 COMPONENT_SECTION_KEYS: Final[frozenset[str]] = frozenset(
@@ -73,7 +80,9 @@ class LoadedComponent:
     landmarks: dict[LandmarkNameString, AnatomicalLandmark]
     segments: dict[RigidBodySegmentName, RigidBodySegment]
     landmark_groups: dict[str, LandmarkGroup] = field(default_factory=dict)
-    landmark_connections: dict[str, LandmarkConnectionGroup] = field(default_factory=dict)
+    landmark_connections: dict[str, LandmarkConnectionGroup] = field(
+        default_factory=dict
+    )
     joints: dict[str, object] = field(default_factory=dict)
     chains: dict[str, object] = field(default_factory=dict)
 
@@ -113,7 +122,9 @@ def build_component(*, component: Mapping[str, object], name: str) -> LoadedComp
     """Run stages 2-4 over one already-include-resolved component document."""
     lowercased = lowercase_names(node=component)
     if not isinstance(lowercased, Mapping):
-        raise ValueError(f"component {name!r} must be a mapping, got {type(component).__name__}")
+        raise ValueError(
+            f"component {name!r} must be a mapping, got {type(component).__name__}"
+        )
     unexpected_sections = sorted(set(lowercased) - COMPONENT_SECTION_KEYS)
     if unexpected_sections:
         raise ValueError(
@@ -148,7 +159,9 @@ def build_component(*, component: Mapping[str, object], name: str) -> LoadedComp
         landmark_connections={
             group_name: build_landmark_connection_group(name=group_name, entry=entry)
             for group_name, entry in _grouping_section(
-                component=lowercased, section="landmark_connections", component_name=name
+                component=lowercased,
+                section="landmark_connections",
+                component_name=name,
             ).items()
         },
         joints=dict(lowercased.get("joints", {})),
@@ -237,7 +250,9 @@ def _build_segment(
     if frame_definition.secondary_point_name is not None:
         owned_requirements.append(frame_definition.secondary_point_name)
     missing_from_owned = [
-        point_name for point_name in owned_requirements if point_name not in owned_landmarks
+        point_name
+        for point_name in owned_requirements
+        if point_name not in owned_landmarks
     ]
     if missing_from_owned:
         raise ValueError(
@@ -251,4 +266,11 @@ def _build_segment(
         frame_definition=frame_definition,
         aliases=aliases,
         anatomical_segment=entry.get("anatomical_segment"),
+        observation_frame=(
+            build_reference_frame_definition(
+                segment_name=name, reference_geometry=entry["observation_frame"]
+            )
+            if "observation_frame" in entry
+            else None
+        ),
     )
