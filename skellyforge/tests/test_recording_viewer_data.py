@@ -3,7 +3,26 @@
 import numpy as np
 import pytest
 
-from scripts.recording_data import decode_rows, recording_path
+from scripts.recording_data import attach_keypoints, decode_rows, recording_path
+
+
+def test_keypoints_remain_distinct_from_same_named_landmarks():
+    landmarks = decode_rows(rows(), ["point"])
+    samples = rows()
+    samples[0]["value"] = 7.0
+    keypoints = decode_rows(samples, ["point"])
+    attach_keypoints(landmarks, keypoints)
+    assert landmarks[0]["points"]["point"][0] == 1.0
+    assert landmarks[0]["keypoints"]["point"][0] == 7.0
+
+
+@pytest.mark.parametrize("field,value", [("number", 3), ("time", 1.3)])
+def test_keypoint_overlay_rejects_misaligned_frames(field, value):
+    landmarks = decode_rows(rows(), ["point"])
+    keypoints = decode_rows(rows(), ["point"])
+    keypoints[0][field] = value
+    with pytest.raises(ValueError, match="identical frame"):
+        attach_keypoints(landmarks, keypoints)
 
 
 def test_fitted_parent_does_not_rotate_unfitted_descendants_again():

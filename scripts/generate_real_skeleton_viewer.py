@@ -161,6 +161,7 @@ def build_data(
                 number=record["number"],
                 time=record["time"],
                 points={n: p.tolist() for n, p in record["points"].items()},
+                keypoints={n: p.tolist() for n, p in record["keypoints"].items()},
                 independent=independent,
                 connected=connected,
                 fitted=fitted,

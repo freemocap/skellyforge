@@ -94,18 +94,34 @@ def read_recording(path, sensor_group=None):
                 "voting_segment_names": frozenset(saved_fit["voting_segment_names"]),
             }
         )
-        rows = []
+        definition = run["sources"][channel["source"]]["definition"]
+        keypoint_channels = [
+            c
+            for c in run["channels"]
+            if c["source"] == definition["tracker"]
+            and c["kind"] == definition["point_kind"]
+            and c["sensor_group"] == channel["sensor_group"]
+            and c["reference_frame"] == channel["reference_frame"]
+        ]
+        if (
+            len(keypoint_channels) != 1
+            or keypoint_channels[0]["components"] != channel["components"]
+        ):
+            raise ValueError("Expected one matching saved XYZ keypoint input channel")
+        keypoint_channel = keypoint_channels[0]
+        rows = {channel["kind"]: [], keypoint_channel["kind"]: []}
         for batch in parquet.iter_batches(batch_size=65536):
             columns = batch.to_pydict()
             for i, kind in enumerate(columns["channel"]):
-                if kind != channel["kind"] or columns["run_id"][i] != run_id:
+                selected = channel if kind == channel["kind"] else keypoint_channel
+                if kind != selected["kind"] or columns["run_id"][i] != run_id:
                     continue
                 if any(
-                    columns[k][i] != channel[k]
+                    columns[k][i] != selected[k]
                     for k in ("source", "sensor_group", "reference_frame")
                 ):
                     continue
-                rows.append(
+                rows[kind].append(
                     {
                         k: columns[k][i]
                         for k in (
@@ -118,7 +134,9 @@ def read_recording(path, sensor_group=None):
                         )
                     }
                 )
-    frames = decode_rows(rows, channel["names"])
+    frames = decode_rows(rows[channel["kind"]], channel["names"])
+    keypoints = decode_rows(rows[keypoint_channel["kind"]], keypoint_channel["names"])
+    attach_keypoints(frames, keypoints)
     if digest(path) != before:
         raise RuntimeError("Recording changed while reading; regenerate the review")
     return (
@@ -129,9 +147,22 @@ def read_recording(path, sensor_group=None):
             sha256=before,
             run_id=run_id,
             channel=channel,
+            keypoint_channel=keypoint_channel,
             method="Reads saved processed landmarks and fit metadata. No tracker remapping or video processing.",
         ),
     )
+
+
+def attach_keypoints(frames, keypoints):
+    """Join distinct point namespaces only on the identical saved frame grid."""
+    if [(f["number"], f["time"]) for f in frames] != [
+        (f["number"], f["time"]) for f in keypoints
+    ]:
+        raise ValueError(
+            "Landmarks and keypoints must have identical frame numbers and timestamps"
+        )
+    for frame, points in zip(frames, keypoints, strict=True):
+        frame["keypoints"] = points["points"]
 
 
 def decode_rows(rows, names):

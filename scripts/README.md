@@ -118,7 +118,16 @@ download raw videos or run another repository's pipeline.
 
 Orange shows current Forge hydration/roll resolution from **saved processed
 landmarks**. Gray shows their connected FK before fitting. Cyan shows connected
-FK after joint shoulder fitting. Yellow points are the saved landmark inputs.
+FK after joint shoulder fitting. Pink wireframe spheres are saved Forge landmarks;
+smaller green solid spheres are Tracker keypoints. Both point layers start visible
+and are wider than the bones. Hover any point or segment for its type and name;
+overlapping objects list together. Keypoints come from the exact saved raw/filtered
+3D channel named by the reconstruction metadata, with matching frames, timestamps,
+coordinate frame and units. The viewer does not remap or refilter them.
+Bones taper from a wide proximal end to a narrow distal tip.
+This is a local Forge calculation experiment, not a replay or validation of the
+production posthoc algorithm. The viewer's hydration, dimension fitting and
+shoulder optimization must not be treated as production pipeline output.
 Fixed dimensions are refitted once from the saved landmarks using current Forge
 and the recording's saved scale-voting selection. Old and new lengths are recorded
 in the source panel. Tracker mapping is not rerun: older mapped landmarks remain
