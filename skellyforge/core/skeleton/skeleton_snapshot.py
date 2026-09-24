@@ -57,6 +57,7 @@ class LandmarkSnapshot:
 @dataclass(frozen=True, slots=True)
 class FrameSnapshot:
     """Signed axes are stored as their domain (coordinate index, sign) pairs."""
+
     origin: str
     primary_point: str
     primary_axis: tuple[int, int]
@@ -71,9 +72,9 @@ class FrameSnapshot:
             primary_point=frame.primary_point_name,
             primary_axis=frame.primary_axis.value,
             secondary_point=frame.secondary_point_name,
-            secondary_axis=frame.secondary_axis.value
-            if frame.secondary_axis is not None
-            else None,
+            secondary_axis=(
+                frame.secondary_axis.value if frame.secondary_axis is not None else None
+            ),
             handedness=frame.handedness,
         )
 
@@ -83,9 +84,11 @@ class FrameSnapshot:
             primary_point_name=self.primary_point,
             primary_axis=SpatialAxis(self.primary_axis),
             secondary_point_name=self.secondary_point,
-            secondary_axis=SpatialAxis(self.secondary_axis)
-            if self.secondary_axis is not None
-            else None,
+            secondary_axis=(
+                SpatialAxis(self.secondary_axis)
+                if self.secondary_axis is not None
+                else None
+            ),
             handedness=self.handedness,
         )
 
@@ -97,6 +100,8 @@ class SegmentSnapshot:
     frame: FrameSnapshot
     aliases: tuple[str, ...]
     anatomical_segment: str | None
+    # Absent in older snapshots. Do not infer it from current model defaults.
+    observation_frame: FrameSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +160,11 @@ class SkeletonSnapshot:
                     frame=FrameSnapshot.capture(item.frame_definition),
                     aliases=item.aliases,
                     anatomical_segment=item.anatomical_segment,
+                    observation_frame=(
+                        FrameSnapshot.capture(item.observation_frame)
+                        if item.observation_frame is not None
+                        else None
+                    ),
                 )
                 for item in skeleton.segments.values()
             ),
@@ -192,6 +202,11 @@ class SkeletonSnapshot:
                 frame_definition=item.frame.restore(),
                 aliases=item.aliases,
                 anatomical_segment=item.anatomical_segment,
+                observation_frame=(
+                    item.observation_frame.restore()
+                    if item.observation_frame is not None
+                    else None
+                ),
             )
             for item in self.segments
         }

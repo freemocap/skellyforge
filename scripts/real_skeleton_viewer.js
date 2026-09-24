@@ -13,6 +13,8 @@ for(const [name,color] of Object.entries({saved:0xffa860})) {
   layers[name]={group,meshes};
 }
 const pointLayers={};
+// Display sizing only: include wrist/root, palm/carpal and finger markers.
+const isHandMarker=name=>/^(left|right)_(hand_|wrist(?:_|$)|carpal|thumb|index|middle|ring|pinky|little|forefinger|scaphoid|lunate|triquetrum|pisiform|trapezium|trapezoid|capitate|hamate)/.test(name);
 for(const [field,label,color,radius,wireframe] of [
  ['points','Forge landmark',0xff55df,landmarkRadius,true],
  ['keypoints','Tracker keypoint',0x91ff51,8,false]]) {
@@ -22,6 +24,7 @@ for(const [field,label,color,radius,wireframe] of [
  const meshes={};
  for(const name of new Set(DATA.frames.flatMap(f=>Object.keys(f[field])))) {
   const mesh=new THREE.Mesh(geometry,material);mesh.userData.label=`${label}: ${name}`;
+  if(isHandMarker(name))mesh.scale.setScalar(0.5);
   group.add(mesh);meshes[name]=mesh;
  }
  pointLayers[field]={group,meshes};
