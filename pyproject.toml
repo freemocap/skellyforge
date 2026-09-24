@@ -34,6 +34,9 @@ requires-python = ">=3.11,<3.13"
 
 dynamic = ["version"]
 
+[project.optional-dependencies]
+recording-viewer = ["pyarrow>=18"]
+
 # Dev-only tooling + the sibling repo for boundary tests. `[dependency-groups]` is used
 # (not extras) so this is NEVER published: `pip install skellyforge` from PyPI cannot
 # resolve skellytracker, and the runtime boundary (skellyforge never imports

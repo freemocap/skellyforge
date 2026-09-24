@@ -47,6 +47,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import numpy as np
 
+if __package__:
+    from .viewer_assets import vendored_scripts, geometry_script
+else:
+    from viewer_assets import vendored_scripts, geometry_script
+
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.rest_pose import RestPose, build_rest_pose
@@ -68,8 +73,6 @@ from skellyforge.core.biomechanics.composite_inertia import whole_body_center_of
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFINITIONS = REPO_ROOT / "skellyforge" / "definitions" / "human_skeleton"
 OUTPUT_PATH = Path(__file__).resolve().parent / "skeleton_viewer.html"
-VENDOR_DIRECTORY = Path(__file__).resolve().parent / "vendor"
-VENDORED_SCRIPT_NAMES = ("three.min.js", "OrbitControls.js")
 
 FRAME_COUNT = 60
 FPS = 30.0
@@ -674,8 +677,6 @@ var GIZMO_LENGTH = 80;
 var GIZMO_RADIUS = 1.5;
 var GT_OPACITY = 0.25;
 
-var UP = new THREE.Vector3(0, 1, 0);
-
 var leftEl = document.getElementById("left");
 var scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a2e);
@@ -697,20 +698,8 @@ scene.add(new THREE.AxesHelper(200));
 
 function vec3(a) { return new THREE.Vector3(a[0], a[1], a[2]); }
 
-function makeCylinder(length, radius, color, opacity) {
-  var mat = new THREE.MeshLambertMaterial({ color: color });
-  if (opacity < 1) { mat.transparent = true; mat.opacity = opacity; }
-  return new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 12), mat);
-}
-
-function placeCylinder(cyl, a, b) {
-  var d = new THREE.Vector3().subVectors(b, a);
-  var len = d.length();
-  if (len < 0.5) { cyl.visible = false; return; }
-  cyl.visible = true;
-  cyl.position.copy(a).addScaledVector(d, 0.5);
-  cyl.quaternion.setFromUnitVectors(UP, d.normalize());
-}
+var makeCylinder = SkeletonGeometry.cylinder;
+var placeCylinder = SkeletonGeometry.place;
 
 var CENTER = vec3(DATA.center);
 controls.target.copy(CENTER);
@@ -1149,21 +1138,7 @@ animate(performance.now());
 
 
 def _vendored_scripts() -> str:
-    """The viewer's javascript dependencies, concatenated for inlining.
-
-    Read from disk rather than linked from a CDN so the written file needs no network, and
-    fails here - naming the missing file - rather than rendering an empty page later.
-    """
-    sources: list[str] = []
-    for name in VENDORED_SCRIPT_NAMES:
-        path = VENDOR_DIRECTORY / name
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"the viewer inlines {name}, which is missing from {VENDOR_DIRECTORY}. "
-                "See scripts/vendor/README.md for what it is and where to get it."
-            )
-        sources.append(f"/* ---- {name} ---- */\n{path.read_text(encoding='utf-8')}")
-    return "\n".join(sources)
+    return vendored_scripts() + "\n" + geometry_script()
 
 
 def main() -> None:

@@ -77,7 +77,7 @@ is not an assertion that either representation perfectly matches measurements.
 The remaining plots compare landmark noise and recovered motion against the known
 source. This demo does not read recordings, estimate subject dimensions from
 observations, optimize a skeleton against trajectories, or validate an exporter.
-Real-recording review remains a core integration step.
+For saved real recordings, use the companion viewer below.
 
 The resolver starts from authored rest orientations and carries orientation with
 its parent, applying only the minimum swing needed to match each new measured
@@ -89,3 +89,51 @@ Restart `--serve` after Python changes. The loaded-code panel identifies the
 resolver path, source hashes and server start time. The server checks both roll
 resolution and twist-backfill code, as well as the viewer script, for changes.
 Refresh alone does not reload Python.
+# Real recording companion viewer
+
+From the SkellyForge repository:
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/generate_real_skeleton_viewer.py --serve
+```
+
+Open http://127.0.0.1:8771/real_skeleton_viewer.html. This overwrites
+`scripts/real_skeleton_viewer.html`, leaving `scripts/skeleton_viewer.html` intact.
+Both viewers share the vendored Three.js/OrbitControls assets and cylinder drawing
+helpers. No FreeMoCap or SkellyTracker import is used by the real-data viewer.
+
+For a fresh environment, the optional Parquet reader is installed with
+`uv sync --extra recording-viewer`. The generator defaults to:
+
+```text
+~/freemocap_data/testing/prepared/freemocap_test_data/current/recordings/freemocap_test_data/freemocap_test_data_data.parquet
+```
+
+It falls back to `~/freemocap_data/recordings/freemocap_test_data/` with the same
+Parquet filename. `--dataset sample` selects the corresponding sample-data paths;
+it is never selected automatically. `--parquet PATH` overrides discovery and
+`--sensor-group NAME` disambiguates recordings containing multiple model streams.
+Missing processed data produces a preparation instruction; the viewer does not
+download raw videos or run another repository's pipeline.
+
+Orange shows current Forge hydration/roll resolution from **saved processed
+landmarks**. Gray shows their connected FK before fitting. Cyan shows connected
+FK after joint shoulder fitting. Yellow points are the saved landmark inputs.
+Fixed dimensions are refitted once from the saved landmarks using current Forge
+and the recording's saved scale-voting selection. Old and new lengths are recorded
+in the source panel. Tracker mapping is not rerun: older mapped landmarks remain
+the inputs. After shoulder fitting, arms and head retain their reconstructed world
+rotations while their origins follow the connected skeleton.
+The source panel records this provenance and hashes the local calculation files.
+
+Use Play, the frame slider, last-quarter/whole-recording playback, layer toggles,
+segment XYZ axes, and Focus shoulders to inspect the result. Missing segments
+stay absent. Fitter status and shoulder-target distances appear for each frame;
+these are not anatomical accuracy scores. Default modeling tolerances are 5 mm
+for shoulder targets and 30 degrees for movable local rotations. Override with
+`--position-tolerance-mm` and `--rotation-tolerance-deg`, then regenerate. These
+are adjustable fitting preferences, not measured uncertainty or joint limits.
+
+Saved data is opened read-only and checksum-checked. All per-frame calculations
+are in memory; only the single HTML artifact is overwritten. Ctrl+C stops the
+local server. Generation currently solves each frame offline and may take time.

@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>SkellyForge real recording</title>
+<style>body{margin:0;background:#1a1a2e;color:#edf3fc;font:14px system-ui;display:flex;height:100vh}#scene{flex:1;min-width:0}aside{width:340px;padding:18px;overflow:auto}h1{font-size:20px}label{display:block;margin:12px 0}button,select,input{font:inherit}button{padding:6px;margin:3px}input[type=range]{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.note{color:#bac6d8;line-height:1.5}canvas{display:block}</style>
+<div id="scene"></div><aside><h1>SkellyForge: real recording</h1>
+<p class="note">Saved processed landmarks, recalculated with this local Forge checkout. Fixed dimensions are fitted once from those landmarks. No video processing. No anatomical ground truth.</p>
+<button id="play">Play</button><button id="fit">Fit view</button><button id="shoulders">Focus shoulders</button>
+<input id="frame" type="range" aria-label="Frame"><p id="clock"></p>
+<button id="late">Last quarter</button><button id="all">Whole recording</button>
+<label><input id="independent" type="checkbox" checked> Orange: separate segment poses</label>
+<label><input id="connected" type="checkbox"> Gray: connected before fitting</label>
+<label><input id="fitted" type="checkbox" checked> Cyan: connected after shoulder fitting</label>
+<label><input id="points" type="checkbox" checked> Yellow: saved landmarks</label>
+<label><input id="axes" type="checkbox" checked> Selected XYZ axes (red/green/blue)</label>
+<label>Segment <select id="segment"></select></label>
+<label>Axes on <select id="axisLayer"><option value="fitted">Fitted connected</option><option value="independent">Separate segments</option><option value="connected">Before fitting</option></select></label>
+<pre id="status"></pre>
+<p class="note">The fitter keeps lengths fixed and adjusts spine/clavicle rotations together. Distances are to saved shoulder targets, not anatomical accuracy. Stationary means the optimizer stopped at a local compromise; stalled/iteration_limit require review. Missing poses stay missing.</p>
+<details><summary>Fitting settings and source</summary><pre id="source"></pre></details>
+<p class="note">Landmarks are reused as saved, without tracker remapping. Old recorded dimensions are replaced in memory by a fit using current Forge code. Arms and head retain their reconstructed world rotations while their origins follow the connected tree. Change the modeling weights with --position-tolerance-mm and --rotation-tolerance-deg, then regenerate. Drag to orbit; scroll to zoom.</p>
+</aside><script>__ASSETS__</script><script>const DATA=__DATA__;</script><script>__VIEWER__</script></html>
