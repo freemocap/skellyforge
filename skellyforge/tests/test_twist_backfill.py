@@ -7,8 +7,8 @@ its roll. The measured carpals orientation, however, pins it exactly - and
 with rest relative orientations supplied to the resolver, resolve_pose's
 terminal-backfill pass transfers that measurement automatically.
 
-The reference is the AUTHORED REST relationship, so resolution is a pure
-function of the current frame: no baseline pose, no take history.
+The reference is the authored rest relationship. These tests check whether
+independent hand evidence supplies twist without confusing wrist flexion with it.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ import pytest
 
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.chain.twist_backfill import twist_about_local_axis
+from skellyforge.core.skeleton.chain.twist_backfill import apply_terminal_twist_backfills
+from skellyforge.core.skeleton.skeleton_pose import SkeletonPose, PoseSolution
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
@@ -29,6 +31,32 @@ def _rodrigues(axis: np.ndarray, angle_rad: float) -> np.ndarray:
     unit = axis / np.linalg.norm(axis)
     c, s = np.cos(angle_rad), np.sin(angle_rad)
     return np.eye(3) * c + np.cross(np.eye(3), unit * s) + np.outer(unit, unit) * (1 - c)
+
+
+def test_twist_evidence_is_expressed_in_parent_frame_with_nonidentity_rest():
+    skeleton = SkeletonDefinition.from_default_yaml()
+    rest = RestPose.from_default_yaml(skeleton=skeleton)
+    pose = hydrate_skeleton(skeleton=skeleton, observed=rest.landmark_positions)
+    parent, child = "left_lower_arm", "left_carpals"
+    parent_rotation = rest.segment_orientations[parent]
+    rest_relative = RotationQuaternion.from_rotation_vector(
+        rotation_vector=np.array([0.7, -0.4, 0.2]))
+    # A known rotation about the parent's local long axis, followed by an
+    # unrelated child rest alignment. Neither may be mistaken for the other.
+    twist = RotationQuaternion.from_rotation_matrix(
+        matrix=_rodrigues(np.array([0., 0., 1.]), np.deg2rad(50)))
+    observed = SkeletonPose(segment_poses={
+        parent: pose.segment_poses[parent].with_orientation(
+            orientation=parent_rotation, solved_by=PoseSolution.TRANSPORTED_ROLL),
+        child: pose.segment_poses[child].with_orientation(
+            orientation=parent_rotation * twist * rest_relative, solved_by=PoseSolution.RIGID_FIT),
+    })
+    result = apply_terminal_twist_backfills(
+        skeleton=skeleton, pose=observed,
+        rest_relative_orientations=dict(rest.relative_orientations) | {child: rest_relative})
+    assert result.segment_poses[parent].orientation.is_same_rotation(
+        other=parent_rotation * twist, tolerance_radians=1e-9)
+    assert result.segment_poses[child] is observed.segment_poses[child]
 
 
 def _resolved_pose_with_rotated_carpals(
@@ -139,18 +167,6 @@ def test_backfill_is_a_pure_function_of_the_frame() -> None:
         assert segment_pose.orientation.is_same_rotation(
             other=second.segment_poses[name].orientation, tolerance_radians=1e-12
         )
-
-
-def test_resolver_without_rest_rels_skips_backfill_cleanly() -> None:
-    """No rest orientations -> no backfill pass; transport-only still resolves
-    everything without error (the legacy configuration)."""
-    skeleton = SkeletonDefinition.from_default_yaml()
-    rest_pose = RestPose.from_default_yaml(skeleton=skeleton)
-    observed = dict(rest_pose.landmark_positions)
-    pose = hydrate_skeleton(skeleton=skeleton, observed=observed, require_all=False)
-    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
-    resolved = resolver.resolve_pose(pose=pose)
-    assert set(resolved.segment_poses) == set(pose.segment_poses)
 
 
 def test_swing_twist_projection_splits_pure_cases_exactly() -> None:

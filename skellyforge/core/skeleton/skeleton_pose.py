@@ -37,11 +37,12 @@ class PoseSolution(Enum):
     """Shortest-arc rotation from two landmarks. Roll about the long axis is arbitrary."""
 
     TRANSPORTED_ROLL = "transported_roll"
-    """Direction from the data, roll carried from the previous frame by parallel transport.
+    """Direction from observations, roll resolved by minimum-swing transport.
 
-    The long axis is measured; the roll is a CONVENTION, chosen to be continuous rather
-    than recovered from anything. Distinguished from `RIGID_FIT` because the two are not
-    the same claim about the world - one is measured, one is merely well-behaved.
+    The roll starts from authored rest orientation, is carried in the parent's
+    frame when available, and may receive model-declared terminal twist evidence.
+    It is a model convention, distinct from fitting a full orientation directly
+    to a non-collinear landmark set.
     """
 
 

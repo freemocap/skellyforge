@@ -1,6 +1,6 @@
 """Generate a self-contained three.js animation of the standard-human hydration pipeline.
 
-Loads the skeleton and its rest pose, then synthesizes a smooth, looped upper-limb motion
+Loads the skeleton and its rest pose, with optional smooth, looped upper-limb motion
 (shoulder oscillating vertically and horizontally, elbow flexing 0-90 degrees) over a
 sequence of frames. Each frame: forward kinematics projects the landmarks into world
 space, a little noise is added, and the closed-form hydration (hydrate_skeleton) recovers the
@@ -20,24 +20,41 @@ temporal filtering.
 
 The HTML it writes is genuinely self-contained: three.js and OrbitControls are inlined
 from `scripts/vendor/`, so the file opens with no network and survives a strict content
-security policy. The output is a build artifact and is gitignored - regenerate it rather
-than committing it.
+security policy. The output is generated; edit this script and regenerate the HTML.
+The HTML is currently tracked despite its existing .gitignore entry.
 
-Run from the repo root: python scripts/generate_skeleton_viewer.py
+The cyan overlay runs synthesize_fitted_pose on the recovered rotations and root,
+using known fixed subject dimensions. Its difference from independent segment
+origins is shown separately from errors against the source motion. This is a
+synthetic diagnostic, not a real recording or a scale-estimation benchmark.
+
+Run from the repo root: python scripts/generate_skeleton_viewer.py --serve
+Starts still with noise off. Local controls independently enable motion and noise.
+Optional: --all-motion --noise-mm 5 --unequal-scales. Each launch overwrites
+skeleton_viewer.html; interactive recomputation stays in memory.
 """
 
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
+import os
+from datetime import datetime, timezone
 from collections import defaultdict
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.rest_pose import RestPose, build_rest_pose
+from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose
+from skellyforge.core.skeleton.pose.model_scale_fitting import ModelScaleFit
 from skellyforge.core.skeleton.pose.roll_resolution import ContinuousRollResolver
+from skellyforge.core.skeleton.pose import roll_resolution as roll_module
+from skellyforge.core.skeleton.chain import twist_backfill as twist_module
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.pose.hydration import hydrate_skeleton
 from skellyforge.core.biomechanics.anthropometric_parameters import AnthropometricParameters
@@ -67,6 +84,20 @@ ELBOW_FLEX_AMP = np.pi / 2.0
 HEAD_NOD_AMP = 0.4
 HEAD_TURN_AMP = 0.4
 SYNTHESIS_SEED = 20260801
+RESOLVER_PATH = Path(roll_module.__file__).resolve()
+LOADED_RESOLVER_HASH = hashlib.sha256(RESOLVER_PATH.read_bytes()).hexdigest()
+SOURCE_PATHS = (RESOLVER_PATH, Path(twist_module.__file__).resolve(), Path(__file__).resolve())
+def _source_hashes() -> dict[str, str]:
+    return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCE_PATHS}
+
+LOADED_SOURCE_HASHES = _source_hashes()
+RUNTIME = {
+    "started_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    "pid": os.getpid(),
+    "resolver_path": str(RESOLVER_PATH),
+    "resolver_sha256": LOADED_RESOLVER_HASH,
+    "source_hashes": LOADED_SOURCE_HASHES,
+}
 
 
 def _side_of(name: str) -> str:
@@ -105,7 +136,9 @@ def _descendants(parents: dict[str, str | None], root: str) -> list[str]:
     return result
 
 
-def _build_data() -> dict:
+def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
+                root_motion: bool = False, shoulders: bool = False,
+                elbows: bool = False, head: bool = False, spread_hands: bool = True) -> dict:
     skeleton = SkeletonDefinition.from_yaml(path=DEFINITIONS / "human_skeleton.yaml")
     # The tree comes from the skeleton's joints; RestPose layers per-segment rest
     # orientations on top of it.
@@ -135,18 +168,28 @@ def _build_data() -> dict:
     left_forearm = set(_descendants(parents, "left_lower_arm"))
     right_forearm = set(_descendants(parents, "right_lower_arm"))
 
+    segment_scales = {
+        name: SUBJECT_HEIGHT_MM * (1.0 + 0.08 * np.sin(index) if unequal_scales else 1.0)
+        for index, name in enumerate(segment_order)
+    }
+    model_fit = ModelScaleFit(
+        fitted_scale=SUBJECT_HEIGHT_MM,
+        segment_scales=segment_scales,
+        segment_lengths={name: segment.length * segment_scales[name]
+                         for name, segment in skeleton.segments.items()},
+        measured_segment_names=frozenset(), voting_segment_names=frozenset(),
+    )
     primary_locals = {
-        name: SUBJECT_HEIGHT_MM
+        name: segment_scales[name]
         * skeleton.landmarks[
             skeleton.segments[name].frame_definition.primary_point_name
         ].local_position.array
         for name in segment_order
     }
-    segment_scales = {name: SUBJECT_HEIGHT_MM for name in skeleton.segments}
 
     finger_tip_name = skeleton.segments["left_index_distal_phalanx"].frame_definition.primary_point_name
 
-    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton, rest_relative_orientations=rest_pose.relative_orientations)
     fit: dict[str, str] = {}
     segments_meta = []
     for name in segment_order:
@@ -184,6 +227,12 @@ def _build_data() -> dict:
     ts_elbow_rec: list[float] = []
     ts_pelvis_err: list[float] = []
     ts_skull_err: list[float] = []
+    ts_connected_rms: list[float] = []
+    ts_connected_max: list[float] = []
+    body_steps = {name: [] for name in ("pelvis", "sacrolumbar", "thoracic", "cervical_spine", "skull", "left_clavicle", "right_clavicle",
+        "left_upper_arm", "right_upper_arm", "left_lower_arm", "right_lower_arm",
+        "left_upper_leg", "right_upper_leg", "left_lower_leg", "right_lower_leg")}
+    previous_body = {}
 
     for t in range(FRAME_COUNT):
         # Three smoothly-looping degrees of freedom: shoulder vertical (about the forward
@@ -193,6 +242,10 @@ def _build_data() -> dict:
         vertical_angle = SHOULDER_VERTICAL_AMP * np.sin(2.0 * np.pi * t / FRAME_COUNT)
         horizontal_angle = SHOULDER_HORIZONTAL_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT)
         elbow_angle = ELBOW_FLEX_AMP * (1.0 - np.cos(4.0 * np.pi * t / FRAME_COUNT)) / 2.0
+        if not shoulders:
+            vertical_angle = horizontal_angle = 0.0
+        if not elbows:
+            elbow_angle = 0.0
 
         shoulder_left = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0.0, vertical_angle, -horizontal_angle])
         )
@@ -204,6 +257,8 @@ def _build_data() -> dict:
         # A little head nod (pitch) + turn (yaw), skull only, so its landmarks move with it.
         head_nod = HEAD_NOD_AMP * np.sin(2.0 * np.pi * t / FRAME_COUNT + 1.2)
         head_turn = HEAD_TURN_AMP * np.sin(4.0 * np.pi * t / FRAME_COUNT + 0.6)
+        if not head:
+            head_nod = head_turn = 0.0
         head_rotation = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([-head_nod, 0.0, head_turn]))
 
         world = {}
@@ -226,26 +281,36 @@ def _build_data() -> dict:
             parent = parents[name]
             relative[name] = world[name] if parent is None else world[parent].inverse() * world[name]
 
+        # A posed hand for inspection, not a change to the model's rest convention.
+        # Rotate at each CMC; downstream finger joints inherit the spread via FK.
+        if spread_hands:
+            for side, sign in (("left", 1), ("right", -1)):
+                for finger, degrees in {"thumb": -35, "index": -12, "middle": 0, "ring": 10, "pinky": 22}.items():
+                    name = f"{side}_{finger}_metacarpal"
+                    relative[name] = RotationQuaternion.from_rotation_vector(
+                        rotation_vector=np.array([0., sign * np.deg2rad(degrees), 0.])) * relative[name]
+
+        root_translation = np.array([120 * np.sin(2 * np.pi * t / FRAME_COUNT) if root_motion else 0.0, 0.0, 50.0])
         world_orientations, template_origins, template_landmarks = build_rest_pose(
             skeleton=skeleton,
             parents=parents,
             connect_ats=connect_ats,
             orientations=relative,
+            segment_scales=segment_scales,
         )
-        # The forward kinematics places the dimensionless template; scaling it here is the
-        # subject's size, and everything past this point is millimetres.
+        # Positions are now millimetres; add a known moving root to the source motion.
         world_origins = {
-            name: Point.from_prevalidated_array(array=SUBJECT_HEIGHT_MM * origin.array)
+            name: Point.from_prevalidated_array(array=root_translation + origin.array)
             for name, origin in template_origins.items()
         }
         true_landmarks = {
-            name: Point.from_prevalidated_array(array=SUBJECT_HEIGHT_MM * point.array)
+            name: Point.from_prevalidated_array(array=root_translation + point.array)
             for name, point in template_landmarks.items()
         }
 
         observed = {
             name: Point.from_prevalidated_array(
-                array=point.array + rng.normal(scale=LANDMARK_NOISE_MM, size=3)
+                array=point.array + rng.normal(scale=noise_mm, size=3)
             )
             for name, point in true_landmarks.items()
         }
@@ -256,6 +321,30 @@ def _build_data() -> dict:
         hydrated = resolver.resolve_pose(
             pose=hydrate_skeleton(skeleton=skeleton, observed=observed)
         )
+
+        # Use the recovered rotations and root, not the source animation rotations.
+        # Known subject dimensions isolate the connection calculation from scale fitting.
+        recovered = hydrated.segment_poses
+        for name, steps in body_steps.items():
+            rotation = recovered[name].orientation
+            steps.append(float(np.degrees(rotation.angle_to(other=previous_body[name])))
+                         if name in previous_body else 0.0)
+            previous_body[name] = rotation
+        root_name = rest_pose.root_segment_name
+        recovered_relative = hydrated.parent_relative_orientations(parents=parents)
+        connected_rotations, connected_origins, _ = synthesize_fitted_pose(
+            skeleton=skeleton, fit=model_fit,
+            root_origin=recovered[root_name].origin,
+            root_world_orientation=recovered[root_name].orientation,
+            segment_relative_orientations={
+                name: rotation for name, rotation in recovered_relative.items()
+                if name != root_name
+            },
+        )
+        displacements = [float(np.linalg.norm(connected_origins[name].array - recovered[name].origin.array))
+                         for name in segment_order]
+        ts_connected_rms.append(float(np.sqrt(np.mean(np.square(displacements)))))
+        ts_connected_max.append(max(displacements))
 
         world_positions = landmark_world_positions(
             skeleton=skeleton, pose=hydrated, segment_scales=segment_scales
@@ -309,6 +398,10 @@ def _build_data() -> dict:
                     ],
                     "gt_origin": _vec(world_origins[name].array),
                     "gt_end": _vec(world_origins[name].array + true_dir),
+                    "connected_origin": _vec(connected_origins[name].array),
+                    "connected_end": _vec(connected_origins[name].array +
+                        connected_rotations[name].rotate_vector(vector=primary_local)),
+                    "displacement_mm": round(displacements[len(frame_segments)], 2),
                 }
             )
 
@@ -344,6 +437,22 @@ def _build_data() -> dict:
         "frame_count": FRAME_COUNT,
         "fps": FPS,
         "panels": [
+            {
+                "title": "Body orientation change per frame (direction + roll; first frame = 0)",
+                "unit": "deg",
+                "series": [
+                    {"name": name, "color": color, "values": _round_list(body_steps[name])}
+                    for name, color in ((name, "#00e5ff") for name in body_steps)
+                ],
+            },
+            {
+                "title": "Connected vs independent origins (difference, not solver error)",
+                "unit": "mm",
+                "series": [
+                    {"name": "RMS", "color": "#00e5ff", "values": _round_list(ts_connected_rms)},
+                    {"name": "maximum", "color": "#ffa94d", "values": _round_list(ts_connected_max)},
+                ],
+            },
             {
                 "title": "Fingertip landmark noise - " + finger_tip_name + " (observed - true)",
                 "unit": "mm",
@@ -389,6 +498,11 @@ def _build_data() -> dict:
     }
 
     return {
+        "spread_hands": spread_hands,
+        "runtime": RUNTIME,
+        "motion": {"root_motion": root_motion, "shoulders": shoulders, "elbows": elbows, "head": head},
+        "noise_mm": noise_mm,
+        "unequal_scales": unequal_scales,
         "center": _vec(center),
         "frame_count": FRAME_COUNT,
         "fps": FPS,
@@ -410,7 +524,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Standard Human Skeleton - Hydration</title>
+<title>Skeleton review - independent and connected poses</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1a2e; }
   body { display: flex; }
@@ -451,6 +565,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     background: rgba(0, 0, 0, 0.6); color: #eee;
     padding: 12px 16px; border-radius: 8px;
     font-family: system-ui, sans-serif; font-size: 13px;
+    max-width: calc(100% - 64px);
   }
   #info h1 { font-size: 15px; margin: 0 0 6px 0; }
   #info p { margin: 3px 0; }
@@ -473,14 +588,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div id="left">
   <div id="info">
-    <h1>Standard Human Skeleton &mdash; Hydration</h1>
+    <h1>Independent segments &rarr; connected skeleton</h1>
+    <p id="sourceLabel"></p>
     <p id="counts"></p>
     <p><button id="togglePlay">pause</button><span id="frameLabel"></span></p>
+    <p><input id="scrubber" aria-label="Frame" type="range" min="0" value="0" style="width:95%"></p>
     <p>
+      <label><input type="checkbox" id="toggleIndependent" checked> independent segments</label>
+      <label><input type="checkbox" id="toggleConnected" checked> connected (cyan)</label>
       <label><input type="checkbox" id="toggleGt" checked> ground truth</label>
-      <label><input type="checkbox" id="toggleAxes" checked> orientation axes</label>
+      <label><input type="checkbox" id="toggleAxes" checked> body axes</label>
       <label><input type="checkbox" id="toggleLandmarks" checked> landmarks</label>
-      <label><input type="checkbox" id="toggleCom" checked> center of mass</label>
+      <label><input type="checkbox" id="toggleCom"> independent center of mass</label>
     </p>
     <p>
       <span class="dot" style="background:#e74c3c"></span> left bone
@@ -500,7 +619,36 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div id="tooltip"></div>
 </div>
 <div id="right">
-  <p id="charts-head">Time series</p>
+  <div class="panel" style="color:#eee;font:13px/1.7 system-ui">
+    <b>Motion inputs</b> — independent switches; root movement is optional.
+    <fieldset id="motionControls" disabled style="border:0;padding:6px 0">
+      <label><input type="checkbox" id="root_motion"> Root translation</label><br>
+      <label><input type="checkbox" id="shoulders"> Shoulder motion</label><br>
+      <label><input type="checkbox" id="elbows"> Elbow flexion</label><br>
+      <label><input type="checkbox" id="head"> Head nod and turn</label><br>
+      <label><input type="checkbox" id="spreadHands" checked> Spread fingers (inspection pose)</label><br>
+      <label><input type="checkbox" id="noiseEnabled"> Add landmark noise</label>
+      <label>SD <input id="noiseAmount" type="number" min="0" max="20" step="0.5" value="1" style="width:55px"> mm</label><br>
+      <button id="resetInputs">Reset to still / no noise</button>
+    </fieldset>
+    <div id="inputStatus" role="status"></div>
+    <details><summary>Loaded code / server</summary><pre id="runtimeInfo" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px"></pre></details>
+    <hr>
+    <label>Axes on <select id="axisSource"><option value="connected">Connected poses</option><option value="independent">Independent poses</option></select></label>
+    <label>Length <input id="axisLength" type="range" min="20" max="150" value="80" aria-label="Axis length"></label>
+    <br><label><input type="checkbox" id="fingerAxes" checked> Finger axes</label>
+    <label>Length <input id="fingerAxisLength" type="range" min="3" max="25" value="10" aria-label="Finger axis length"></label>
+    <p>Axes: red +X, green +Y, blue +Z.</p>
+    <button id="viewBody">Whole body</button><button id="viewLeftHand">Left hand</button><button id="viewRightHand">Right hand</button>
+  </div>
+  <p id="charts-head">Review the connection calculation</p>
+  <label style="color:#ddd;font:13px system-ui">Rotation plot <select id="rotationSegment" aria-label="Rotation plot segment"></select></label>
+  <p style="color:#ccc;font:13px/1.5 system-ui">Synthetic motion, not a camera recording.
+  Colored bones are independently recovered from noisy landmarks. Cyan uses the same
+  recovered rotations and root, with fixed parent attachments and known subject dimensions.
+  White is the source motion. Differences are expected; this does not optimize the skeleton
+  against observations. Toggle overlays, pause and scrub, or hover a bone to inspect it.
+  Drag to orbit; scroll to zoom.</p>
   <p id="charts-sub">Click a chart to seek. The vertical cursor is the current frame.</p>
   <div id="charts"></div>
 </div>
@@ -509,6 +657,7 @@ __VENDORED_SCRIPTS__
 </script>
 <script>
 var DATA = __DATA__;
+document.getElementById("runtimeInfo").textContent = JSON.stringify(DATA.runtime, null, 2);
 
 var COLORS = { midline: 0x95a5a6, left: 0xe74c3c, right: 0x3498db };
 var AXIS_COLORS = [0xff6b6b, 0x51cf66, 0x5c7cfa];
@@ -521,7 +670,7 @@ var COM_COLOR = 0xe67e22;
 var BODY_COM_COLOR = 0x00e5ff;
 var COM_RADIUS = 11;
 var BODY_COM_RADIUS = 20;
-var GIZMO_LENGTH = 30;
+var GIZMO_LENGTH = 80;
 var GIZMO_RADIUS = 1.5;
 var GT_OPACITY = 0.25;
 
@@ -571,29 +720,39 @@ controls.update();
 var hoverables = [];
 var gtGroup = new THREE.Group();
 var segGroup = new THREE.Group();
+var connectedGroup = new THREE.Group();
 var axisGroup = new THREE.Group();
 var lmGroup = new THREE.Group();
 
 var boneMeshes = [];
 var gtMeshes = [];
 var axisMeshes = [];
+var connectedMeshes = [];
+axisGroup.visible = true;
 
-DATA.segments_meta.forEach(function (meta) {
-  var bone = makeCylinder(meta.length, BONE_RADIUS, COLORS[meta.side], 1);
+DATA.segments_meta.forEach(function (meta, index) {
+  var finger = /_(thumb|index|middle|ring|pinky)_/.test(meta.name);
+  var bone = makeCylinder(meta.length, finger ? 2 : BONE_RADIUS, COLORS[meta.side], 1);
   bone.userData = { name: meta.name, kind: "segment", fit: meta.fit, landmarks: meta.landmarks };
   hoverables.push(bone);
   boneMeshes.push(bone);
   segGroup.add(bone);
 
+  var connected = makeCylinder(meta.length, 2.5, 0x00e5ff, 1);
+  connected.userData = { name: meta.name, kind: "connected", index: index };
+  connectedMeshes.push(connected);
+  hoverables.push(connected);
+  connectedGroup.add(connected);
+
   var gt = makeCylinder(meta.length, GT_RADIUS, GT_COLOR, GT_OPACITY);
   gtMeshes.push(gt);
   gtGroup.add(gt);
 
-  var axes = [
-    makeCylinder(GIZMO_LENGTH, GIZMO_RADIUS, AXIS_COLORS[0], 1),
-    makeCylinder(GIZMO_LENGTH, GIZMO_RADIUS, AXIS_COLORS[1], 1),
-    makeCylinder(GIZMO_LENGTH, GIZMO_RADIUS, AXIS_COLORS[2], 1)
-  ];
+  var axes = AXIS_COLORS.map(function (color) {
+    return new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), GIZMO_LENGTH, color, 12, 6);
+  });
+  var major = /^(pelvis|sacrolumbar|thoracic|cervical_spine|skull|(left|right)_(clavicle|upper_arm|lower_arm|carpals|upper_leg|lower_leg|heel|foot))$/.test(meta.name);
+  axes.forEach(function (a) { a.userData.major = major; a.userData.finger = finger; });
   axes.forEach(function (a) { axisGroup.add(a); });
   axisMeshes.push(axes);
 });
@@ -601,7 +760,7 @@ DATA.segments_meta.forEach(function (meta) {
 var landmarkMeshes = [];
 DATA.landmarks_meta.forEach(function (name) {
   var sph = new THREE.Mesh(
-    new THREE.SphereGeometry(LANDMARK_RADIUS, 10, 10),
+    new THREE.SphereGeometry(/_(thumb|index|middle|ring|pinky)_/.test(name) ? 2.5 : LANDMARK_RADIUS, 10, 10),
     new THREE.MeshLambertMaterial({ color: LANDMARK_COLOR })
   );
   sph.userData = { name: name, kind: "landmark" };
@@ -611,6 +770,7 @@ DATA.landmarks_meta.forEach(function (name) {
 });
 
 var comGroup = new THREE.Group();
+comGroup.visible = false;
 var segmentComMeshes = [];
 DATA.com_names.forEach(function (name) {
   var sph = new THREE.Mesh(
@@ -632,6 +792,7 @@ comGroup.add(bodyComMesh);
 
 scene.add(gtGroup);
 scene.add(segGroup);
+scene.add(connectedGroup);
 scene.add(axisGroup);
 scene.add(lmGroup);
 scene.add(comGroup);
@@ -641,11 +802,18 @@ function applyFrame(t) {
   for (var i = 0; i < DATA.segments_meta.length; i++) {
     var s = F.segments[i];
     placeCylinder(boneMeshes[i], vec3(s.origin), vec3(s.end));
+    placeCylinder(connectedMeshes[i], vec3(s.connected_origin), vec3(s.connected_end));
     placeCylinder(gtMeshes[i], vec3(s.gt_origin), vec3(s.gt_end));
-    var o = vec3(s.origin);
+    var o = vec3(document.getElementById("axisSource").value === "connected" ? s.connected_origin : s.origin);
+    var axisLength = Number(document.getElementById("axisLength").value);
+    if (axisMeshes[i][0].userData.finger) axisLength = Number(document.getElementById("fingerAxisLength").value);
     for (var j = 0; j < 3; j++) {
-      var d = vec3(s.basis[j]).normalize().multiplyScalar(GIZMO_LENGTH);
-      placeCylinder(axisMeshes[i][j], o, o.clone().add(d));
+      var d = vec3(s.basis[j]).normalize().multiplyScalar(axisLength);
+      axisMeshes[i][j].position.copy(o);
+      axisMeshes[i][j].setDirection(d.normalize());
+      axisMeshes[i][j].setLength(axisLength, Math.min(12, axisLength * 0.3), Math.min(6, axisLength * 0.15));
+      axisMeshes[i][j].visible = axisMeshes[i][j].userData.major ||
+        (axisMeshes[i][j].userData.finger && document.getElementById("fingerAxes").checked);
     }
   }
   for (var k = 0; k < F.landmarks.length; k++) {
@@ -670,6 +838,80 @@ var playing = true;
 var accum = 0;
 var last = performance.now();
 var frameLabel = document.getElementById("frameLabel");
+var scrubber = document.getElementById("scrubber");
+scrubber.max = DATA.frame_count - 1;
+scrubber.addEventListener("input", function () {
+  frame = Number(scrubber.value);
+  playing = false;
+  document.getElementById("togglePlay").textContent = "play";
+});
+document.getElementById("sourceLabel").textContent = "Synthetic / mm / noise SD " + DATA.noise_mm +
+  " mm / " + (DATA.unequal_scales ? "unequal segment scales" : "uniform subject scale");
+
+var motionIds = ["root_motion", "shoulders", "elbows", "head"];
+document.getElementById("spreadHands").checked = DATA.spread_hands;
+function focusView(side) {
+  var center = CENTER.clone();
+  var distance = 1;
+  if (side) {
+    var i = DATA.segments_meta.findIndex(function(m) { return m.name === side + "_carpals"; });
+    center = vec3(DATA.frames[frame].segments[i].origin);
+    distance = 0.16;
+  }
+  controls.target.copy(center);
+  camera.position.copy(center).add(new THREE.Vector3(1000,1500,600).multiplyScalar(distance));
+  controls.update();
+}
+document.getElementById("viewBody").addEventListener("click", function(){focusView(null);});
+document.getElementById("viewLeftHand").addEventListener("click", function(){focusView("left");});
+document.getElementById("viewRightHand").addEventListener("click", function(){focusView("right");});
+motionIds.forEach(function (id) { document.getElementById(id).checked = DATA.motion[id]; });
+document.getElementById("noiseEnabled").checked = DATA.noise_mm > 0;
+document.getElementById("noiseAmount").value = DATA.noise_mm || 1;
+var live = location.protocol === "http:" && (location.hostname === "127.0.0.1" || location.hostname === "localhost");
+document.getElementById("motionControls").disabled = !live;
+var inputStatus = document.getElementById("inputStatus");
+function describeInputs() {
+  inputStatus.textContent = DATA.noise_mm === 0
+    ? "Noise OFF. No random perturbations. Residuals here reflect reconstruction/conventions, not injected noise."
+    : "Noise ON: independent Gaussian landmark noise, SD " + DATA.noise_mm + " mm per coordinate. Seed fixed. Residuals include its effects.";
+}
+if (live) describeInputs();
+else inputStatus.textContent = "Interactive inputs need Python: run scripts/generate_skeleton_viewer.py --serve and open the printed local URL. This file is a snapshot.";
+async function recompute() {
+  var payload = {};
+  payload.spread_hands = document.getElementById("spreadHands").checked;
+  motionIds.forEach(function (id) { payload[id] = document.getElementById(id).checked; });
+  payload.noise_mm = document.getElementById("noiseEnabled").checked ? Number(document.getElementById("noiseAmount").value) : 0;
+  var wasPlaying = playing;
+  playing = false;
+  document.getElementById("motionControls").disabled = true;
+  inputStatus.textContent = "Recomputing observations, recovered poses and connected poses…";
+  try {
+    var response = await fetch("/data", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+    if (!response.ok) throw new Error(await response.text());
+    DATA = await response.json();
+    renderCharts();
+    describeInputs();
+    document.getElementById("sourceLabel").textContent = "Synthetic / mm / noise SD " + DATA.noise_mm + " mm / " + (DATA.unequal_scales ? "unequal segment scales" : "uniform subject scale");
+  } catch (error) {
+    inputStatus.textContent = "Recompute failed; showing previous data. " + error.message;
+    motionIds.forEach(function (id) { document.getElementById(id).checked = DATA.motion[id]; });
+    document.getElementById("spreadHands").checked = DATA.spread_hands;
+    document.getElementById("noiseEnabled").checked = DATA.noise_mm > 0;
+    document.getElementById("noiseAmount").value = DATA.noise_mm || 1;
+  } finally {
+    document.getElementById("motionControls").disabled = false;
+    playing = wasPlaying;
+    document.getElementById("togglePlay").textContent = playing ? "pause" : "play";
+  }
+}
+motionIds.concat(["noiseEnabled", "noiseAmount", "spreadHands"]).forEach(function (id) { document.getElementById(id).addEventListener("change", recompute); });
+document.getElementById("resetInputs").addEventListener("click", function () {
+  motionIds.forEach(function (id) { document.getElementById(id).checked = false; });
+  document.getElementById("noiseEnabled").checked = false;
+  recompute();
+});
 
 document.getElementById("togglePlay").addEventListener("click", function (e) {
   playing = !playing;
@@ -677,6 +919,8 @@ document.getElementById("togglePlay").addEventListener("click", function (e) {
 });
 
 document.getElementById("toggleGt").addEventListener("change", function (e) { gtGroup.visible = e.target.checked; });
+document.getElementById("toggleIndependent").addEventListener("change", function (e) { segGroup.visible = e.target.checked; });
+document.getElementById("toggleConnected").addEventListener("change", function (e) { connectedGroup.visible = e.target.checked; });
 document.getElementById("toggleAxes").addEventListener("change", function (e) { axisGroup.visible = e.target.checked; });
 document.getElementById("toggleLandmarks").addEventListener("change", function (e) { lmGroup.visible = e.target.checked; });
 document.getElementById("toggleCom").addEventListener("change", function (e) { comGroup.visible = e.target.checked; });
@@ -691,7 +935,7 @@ renderer.domElement.addEventListener("mousemove", function (event) {
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
-  var hits = raycaster.intersectObjects(hoverables);
+  var hits = raycaster.intersectObjects(hoverables.filter(function (obj) { return obj.visible && obj.parent.visible; }));
   if (hits.length > 0) {
     var obj = hits[0].object;
     if (hovered !== obj) {
@@ -702,7 +946,9 @@ renderer.domElement.addEventListener("mousemove", function (event) {
     tooltip.style.display = "block";
     tooltip.style.left = (event.clientX - rect.left + 14) + "px";
     tooltip.style.top = (event.clientY - rect.top + 14) + "px";
-    tooltip.textContent = obj.userData.kind === "segment"
+    tooltip.textContent = obj.userData.kind === "connected"
+      ? obj.userData.name + " (connected; origin moved " + DATA.frames[frame].segments[obj.userData.index].displacement_mm + " mm)"
+      : obj.userData.kind === "segment"
       ? obj.userData.name + " (" + obj.userData.fit + ", " + obj.userData.landmarks + " landmarks)"
       : obj.userData.kind === "com"
         ? obj.userData.name + " (segment COM)"
@@ -743,7 +989,19 @@ var NS = "http://www.w3.org/2000/svg";
 var chartsEl = document.getElementById("charts");
 var charts = [];
 
-DATA.timeseries.panels.forEach(function (panel) {
+var rotationSegment = document.getElementById("rotationSegment");
+DATA.timeseries.panels[0].series.forEach(function (series) {
+  var option = document.createElement("option");
+  option.value = option.textContent = series.name;
+  rotationSegment.appendChild(option);
+});
+rotationSegment.value = "sacrolumbar";
+rotationSegment.addEventListener("change", function () { renderCharts(); });
+function renderCharts() {
+chartsEl.replaceChildren();
+charts = [];
+DATA.timeseries.panels.forEach(function (panel, panelIndex) {
+  if (panelIndex === 0) panel = Object.assign({}, panel, {series:panel.series.filter(function(s) { return s.name === rotationSegment.value; })});
   var div = document.createElement("div");
   div.className = "panel";
 
@@ -851,6 +1109,9 @@ DATA.timeseries.panels.forEach(function (panel) {
   charts.push({ cursor: cursor, W: W, N: N });
 });
 
+}
+renderCharts();
+
 function updateCursors() {
   charts.forEach(function (c) {
     var x = (frame / (c.N - 1)) * c.W;
@@ -874,6 +1135,7 @@ function animate(now) {
   applyFrame(frame);
   updateCursors();
   frameLabel.textContent = "frame " + (frame + 1) + " / " + DATA.frame_count;
+  scrubber.value = frame;
   controls.update();
   renderer.render(scene, camera);
 }
@@ -905,8 +1167,21 @@ def _vendored_scripts() -> str:
 
 
 def main() -> None:
-    data = _build_data()
-    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, separators=(",", ":")))
+    parser = argparse.ArgumentParser(description="Build an offline synthetic skeleton review viewer.")
+    parser.add_argument("--noise-mm", type=float, default=0.0,
+                        help="Landmark noise standard deviation in millimetres (default: 0).")
+    parser.add_argument("--unequal-scales", action="store_true",
+                        help="Use fixed unequal segment scales to exercise attachment scaling.")
+    parser.add_argument("--serve", action="store_true", help="Serve interactive inputs on localhost.")
+    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--all-motion", action="store_true", help="Enable all motion initially.")
+    args = parser.parse_args()
+    if not np.isfinite(args.noise_mm) or args.noise_mm < 0:
+        parser.error("--noise-mm must be finite and nonnegative")
+    data = _build_data(noise_mm=args.noise_mm, unequal_scales=args.unequal_scales,
+                      root_motion=args.all_motion, shoulders=args.all_motion,
+                      elbows=args.all_motion, head=args.all_motion)
+    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, separators=(",", ":"), allow_nan=False))
     html = html.replace("__VENDORED_SCRIPTS__", _vendored_scripts())
     OUTPUT_PATH.write_text(html, encoding="utf-8")
     counts = data["counts"]
@@ -917,6 +1192,58 @@ def main() -> None:
         f"{data['frame_count']} frames @ {data['fps']} fps, "
         f"{len(data['timeseries']['panels'])} time-series panels"
     )
+    if args.serve:
+        class Handler(BaseHTTPRequestHandler):
+            def send(self, status: int, body: bytes, content_type: str) -> None:
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self) -> None:
+                if self.path != "/":
+                    self.send(404, b"Not found", "text/plain")
+                    return
+                self.send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+            def do_POST(self) -> None:
+                if self.path != "/data":
+                    self.send(404, b"Not found", "text/plain")
+                    return
+                if _source_hashes() != LOADED_SOURCE_HASHES:
+                    self.send(409, b"Viewer or orientation code changed on disk. Restart this viewer server to load it.", "text/plain")
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if not 0 < length <= 2048:
+                        raise ValueError("Invalid request size")
+                    settings = json.loads(self.rfile.read(length))
+                    if not isinstance(settings, dict) or set(settings) != {"noise_mm", "root_motion", "shoulders", "elbows", "head", "spread_hands"}:
+                        raise ValueError("Expected noise_mm, spread_hands and four motion switches")
+                    if any(type(settings[key]) is not bool for key in ("root_motion", "shoulders", "elbows", "head", "spread_hands")):
+                        raise ValueError("Motion switches must be booleans")
+                    noise = settings["noise_mm"]
+                    if type(noise) not in (int, float) or not np.isfinite(noise) or not 0 <= noise <= 20:
+                        raise ValueError("Noise must be between 0 and 20 mm")
+                except (ValueError, TypeError) as error:
+                    self.send(400, str(error).encode(), "text/plain")
+                    return
+                try:
+                    result = _build_data(**settings, unequal_scales=args.unequal_scales)
+                    body = json.dumps(result, allow_nan=False, separators=(",", ":")).encode()
+                except Exception as error:
+                    self.send(500, str(error).encode(), "text/plain")
+                    return
+                self.send(200, body, "application/json")
+
+        with HTTPServer(("127.0.0.1", args.port), Handler) as server:
+            print(f"Interactive viewer: http://127.0.0.1:{server.server_port}/ — Ctrl+C to stop", flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
 
 
 if __name__ == "__main__":

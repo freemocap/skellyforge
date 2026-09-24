@@ -18,14 +18,12 @@ the proximal segment's primary axis and applies the twist component:
   and swing content to the joint between them.
 
 The reference each pair is measured against is the AUTHORED REST relative
-orientation, which makes backfill a pure function of the current frame -
-deterministic and history-independent, exactly like the anchored secondary
-axes it complements. The constant offset this introduces versus any prior
-transport state is a stated convention, not drift.
+orientation. Backfill is a pure function of its supplied poses; those poses
+may contain history-dependent transported roll. The attribution of the twist
+to an upstream segment is an explicit model convention.
 
 Honesty boundaries: attributing axial content to the segment (rather than the
-joint) is a convention - what makes it scientific is that it is deterministic,
-measurement-backed, and stated. Cascading proximal from the measured terminal
+joint) is a convention, not a uniquely measured anatomical rotation. Cascading proximal from the fitted terminal
 is v1 scope; weighting schemes across multiple distal measurements are future
 work.
 """
@@ -142,7 +140,9 @@ def apply_terminal_twist_backfills(
             current_relative = (
                 parent_orientation.inverse() * child_orientation
             )
-            relative_change = rest_relative.inverse() * current_relative
+            # Express the delta in the PARENT frame, where primary_local lives.
+            # Reversing this product expresses it in the child's rest frame.
+            relative_change = current_relative * rest_relative.inverse()
             twist = twist_about_local_axis(
                 relative_rotation=relative_change,
                 local_axis=reference.primary_local,

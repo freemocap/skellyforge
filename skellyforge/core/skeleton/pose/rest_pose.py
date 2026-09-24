@@ -35,6 +35,7 @@ def build_rest_pose(
     parents: Mapping[RigidBodySegmentName, RigidBodySegmentName | None],
     connect_ats: Mapping[RigidBodySegmentName, LandmarkNameString],
     orientations: Mapping[RigidBodySegmentName, RotationQuaternion],
+    segment_scales: Mapping[RigidBodySegmentName, float] | None = None,
 ) -> tuple[
     dict[RigidBodySegmentName, RotationQuaternion],
     dict[RigidBodySegmentName, Point],
@@ -56,6 +57,9 @@ def build_rest_pose(
             skeleton's joints; callers building the maps by hand are asserting the same
             invariants.
         orientations: each segment's parent-relative rotation.
+        segment_scales: optional world units per template unit for each selected
+            segment. Attachments use the owning parent's scale. The parent map
+            may select a subtree, provided it includes all ancestors.
 
     Raises:
         ValueError: the parent map contains a cycle.
@@ -83,21 +87,29 @@ def build_rest_pose(
             offset = Displacement.from_prevalidated_array(
                 array=parent_orientation.rotate_vector(
                     vector=skeleton.landmarks[connect_ats[name]].local_position.array
+                    * (segment_scales[parent] if segment_scales is not None else 1.0)
                 )
             )
             world_origins[name] = world_origins[parent] + offset
         visiting.remove(name)
         visited.add(name)
 
-    for segment_name in skeleton.segments:
+    for segment_name in parents:
         resolve(segment_name)
 
     landmark_positions: dict[LandmarkNameString, Point] = {}
     for landmark in skeleton.landmarks.values():
         owning_segment = skeleton.owning_segment_name_of(landmark=landmark)
+        if owning_segment not in parents:
+            continue
         offset = Displacement.from_prevalidated_array(
             array=world_orientations[owning_segment].rotate_vector(
                 vector=landmark.local_position.array
+                * (
+                    segment_scales[owning_segment]
+                    if segment_scales is not None
+                    else 1.0
+                )
             )
         )
         landmark_positions[landmark.name] = world_origins[owning_segment] + offset
@@ -137,7 +149,9 @@ class RestPose:
         """Load a rest pose and resolve it against a skeleton, refusing anything malformed."""
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(document, Mapping):
-            raise ValueError(f"{path} must parse to a mapping, got {type(document).__name__}")
+            raise ValueError(
+                f"{path} must parse to a mapping, got {type(document).__name__}"
+            )
 
         entries = document.get("segments")
         if not isinstance(entries, Mapping):
@@ -223,9 +237,7 @@ class RestPose:
         return cls.from_yaml(path=path, skeleton=skeleton)
 
 
-def _topology_from_skeleton(
-    *, source: str, skeleton: SkeletonDefinition
-) -> tuple[
+def _topology_from_skeleton(*, source: str, skeleton: SkeletonDefinition) -> tuple[
     dict[RigidBodySegmentName, RigidBodySegmentName | None],
     dict[RigidBodySegmentName, LandmarkNameString],
 ]:
@@ -268,7 +280,9 @@ def _read_segment_entries(
     skeleton: SkeletonDefinition,
 ) -> dict[RigidBodySegmentName, RotationQuaternion]:
     """Validate every entry against the skeleton and parse its orientation."""
-    unknown_segments = sorted(str(name) for name in entries if name not in skeleton.segments)
+    unknown_segments = sorted(
+        str(name) for name in entries if name not in skeleton.segments
+    )
     if unknown_segments:
         raise ValueError(
             f"{path}: these entries name segments that are not in skeleton "

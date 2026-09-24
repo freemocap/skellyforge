@@ -44,7 +44,7 @@ def test_angles_are_deterministic_under_a_reset_resolver() -> None:
     from skellyforge.core.skeleton.pose.roll_resolution import ContinuousRollResolver
 
     def solve() -> dict:
-        resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+        resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton, rest_relative_orientations=RestPose.from_default_yaml(skeleton=skeleton).relative_orientations)
         return {
             name: jp.angles
             for name, jp in compute_joint_poses(

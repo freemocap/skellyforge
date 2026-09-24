@@ -96,7 +96,7 @@ def test_fk_closure(seed: int) -> None:
     skeleton, joint_inputs, landmarks, _, _ = _synthesized_observed_landmarks(seed)
 
     recovered_pose = hydrate_skeleton(skeleton=skeleton, observed=landmarks, require_all=False)
-    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+    resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton, rest_relative_orientations=RestPose.from_default_yaml(skeleton=skeleton).relative_orientations)
     resolved_pose = resolver.resolve_pose(pose=recovered_pose)
 
     assert len(resolved_pose.segment_poses) == len(skeleton.segments), (
@@ -187,7 +187,7 @@ def test_root_placement_does_not_leak_into_relative_angles() -> None:
 
     def relative_angles(observed):
         pose = hydrate_skeleton(skeleton=skeleton, observed=observed, require_all=False)
-        resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton)
+        resolver = ContinuousRollResolver.for_skeleton(skeleton=skeleton, rest_relative_orientations=RestPose.from_default_yaml(skeleton=skeleton).relative_orientations)
         resolved = resolver.resolve_pose(pose=pose)
         relatives = {}
         for joint in skeleton.joints.values():
