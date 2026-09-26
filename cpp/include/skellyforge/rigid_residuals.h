@@ -2,6 +2,12 @@
 #include "skellyforge/rigid_fit.h"
 #include <ceres/rotation.h>
 namespace skellyforge {
+struct LengthEqualityResidual {
+  double scale; // sqrt(time_weight) / length_difference_scale_mm
+  template <typename T> bool operator()(const T* a,const T* b,T* residual)const{
+    residual[0]=(a[0]-b[0])*T(scale);return true;
+  }
+};
 // XYZ displacement in the parent segment's local frame, measured in mm.
 struct LinkageDisplacementPriorResidual {
   double scale;

@@ -2,7 +2,7 @@
 const reviewData=RECORDING_COMPARISON;
 const byId=id=>document.getElementById(id);
 const reviewState={region:'all',grid:true,keypoints:true,landmarks:true,segments:true,linkages:true,savedLandmarks:false,savedSegments:false,axes:false,
-  solutions:reviewData.solutions.map(s=>({enabled:['lower_sc','lower_sc_relaxed'].includes(s.id),opacity:s.id==='lower_sc'?.45:.9,color:s.color}))};
+  solutions:reviewData.solutions.map(s=>({enabled:(reviewData.solutions.some(v=>v.id==='equal_spine_lengths')?['lower_sc_relaxed','equal_spine_lengths']:['lower_sc','lower_sc_relaxed']).includes(s.id),opacity:s.id==='equal_spine_lengths'?.9:.65,color:s.color}))};
 if(!reviewState.solutions.some(s=>s.enabled))reviewState.solutions.at(-1).enabled=true;
 const initialChoices=reviewState.solutions.map(s=>({...s}));
 let reviewIndex=0,reviewPlaying=false,playOrigin=0,playTime=0;

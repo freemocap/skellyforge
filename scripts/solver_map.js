@@ -5,6 +5,7 @@ const ceresMap = {
   autoFit: true, installed: false, drag: null,
 };
 const mapKinds = {
+  length_equality:{color:'#ffd273',tag:'LENGTH EQUALITY / RESIDUAL'},
   chest_line:{color:"#f6e58d",tag:"LANDMARK LINE / PREFERENCE"},
   length:{color:"#5fe6bc",tag:"AXIAL LENGTH / PARAMETER"},
   length_prior:{color:"#e6b6ad",tag:"LENGTH PRIOR / RESIDUAL"},
@@ -28,7 +29,7 @@ function renderCeresMap({parameters, residuals, indices}) {
   const focus=el('body-focus').value;
   if(region!=='all'||focus!=='all'){
     const included=b=>focus!=='all'?b===Number(focus):experiment.bodies[b]?.region===region;
-    residuals=residuals.filter(r=>included(r.bodyIndex));
+    residuals=residuals.filter(r=>(r.bodyIndices||[r.bodyIndex]).some(included));
     const dependencies=new Set(residuals.flatMap(r=>r.connections));
     parameters=parameters.filter(p=>included(p.bodyIndex)||dependencies.has(p.id));
   }

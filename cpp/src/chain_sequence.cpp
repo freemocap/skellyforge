@@ -66,7 +66,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<Vec3>& parent_attachments,const std::vector<Vec3>& child_attachments,
   const std::vector<double>& times,double position_scale,
   double linear_acceleration_scale,double angular_acceleration_scale,
-  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale){
+  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior){
   const size_t n=times.size(),bodies=local.size();
   std::vector<bool> relaxed(bodies,false);
   for(int child:relaxed_linkage_children){
@@ -92,6 +92,15 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     for(double reference:axial_reference_lengths)if(!std::isfinite(reference)||reference<0)throw std::invalid_argument("Axial reference lengths must be finite and nonnegative; zero means rigid");
   }
   const std::vector<double> references=axial_reference_lengths.empty()?std::vector<double>(bodies,0.):axial_reference_lengths;
+  if(length_equality_prior){
+    const auto& prior=*length_equality_prior;
+    if(prior.segment_a<0 || prior.segment_b<0 || static_cast<size_t>(prior.segment_a)>=bodies || static_cast<size_t>(prior.segment_b)>=bodies || prior.segment_a==prior.segment_b)
+      throw std::invalid_argument("Length equality requires two distinct valid segment indices");
+    if(references[prior.segment_a]<=0 || references[prior.segment_b]<=0)
+      throw std::invalid_argument("Length equality requires two variable axial lengths");
+    if(!std::isfinite(prior.scale) || prior.scale<=0)
+      throw std::invalid_argument("Length equality scale must be finite and positive");
+  }
   if(n<3||observed.size()!=n)throw std::invalid_argument("At least three matching frames and timestamps are required");
   if(landmark_line_prior){
     const auto& prior=*landmark_line_prior;
@@ -202,7 +211,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   }};
   translations();result.initial_quaternions=result.quaternions;result.initial_translations=result.translations;
   ceres::Problem problem;
-  std::vector<ceres::ResidualBlockId> landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion;
+  std::vector<ceres::ResidualBlockId> landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities;
   std::vector<std::vector<ceres::ResidualBlockId>> angular_blocks(bodies);
   for(size_t i=0;i<n;++i){
     problem.AddParameterBlock(result.roots[i].data(),3);
@@ -217,6 +226,12 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
           new LengthPriorResidual{references[b],std::sqrt(weights[i])/(length_prior_fraction*references[b]),
             std::sqrt(weights[i])/(extension_fraction*references[b])}),nullptr,&result.lengths[i][b]));
       }
+    }
+    if(length_equality_prior){
+      const auto& prior=*length_equality_prior;
+      length_equalities.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<LengthEqualityResidual,1,1,1>(
+        new LengthEqualityResidual{std::sqrt(weights[i])/prior.scale}),nullptr,
+        &result.lengths[i][prior.segment_a],&result.lengths[i][prior.segment_b]));
     }
     for(int child:relaxed_linkage_children){
       auto* delta=result.linkage_displacements[i][child].data();
@@ -309,6 +324,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     if(!problem.Evaluate(e,&value,nullptr,nullptr,nullptr))throw std::runtime_error("Cost evaluation failed");return value;};
   if(allow_displacement){result.displacement_prior_cost=cost(displacement_priors);result.displacement_acceleration_cost=cost(displacement_motion);}
   result.linkage_prior_cost=cost(linkage_priors);result.linkage_acceleration_cost=cost(linkage_motion);
+  result.length_equality_cost=cost(length_equalities);
   result.line_prior_cost=cost(line_blocks);
   result.length_prior_cost=cost(length_priors);result.length_acceleration_cost=cost(length_motion);
   result.relative_pose_cost=cost(relative_pose_blocks);

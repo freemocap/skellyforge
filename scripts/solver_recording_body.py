@@ -109,7 +109,7 @@ def frame_targets(record, model):
 
 
 def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fit_settings.LENGTH_PRIOR_FRACTION,
-                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False, shoulder_profile=None, relaxed_shoulders=False):
+                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False, shoulder_profile=None, relaxed_shoulders=False, equal_spine_lengths=False):
     records, scale, provenance = read_recording(path, include_model=True)
     saved = provenance.pop('model')
     skeleton = SkeletonSnapshot.from_dict(provenance.pop('skeleton')).restore()
@@ -149,12 +149,18 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
     for child in relaxed:
         if m['names'][m['parents'][child-1]] not in ('left_clavicle','right_clavicle'):
             raise ValueError('Shoulder experiment requires authored clavicle-to-upper-arm linkages')
+    equality = None
+    if equal_spine_lengths:
+        equality = _native.LengthEqualityPrior()
+        equality.segment_a = m['names'].index('sacrolumbar')
+        equality.segment_b = m['names'].index('thoracic')
+        equality.scale = fit_settings.SPINE_LENGTH_EQUALITY_SCALE_MM
     times = [r['time']-selected[0]['time'] for r in selected]
     print(f'Fitting {len(m["names"])} segments / {len(selected)} frames / {sum(len(v) for f in observed for v in f)} mapped keypoint targets', flush=True)
     result = _native.fit_chain_sequence(
         relaxed_linkage_children=relaxed, linkage_scale=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
         linkage_acceleration_scale=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
-        landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
+        length_equality_prior=equality, landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
         lengthening_prior_fraction=lengthening_prior_fraction, free_axial_lengths=free_axial_lengths,
         length_acceleration_scale=fit_settings.LENGTH_ACCELERATION_SCALE_MM_S2,
         local=m['local'], observed=observed, observation_indices=indices,
@@ -226,6 +232,9 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         temporal=True, acceleration=True, rest_prior=True, axial_segments=axial, **(dict(relaxed_linkage_children=relaxed) if relaxed else {})), settings=dict(
         relaxed_linkage_children=relaxed, linkage_scale_mm=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
         linkage_acceleration_scale_mm_s2=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
+        length_equality_prior=dict(enabled=equal_spine_lengths,
+            segments=[m['names'].index('sacrolumbar'),m['names'].index('thoracic')],
+            segment_names=['sacrolumbar','thoracic'], scale_mm=fit_settings.SPINE_LENGTH_EQUALITY_SCALE_MM),
         shoulder_geometry=m['shoulder_geometry'],
         chest_line_prior=dict(enabled=chest_line_prior, body_index=chest_body, landmark_index=chest_slot,
             landmark='chest_center', distance_scale_mm=CHEST_LINE_DISTANCE_SCALE_MM,
@@ -238,10 +247,12 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         position_scale_mm=fit_settings.POSITION_RESIDUAL_SCALE_MM, linear_motion_scale=fit_settings.ROOT_ACCELERATION_SCALE_MM_S2, angular_motion_scale=fit_settings.ANGULAR_ACCELERATION_SCALE_RAD_S2, scale_units=['mm/s^2','rad/s^2'],
         rest_pose_scale_radians=fit_settings.REST_POSE_RESIDUAL_SCALE_RAD, rest_relative_quaternions=m['relative'], direct_mapping_sources=m['sources'],
         initialization='Saved segment quaternions and root origin. Where a saved quaternion is unavailable: parent seed composed with authored relative T-pose. Initialization is not a measurement residual.',
-        costs_by_family=dict(linkage_prior=result.linkage_prior_cost, linkage_acceleration=result.linkage_acceleration_cost, landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
+        costs_by_family=dict(length_equality=result.length_equality_cost, linkage_prior=result.linkage_prior_cost, linkage_acceleration=result.linkage_acceleration_cost, landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
             root_acceleration=result.root_acceleration_cost, segment_angular_acceleration=result.angular_acceleration_costs,
             chest_line_prior=result.line_prior_cost, length_prior=result.length_prior_cost, length_acceleration=result.length_acceleration_cost)),
         objective='One connected full-body Ceres problem. Direct mapped keypoint targets counted once; no derived-landmark measurement residuals. Exact attachments; sacrolumbar and thoracic axial lengths; all other geometry rigid. Quaternion rest-pose and temporal residuals are preferences, not joint limits.')
+    if equal_spine_lengths:
+        method['objective'] += ' Soft equal-length preference between sacrolumbar and thoracic: one difference residual per frame; not a fixed sum or temporal smoothing.'
     if relaxed:
         method['objective']=method['objective'].replace('Exact attachments;', 'Clavicle-to-upper-arm attachments have parent-local XYZ displacement parameters; all other attachments exact;')
         method['objective']+=' Shoulder displacements have zero-reference and local acceleration residuals; no hard displacement bounds. The shoulder keypoint remains assigned once to the acromion; arm keypoints influence the upper arm through the connected arm. No separately observed humeral joint center is invented.'

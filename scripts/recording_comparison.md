@@ -31,7 +31,9 @@ Git; viewer source files live beside it.
   hash, saved metrics and the Ceres report. Solve times are historical results;
   different native builds need not have comparable runtimes.
   Reset comparison restores the initial visible pair.
-- The starting pair is lower-SC exact versus lower-SC relaxed shoulders.
+- When available, the starting pair is lower-SC relaxed shoulders with and
+  without the equal-spine-length preference. Otherwise it is lower-SC exact
+  versus relaxed shoulders.
   Recent shoulder comparisons appear first, followed by older spine cases.
 - Bottom transport: play/pause, previous/next, first/last, looping, playback
   speed, timeline scrubbing and recording-frame entry. Space and arrow keys work

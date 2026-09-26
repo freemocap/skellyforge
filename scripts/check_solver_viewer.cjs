@@ -339,3 +339,16 @@ if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_shoulders")',context))
  }
  console.log('Shoulder variants: per-method reference attachments agree with fitted landmarks and exact clavicle origins at upright/bending frames.');
 }
+
+if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_spine_equality")',context)){
+ nodes.experiment.value='recording_spine_equality';vm.runInContext('chooseExperiment()',context);
+ nodes.mode.value='equal_spine_lengths';vm.runInContext('selectRun();draw()',context);
+ assert(nodes['problem-summary'].textContent.includes('2244 parameter blocks'));
+ assert(nodes['problem-summary'].textContent.includes('6273 residual blocks'));
+ assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_equality").length',context)===3);
+ assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_equality").every(n=>n.connections.length===2&&n.connections.every(id=>id.startsWith("length-")))',context));
+ const thoracic=vm.runInContext('experiment.bodies.findIndex(b=>b.id==="thoracic")',context);
+ nodes['body-focus'].value=String(thoracic);vm.runInContext('draw()',context);
+ assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_equality").length',context)===3);
+ console.log('Length equality: two scalar dependencies, no extra parameters, native residual counts, and either-segment filtering passed.');
+}

@@ -6,6 +6,7 @@ reported separately so diagnostics and the viewer describe the actual solver.
 """
 from skellyforge import _native
 
+SPINE_LENGTH_EQUALITY_SCALE_MM = _native.DEFAULT_LENGTH_EQUALITY_SCALE
 SHOULDER_LINKAGE_SCALE_MM = _native.DEFAULT_LINKAGE_SCALE
 SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2 = _native.DEFAULT_LINKAGE_ACCELERATION_SCALE
 

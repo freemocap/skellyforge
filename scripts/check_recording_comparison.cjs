@@ -14,6 +14,11 @@ const context={RECORDING_COMPARISON:data,THREE,console,devicePixelRatio:1,innerW
 vm.createContext(context);vm.runInContext(['recording_comparison_scene.js','recording_comparison_table.js','recording_comparison.js'].map(p=>fs.readFileSync('scripts/'+p,'utf8')).join('\n'),context);
 const run=source=>vm.runInContext(source,context);
 assert(run('reviewState.solutions.filter(s=>s.enabled).length')===2);
+if(data.solutions.some(s=>s.id==='equal_spine_lengths')){
+ assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="equal_spine_lengths")).spine')==='Free + equal-length prior');
+ assert(nodes['inspector-lengths'].textContent.includes('sacrolumbar'));
+ assert(run('reviewData.solutions.filter((s,i)=>reviewState.solutions[i].enabled).every(s=>["lower_sc_relaxed","equal_spine_lengths"].includes(s.id))'));
+}
 // Every saved landmark is placed verbatim, across all fits and every frame.
 for(let i=0;i<data.times.length;i++){
  run(`seekReview(${i})`);
