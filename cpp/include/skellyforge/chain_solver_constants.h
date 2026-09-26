@@ -1,6 +1,7 @@
 #pragma once
 
 namespace skellyforge {
+inline constexpr double kDefaultLengthProportionScale = 50.; // mm; deviation from target share of total axial length
 inline constexpr double kDefaultLengthEqualityScale = 50.; // mm; soft length-difference residual scale
 inline constexpr double kDefaultLinkageScale = 10.; // mm, experimental residual scale, not an anatomical bound
 inline constexpr double kDefaultLinkageAccelerationScale = 300.; // mm/s^2 in parent local frame

@@ -24,7 +24,7 @@ from scripts.solver_recording_context import add_context
 from scripts.generate_solver_viewer import render_experiments
 
 
-def body_model(skeleton, saved, scales, shoulder_profile=None):
+def body_model(skeleton, saved, scales, shoulder_profile=None, flexible_cervical=False):
     positions, shoulder_geometry = reference_positions(skeleton, scales, shoulder_profile)
     joints = {j.child.name: j for j in skeleton.joints.values()}
     roots = set(skeleton.segments) - set(joints)
@@ -81,7 +81,9 @@ def body_model(skeleton, saved, scales, shoulder_profile=None):
                      for c, parent in enumerate(parents, 1) if parent == b)
         bodies.append(dict(id=name, label=name, region=regions[b], landmark_names=display_names[b], edges=[], attachments=links))
     references = [0.] * len(names)
-    for segment, endpoint in [('sacrolumbar', 'chest_center'), ('thoracic', 'neck_center')]:
+    axial_endpoints=[('sacrolumbar', 'chest_center'), ('thoracic', 'neck_center')]
+    if flexible_cervical:axial_endpoints.append(('cervical_spine','craniocervical_junction'))
+    for segment, endpoint in axial_endpoints:
         b = names.index(segment)
         references[b] = float(display[b][display_names[b].index(endpoint), 2])
         if references[b] <= 0:
@@ -109,31 +111,38 @@ def frame_targets(record, model):
 
 
 def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fit_settings.LENGTH_PRIOR_FRACTION,
-                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False, shoulder_profile=None, relaxed_shoulders=False, equal_spine_lengths=False):
+                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False, shoulder_profile=None, relaxed_shoulders=False, equal_spine_lengths=False, proportional_spine_lengths=False):
     records, scale, provenance = read_recording(path, include_model=True)
     saved = provenance.pop('model')
     skeleton = SkeletonSnapshot.from_dict(provenance.pop('skeleton')).restore()
-    m = body_model(skeleton, saved, scale.segment_scales, shoulder_profile)
+    m = body_model(skeleton, saved, scale.segment_scales, shoulder_profile, flexible_cervical=proportional_spine_lengths)
     selected = [r for r in records if start <= r['number'] <= end]
     if len(selected) != end-start+1 or len(selected) < 3:
         raise ValueError('Requested consecutive interval is not available')
     observed, indices, initial, roots = [], [], [], []
     seed_fallbacks = 0
+    root_name=m['names'][0]
+    root_seeds=[r for r in selected if r['rotations'].get(root_name) is not None and root_name in r['origins']]
+    if not root_seeds:
+        raise ValueError('No saved root pose available in the selected interval for initialization')
+    root_seed_fallbacks=0
     for record in selected:
         obs, slots = frame_targets(record, m)
         observed.append(obs); indices.append(slots)
+        root_seed=record
+        if record['rotations'].get(root_name) is None or root_name not in record['origins']:
+            root_seed=min(root_seeds,key=lambda r:abs(r['time']-record['time']))
+            root_seed_fallbacks+=1
         quaternions = []
         for b, name in enumerate(m['names']):
-            q = record['rotations'].get(name)
+            q = root_seed['rotations'][name] if b==0 else record['rotations'].get(name)
             if q is None:
-                if b == 0:
-                    raise ValueError('No saved root pose for initialization')
                 q = (Rotation.from_quat(quaternions[m['parents'][b-1]], scalar_first=True)
                      * Rotation.from_quat(m['relative'][b-1], scalar_first=True)).as_quat(scalar_first=True)
                 seed_fallbacks += 1
             quaternions.append(np.asarray(q).tolist())
         initial.append(quaternions)
-        roots.append(record['origins'][m['names'][0]].tolist())
+        roots.append(root_seed['origins'][root_name].tolist())
     chest_body = next(b for b, keys in enumerate(m['display_names']) if 'chest_center' in keys)
     chest_slot = m['display_names'][chest_body].index('chest_center')
     line_frames = [mapped_centerline(r['keypoints'], m['sources']) for r in selected]
@@ -155,12 +164,19 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         equality.segment_a = m['names'].index('sacrolumbar')
         equality.segment_b = m['names'].index('thoracic')
         equality.scale = fit_settings.SPINE_LENGTH_EQUALITY_SCALE_MM
+    proportion = None
+    if proportional_spine_lengths:
+        if equal_spine_lengths:raise ValueError('Choose equal lengths or proportional lengths, not both')
+        proportion=_native.LengthProportionPrior()
+        proportion.segments=[m['names'].index(n) for n in fit_settings.SPINE_PROPORTION_SEGMENTS]
+        proportion.ratios=list(fit_settings.SPINE_PROPORTION_RATIOS)
+        proportion.scale=fit_settings.SPINE_LENGTH_PROPORTION_SCALE_MM
     times = [r['time']-selected[0]['time'] for r in selected]
     print(f'Fitting {len(m["names"])} segments / {len(selected)} frames / {sum(len(v) for f in observed for v in f)} mapped keypoint targets', flush=True)
     result = _native.fit_chain_sequence(
         relaxed_linkage_children=relaxed, linkage_scale=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
         linkage_acceleration_scale=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
-        length_equality_prior=equality, landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
+        length_equality_prior=equality, length_proportion_prior=proportion, landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
         lengthening_prior_fraction=lengthening_prior_fraction, free_axial_lengths=free_axial_lengths,
         length_acceleration_scale=fit_settings.LENGTH_ACCELERATION_SCALE_MM_S2,
         local=m['local'], observed=observed, observation_indices=indices,
@@ -204,9 +220,12 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
                 fitted=fitted.tolist(), initial=starting.tolist(), quaternion=q, translation=t,
                 initial_quaternion=iq, initial_translation=it, reference_quaternion=None, reference_translation=None,
                 residuals=errors, truth_rms=None))
-        spine_axes = [Rotation.from_quat(result.quaternions[i][b], scalar_first=True).apply([0,0,1]) for b in axial]
+        spine_axes = [Rotation.from_quat(result.quaternions[i][m['names'].index(name)], scalar_first=True).apply([0,0,1]) for name in ('sacrolumbar','thoracic')]
         diagnostics['Spine bend (degrees)'] = float(np.degrees(np.arccos(np.clip(np.dot(*spine_axes),-1,1))))
         diagnostics['Unavailable source keypoints for selected mappings'] = len(m['sources'])-sum(map(len,observed[i]))
+        diagnostics['Mapped keypoint targets'] = sum(map(len,observed[i]))
+        if not diagnostics['Mapped keypoint targets']:
+            diagnostics['Pose support warning']='No mapped keypoint targets: fitted pose follows temporal and model residuals.'
         for b in axial:
             diagnostics[m['names'][b]+' length (mm)'] = result.lengths[i][b]
         frames.append(dict(linkages=linkages, time=times[i], bodies=bodies, root=result.roots[i], costs=result.costs,
@@ -225,6 +244,9 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         summary['RMS shoulder separation (mm)']=float(np.sqrt(np.mean(np.square(linkage_separations))))
     summary['Frames at axial length bounds'] = sum(any(abs(result.lengths[i][b]-bound*m['references'][b])<fit_settings.BOUND_CONTACT_TOLERANCE_MM
         for b in axial for bound in ((0.,) if free_axial_lengths else fit_settings.AXIAL_LENGTH_BOUND_FRACTIONS)) for i in range(len(frames)))
+    if root_seed_fallbacks:
+        summary['Root initialization fallbacks']=root_seed_fallbacks
+    summary['Frames without mapped keypoint targets']=sum(not sum(map(len,f)) for f in observed)
     for region in sorted({b['region'] for b in m['bodies']}):
         values = [e for f in frames for b,definition in zip(f['bodies'],m['bodies']) if definition['region']==region for e in b['residuals'] if e is not None]
         summary[region+' target RMS (mm)'] = float(np.sqrt(np.mean(np.square(values)))) if values else 'No direct targets'
@@ -247,12 +269,21 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         position_scale_mm=fit_settings.POSITION_RESIDUAL_SCALE_MM, linear_motion_scale=fit_settings.ROOT_ACCELERATION_SCALE_MM_S2, angular_motion_scale=fit_settings.ANGULAR_ACCELERATION_SCALE_RAD_S2, scale_units=['mm/s^2','rad/s^2'],
         rest_pose_scale_radians=fit_settings.REST_POSE_RESIDUAL_SCALE_RAD, rest_relative_quaternions=m['relative'], direct_mapping_sources=m['sources'],
         initialization='Saved segment quaternions and root origin. Where a saved quaternion is unavailable: parent seed composed with authored relative T-pose. Initialization is not a measurement residual.',
-        costs_by_family=dict(length_equality=result.length_equality_cost, linkage_prior=result.linkage_prior_cost, linkage_acceleration=result.linkage_acceleration_cost, landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
+        costs_by_family=dict(length_proportion=result.length_proportion_cost, length_equality=result.length_equality_cost, linkage_prior=result.linkage_prior_cost, linkage_acceleration=result.linkage_acceleration_cost, landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
             root_acceleration=result.root_acceleration_cost, segment_angular_acceleration=result.angular_acceleration_costs,
             chest_line_prior=result.line_prior_cost, length_prior=result.length_prior_cost, length_acceleration=result.length_acceleration_cost)),
         objective='One connected full-body Ceres problem. Direct mapped keypoint targets counted once; no derived-landmark measurement residuals. Exact attachments; sacrolumbar and thoracic axial lengths; all other geometry rigid. Quaternion rest-pose and temporal residuals are preferences, not joint limits.')
+    if proportional_spine_lengths:
+        method['settings']['length_proportion_prior']=dict(enabled=True,segments=proportion.segments,
+            segment_names=list(fit_settings.SPINE_PROPORTION_SEGMENTS),ratios=list(fit_settings.SPINE_PROPORTION_RATIOS),
+            fractions=(np.array(proportion.ratios)/sum(proportion.ratios)).tolist(),scale_mm=proportion.scale,
+            source='User-supplied experimental ratios; Winter/de Leva attribution not verified.')
+        method['objective']=method['objective'].replace('sacrolumbar and thoracic axial lengths','sacrolumbar, thoracic and cervical axial lengths')
+        method['objective']+=' Three-length proportion preference; total length remains free. User-supplied ratios, not verified published anthropometry.'
     if equal_spine_lengths:
         method['objective'] += ' Soft equal-length preference between sacrolumbar and thoracic: one difference residual per frame; not a fixed sum or temporal smoothing.'
+    if root_seed_fallbacks:
+        method['settings']['initialization']+=' Missing saved root poses use the nearest available root pose within this interval as initialization only; no keypoint targets are added.'
     if relaxed:
         method['objective']=method['objective'].replace('Exact attachments;', 'Clavicle-to-upper-arm attachments have parent-local XYZ displacement parameters; all other attachments exact;')
         method['objective']+=' Shoulder displacements have zero-reference and local acceleration residuals; no hard displacement bounds. The shoulder keypoint remains assigned once to the acromion; arm keypoints influence the upper arm through the connected arm. No separately observed humeral joint center is invented.'

@@ -19,6 +19,27 @@ It neither reruns Ceres nor downloads or processes recording data. Regenerate
 after adding new saved fits to the solver lab. The generated HTML is ignored by
 Git; viewer source files live beside it.
 
+To fit the complete prepared recording, run
+`uv run --no-sync poe solver-viewer-full-recording`. This runs the equal-length
+fit; add `--with-control` to also run the no-equality control. It overwrites the fixed
+`build/full_recording/` result files. It does not reprocess the source recording.
+The main page then contains only full-recording fits. The **Short-window
+experiments (180–213)** link opens the shorter comparisons separately.
+
+`uv run --no-sync poe solver-viewer-spine-proportions` adds the three-flexible-length
+experiment to the short-window page. It uses the supplied cervical:thoracic:sacrolumbar
+ratio 6.3:20:18 as a soft preference (50 mm scale), with free total length. Its
+Winter/de Leva attribution has not been verified. Purple is the ratio fit; gold
+is the preceding two-length equality fit. The main full-recording page is not
+silently replaced with this shorter experiment.
+
+The current recording has 222 frames (0–221). Frames 216–221 contain no saved
+keypoints. Their root initialization uses the nearest available saved root pose;
+no keypoint residuals are invented. The viewer labels those frames as supported
+only by temporal and model residuals. In particular, there is no temporal spine
+length residual: equal lengths alone do not determine their common total length
+in that unsupported tail. Those frames must not be interpreted as measured poses.
+
 ## Controls
 
 - Each saved fit is a row in the audit table. Columns show display controls,

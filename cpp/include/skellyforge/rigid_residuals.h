@@ -2,6 +2,15 @@
 #include "skellyforge/rigid_fit.h"
 #include <ceres/rotation.h>
 namespace skellyforge {
+struct LengthProportionResidual {
+  std::array<double,3> fractions;
+  double scale;
+  template <typename T> bool operator()(const T* a,const T* b,const T* c,T* residual)const{
+    const T lengths[3]={a[0],b[0],c[0]},total=a[0]+b[0]+c[0];
+    for(int k=0;k<3;++k)residual[k]=(lengths[k]-T(fractions[k])*total)*T(scale);
+    return true;
+  }
+};
 struct LengthEqualityResidual {
   double scale; // sqrt(time_weight) / length_difference_scale_mm
   template <typename T> bool operator()(const T* a,const T* b,T* residual)const{

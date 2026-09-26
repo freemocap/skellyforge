@@ -2,7 +2,7 @@
 const reviewData=RECORDING_COMPARISON;
 const byId=id=>document.getElementById(id);
 const reviewState={region:'all',grid:true,keypoints:true,landmarks:true,segments:true,linkages:true,savedLandmarks:false,savedSegments:false,axes:false,
-  solutions:reviewData.solutions.map(s=>({enabled:(reviewData.solutions.some(v=>v.id==='equal_spine_lengths')?['lower_sc_relaxed','equal_spine_lengths']:['lower_sc','lower_sc_relaxed']).includes(s.id),opacity:s.id==='equal_spine_lengths'?.9:.65,color:s.color}))};
+  solutions:reviewData.solutions.map(s=>({enabled:(reviewData.solutions.some(v=>v.id==='proportional_spine')?['proportional_spine','equal_spine_lengths']:reviewData.solutions.some(v=>v.id==='equal_spine_lengths')?['lower_sc_relaxed','equal_spine_lengths']:['lower_sc','lower_sc_relaxed']).includes(s.id),opacity:s.id==='equal_spine_lengths'?.9:.65,color:s.color}))};
 if(!reviewState.solutions.some(s=>s.enabled))reviewState.solutions.at(-1).enabled=true;
 const initialChoices=reviewState.solutions.map(s=>({...s}));
 let reviewIndex=0,reviewPlaying=false,playOrigin=0,playTime=0;
@@ -42,6 +42,7 @@ function refresh(){
   byId('timeline').value=reviewIndex;byId('frame-number').value=reviewData.frame_ids[reviewIndex];
   byId('frame-label').textContent=`Frame ${reviewData.frame_ids[reviewIndex]} · ${reviewData.times[reviewIndex].toFixed(3)} s`;
   let count=0;byId('overlay-legend').replaceChildren();
+  byId('support-status').textContent=reviewData.solutions[0].frames[reviewIndex].diagnostics['Pose support warning']||'';
   fitTable.update();
   reviewState.solutions.forEach((setting,i)=>{if(setting.enabled&&setting.opacity>0){count++;const chip=node('span',reviewData.solutions[i].label,'legend-chip');chip.style.setProperty('--color',setting.color);byId('overlay-legend').appendChild(chip);}});
   byId('active-count').textContent=count?`${count} solution${count===1?'':'s'} overlaid`:'No solutions enabled';refreshVideo();

@@ -6,6 +6,7 @@ const ceresMap = {
 };
 const mapKinds = {
   length_equality:{color:'#ffd273',tag:'LENGTH EQUALITY / RESIDUAL'},
+  length_proportion:{color:'#d0a4ff',tag:'LENGTH PROPORTIONS / RESIDUAL'},
   chest_line:{color:"#f6e58d",tag:"LANDMARK LINE / PREFERENCE"},
   length:{color:"#5fe6bc",tag:"AXIAL LENGTH / PARAMETER"},
   length_prior:{color:"#e6b6ad",tag:"LENGTH PRIOR / RESIDUAL"},

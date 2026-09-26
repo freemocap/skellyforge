@@ -9,13 +9,18 @@ PALETTE = ['#9cafff', '#da95e8', '#bdb88a', '#69d7d0', '#d5dce5', '#77b5ff', '#e
 
 def comparison_data(bank):
     choices = []
+    has_full = any(e['id']=='recording_full_body' for e in bank)
     has_equality = any(e['id']=='recording_spine_equality' for e in bank)
     for experiment_id, group, allowed in (
+        ('recording_full_body', 'Full recording', None),
+        ('recording_spine_proportions', 'Spine proportions', {'proportional_spine'}),
         ('recording_spine_equality', 'Spine length coupling', {'equal_spine_lengths','lower_sc_relaxed'}),
         ('recording_body', 'Spine comparisons', None),
         ('recording_shoulders', 'Shoulder offsets', {'lower_sc', 'lower_closer_sc'}),
         ('recording_shoulder_linkages', 'Relaxed shoulder connections', {'lower_closer_sc_relaxed'} if has_equality else {'lower_sc_relaxed', 'lower_closer_sc_relaxed'}),
     ):
+        if has_full and experiment_id!='recording_full_body':
+            continue
         experiment = next((e for e in bank if e['id'] == experiment_id), None)
         if experiment is None:
             continue
@@ -26,7 +31,7 @@ def comparison_data(bank):
                 choices.append((experiment, group, choice, experiment['runs'][0]['methods'][choice['id']]))
     if not choices:
         raise ValueError('No saved real full-body fits; generate the recording solver experiments first')
-    priority = {'Spine length coupling': -1, 'Relaxed shoulder connections': 0, 'Shoulder offsets': 1, 'Spine comparisons': 2}
+    priority = {'Full recording': -3, 'Spine proportions': -2, 'Spine length coupling': -1, 'Relaxed shoulder connections': 0, 'Shoulder offsets': 1, 'Spine comparisons': 2}
     choices.sort(key=lambda choice: priority[choice[1]])
     reference = choices[0][0]
     ref_frames = choices[0][3]['frames']
@@ -46,7 +51,7 @@ def comparison_data(bank):
             raise ValueError('Cannot overlay different skeleton identities')
         solutions.append(dict(
             id=choice['id'], label=choice['label'], group=group,
-            color={'equal_spine_lengths':'#ffd273','lower_sc':'#77b5ff', 'lower_sc_relaxed':'#82e39c', 'lower_closer_sc':'#e8ae71', 'lower_closer_sc_relaxed':'#ff7899'}.get(choice['id'], PALETTE[index % len(PALETTE)]),
+            color={'proportional_spine':'#d0a4ff','equal_spine_lengths':'#ffd273','lower_sc':'#77b5ff', 'lower_sc_relaxed':'#82e39c', 'lower_closer_sc':'#e8ae71', 'lower_closer_sc_relaxed':'#ff7899'}.get(choice['id'], PALETTE[index % len(PALETTE)]),
             definitions=definitions, settings=method['settings'], objective=method['objective'],
             provenance=method.get('metadata', experiment['metadata']), summary=method['summary'],
             converged=frames[0]['converged'], seconds=frames[0]['seconds'], report=frames[0]['report'],
@@ -61,17 +66,25 @@ def comparison_data(bank):
                 hand_landmarks=sorted(hand_landmarks), hand_keypoints=sorted({mappings[n] for n in hand_landmarks if n in mappings}))
 
 
+def write_comparison(data,filename='recording_comparison.html',alternate=''):
+    page = (FOLDER / 'recording_comparison.html.template').read_text(encoding='utf-8')
+    page = page.replace('__ALTERNATE_VIEW__',alternate)
+    page = page.replace('__DATA__', json.dumps(data, allow_nan=False).replace('<', '\\u003c'))
+    target = FOLDER / filename
+    target.write_text(page, encoding='utf-8')
+    print(f'{target.resolve()} — {len(data["solutions"])} saved fits / {len(data["times"])} frames / {target.stat().st_size / 1e6:.1f} MB')
+
+
 def main():
     source = FOLDER / 'solver_viewer.html'
     match = re.search(r'const EXPERIMENTS\s*=\s*(\[.*?\]);', source.read_text(encoding='utf-8'), re.S)
     if not match:
         raise ValueError('Saved solver viewer has no experiment data')
-    data = comparison_data(json.loads(match.group(1)))
-    page = (FOLDER / 'recording_comparison.html.template').read_text(encoding='utf-8')
-    page = page.replace('__DATA__', json.dumps(data, allow_nan=False).replace('<', '\\u003c'))
-    target = FOLDER / 'recording_comparison.html'
-    target.write_text(page, encoding='utf-8')
-    print(f'{target.resolve()} — {len(data["solutions"])} saved fits / {len(data["times"])} frames / {target.stat().st_size / 1e6:.1f} MB')
+    bank=json.loads(match.group(1));has_full=any(e['id']=='recording_full_body' for e in bank)
+    write_comparison(comparison_data(bank),alternate='<a href="recording_window_comparison.html">Short-window experiments (180–213)</a>' if has_full else '')
+    if has_full:
+        write_comparison(comparison_data([e for e in bank if e['id']!='recording_full_body']),
+                         'recording_window_comparison.html','<a href="recording_comparison.html">Full recording</a>')
 
 
 if __name__ == '__main__':

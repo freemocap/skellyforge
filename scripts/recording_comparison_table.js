@@ -3,8 +3,8 @@ function describeComparisonFit(solution){
   const s=solution.settings,g=s.shoulder_geometry;
   const free=s.free_axial_lengths===true,short=s.length_prior_fraction,long=s.lengthening_prior_fraction??short;
   return {
-    spine:s.length_equality_prior?.enabled?'Free + equal-length prior':free?'Free lengths':'Length priors',
-    spineDetail:s.length_equality_prior?.enabled?`Difference scale ${s.length_equality_prior.scale_mm} mm`:free?(s.chest_line_prior?.enabled?'Centerline preference':'No centerline preference'):`Prior scales ${short*100}% / ${long*100}%`,
+    spine:s.length_proportion_prior?.enabled?'Three flexible / ratio prior':s.length_equality_prior?.enabled?'Free + equal-length prior':free?'Free lengths':'Length priors',
+    spineDetail:s.length_proportion_prior?.enabled?`Lumbar : thoracic : cervical = ${s.length_proportion_prior.ratios.join(' : ')}; scale ${s.length_proportion_prior.scale_mm} mm`:s.length_equality_prior?.enabled?`Difference scale ${s.length_equality_prior.scale_mm} mm`:free?(s.chest_line_prior?.enabled?'Centerline preference':'No centerline preference'):`Prior scales ${short*100}% / ${long*100}%`,
     offsets:!g?'Original':g.forward_factor<1?'Lower + closer':'Lowered',
     shoulders:s.relaxed_linkage_children?.length?'Relaxed':'Exact',
     shoulderDetail:s.relaxed_linkage_children?.length?`${s.linkage_scale_mm} mm residual scale`:'Coincident attachments',
@@ -12,7 +12,7 @@ function describeComparisonFit(solution){
   };
 }
 function createComparisonTable(data,state,refresh){
-  const rows=[];let selected=data.solutions.findIndex(s=>s.id==='equal_spine_lengths');if(selected<0)selected=data.solutions.findIndex(s=>s.id==='lower_sc_relaxed');if(selected<0)selected=0;
+  const rows=[];let selected=data.solutions.findIndex(s=>s.id==='proportional_spine');if(selected<0)selected=data.solutions.findIndex(s=>s.id==='equal_spine_lengths');if(selected<0)selected=data.solutions.findIndex(s=>s.id==='lower_sc_relaxed');if(selected<0)selected=0;
   const table=node('table');table.className='fit-table';const caption=node('caption','Saved fits — identical recording frames, different solver settings');caption.className='sr-only';table.appendChild(caption);
   const head=node('thead'),headRow=node('tr');
   for(const text of ['Display','Spine','SC reference','Shoulder linkage','Solve','Target RMS','Actions']){const th=node('th',text);th.setAttribute('scope','col');headRow.appendChild(th);}
@@ -45,6 +45,7 @@ function createComparisonTable(data,state,refresh){
     entry(list,'Recording SHA-256',provenance.recording?.sha256??data.recording.sha256);
     entry(list,'Native binary SHA-256',provenance.native_sha256??'Not recorded');
     entry(list,'Equal spine lengths',s.length_equality_prior?.enabled?`Sacrolumbar minus thoracic; residual scale ${s.length_equality_prior.scale_mm} mm. Total length remains free.`:'Disabled');
+    if(s.length_proportion_prior?.enabled){const p=s.length_proportion_prior;entry(list,'Spine proportions',`${p.segment_names.join(' : ')} = ${p.ratios.join(' : ')}. Residual scale ${p.scale_mm} mm. Total length free. ${p.source}`);}
     entry(list,'Spine length policy',s.free_axial_lengths?'Nonnegative lengths; no length prior or upper bound':`Shortening residual scale: ${s.length_prior_fraction*100}%; lengthening residual scale: ${(s.lengthening_prior_fraction??s.length_prior_fraction)*100}% of reference length`);
     entry(list,'Chest-center line preference',s.chest_line_prior?.enabled?`Distance scale ${s.chest_line_prior.distance_scale_mm} mm; extra anterior scale ${s.chest_line_prior.anterior_scale_mm} mm`:'Disabled');
     entry(list,'Position residual scale',s.position_scale_mm+' mm');
@@ -59,8 +60,11 @@ function createComparisonTable(data,state,refresh){
   function updateWarning(){
     const diagnostics=data.solutions[selected].frames[reviewIndex].diagnostics;
     const a=diagnostics['sacrolumbar length (mm)'],b=diagnostics['thoracic length (mm)'];
-    byId('inspector-warning').textContent=diagnostics['Spine fit warning']||'No saved spine warning for this frame.';
-    byId('inspector-lengths').textContent=Number.isFinite(a)&&Number.isFinite(b)?`Frame ${data.frame_ids[reviewIndex]}: sacrolumbar ${a.toFixed(1)} mm; thoracic ${b.toFixed(1)} mm; difference ${(a-b).toFixed(1)} mm.`:'';
+    byId('inspector-warning').textContent=[diagnostics['Spine fit warning'],diagnostics['Pose support warning']].filter(Boolean).join(' ')||'No saved spine warning for this frame.';
+    const c=diagnostics['cervical_spine length (mm)'];
+    byId('inspector-lengths').textContent=Number.isFinite(a)&&Number.isFinite(b)?`Frame ${data.frame_ids[reviewIndex]}: sacrolumbar ${a.toFixed(1)} mm; thoracic ${b.toFixed(1)} mm; ${Number.isFinite(c)?'cervical '+c.toFixed(1)+' mm; ':''}difference ${(a-b).toFixed(1)} mm.`:'';
+    const prior=data.solutions[selected].settings.length_proportion_prior,total=a+b+c;
+    if(prior?.enabled&&Number.isFinite(total)&&total>0)byId('inspector-lengths').textContent+=` Actual shares: ${[a,b,c].map(v=>(100*v/total).toFixed(1)+'%').join(' / ')}; target shares: ${prior.fractions.map(v=>(100*v).toFixed(1)+'%').join(' / ')} (sacrolumbar / thoracic / cervical).`;
   }
   function update(){
     rows.forEach((r,i)=>{const setting=state.solutions[i];r.checkbox.checked=setting.enabled;r.color.value=setting.color;r.opacity.value=Math.round(setting.opacity*100);r.row.style.setProperty('--color',setting.color);r.row.classList.toggle('enabled',setting.enabled);r.warning.textContent=data.solutions[i].frames[reviewIndex].diagnostics['Spine fit warning']?'Zero spine length':'';});updateWarning();

@@ -7,6 +7,10 @@ reported separately so diagnostics and the viewer describe the actual solver.
 from skellyforge import _native
 
 SPINE_LENGTH_EQUALITY_SCALE_MM = _native.DEFAULT_LENGTH_EQUALITY_SCALE
+SPINE_LENGTH_PROPORTION_SCALE_MM = _native.DEFAULT_LENGTH_PROPORTION_SCALE
+# User-supplied starting ratios; Winter/de Leva endpoint attribution not verified.
+SPINE_PROPORTION_SEGMENTS = ('sacrolumbar', 'thoracic', 'cervical_spine')
+SPINE_PROPORTION_RATIOS = (18., 20., 6.3)
 SHOULDER_LINKAGE_SCALE_MM = _native.DEFAULT_LINKAGE_SCALE
 SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2 = _native.DEFAULT_LINKAGE_ACCELERATION_SCALE
 

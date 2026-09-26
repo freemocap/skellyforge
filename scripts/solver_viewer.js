@@ -52,10 +52,10 @@ function draw(){
   }
   const body=current.bodies[Number(el('plot-body').value)];
   const residuals=current.bodies.flatMap(b=>b.residuals).filter(r=>r!==null);
-  const targetRMS=Math.sqrt(residuals.reduce((sum,r)=>sum+r*r,0)/residuals.length);
+  const targetRMS=residuals.length?Math.sqrt(residuals.reduce((sum,r)=>sum+r*r,0)/residuals.length):null;
   const available=current.bodies.filter(b=>b.available!==false&&b.truth_rms!==null);
   const truthRMS=Math.sqrt(available.reduce((sum,b)=>sum+b.truth_rms*b.truth_rms*b.fitted.length,0)/available.reduce((sum,b)=>sum+b.fitted.length,0));
-  el('status').textContent=`${current.converged?'CONVERGED':'NOT CONVERGED'}\nTarget RMS: ${targetRMS.toFixed(3)} mm\nAvailable fits vs known RMS: ${available.length?truthRMS.toFixed(3)+" mm":"not available (real recording)"}\n${displayValues(current.diagnostics)}\nSolve time: ${(current.seconds*1000).toFixed(2)} ms`;
+  el('status').textContent=`${current.converged?'CONVERGED':'NOT CONVERGED'}\nTarget RMS: ${targetRMS===null?'unavailable (no mapped keypoint targets)':targetRMS.toFixed(3)+' mm'}\nAvailable fits vs known RMS: ${available.length?truthRMS.toFixed(3)+" mm":"not available (real recording)"}\n${displayValues(current.diagnostics)}\nSolve time: ${(current.seconds*1000).toFixed(2)} ms`;
   el('sequence-status').textContent=displayValues(selectedMode.summary);el('sequence-status').hidden=!Object.keys(selectedMode.summary).length;
   el('observability').textContent=current.observability||'';el('observability').hidden=!current.observability;
   el('settings').textContent=JSON.stringify(selectedMode.settings,null,2)+'\n'+current.report;

@@ -3,7 +3,7 @@ function continuousQuaternions(values, firstReference){
   let previous=firstReference;
   return values.map(q=>{if(!q)return null;previous??=q;const sign=q.reduce((s,v,i)=>s+v*previous[i],0)<0?-1:1;const aligned=q.map(v=>v*sign);previous=aligned;return aligned;});
 }
-const plotColors={x:'#ff6464',y:'#69d488',z:'#669fff',w:'#b8c2d1',d:'#f2d17b',l:'#78d6a3',t:'#91a9ff'};
+const plotColors={x:'#ff6464',y:'#69d488',z:'#669fff',w:'#b8c2d1',d:'#f2d17b',l:'#78d6a3',t:'#91a9ff',c:'#d0a4ff'};
 const plotConfig={scrollZoom:true,displayModeBar:true,displaylogo:false,responsive:false,
   modeBarButtonsToRemove:['select2d','lasso2d'],toImageButtonOptions:{format:'svg',filename:'forge-trajectory'}};
 function drawTimeSeries(){
@@ -23,7 +23,7 @@ function drawTimeSeries(){
     fit:selectedMode.frames.map(f=>f.chest_line?[f.chest_line.lateral_mm,f.chest_line.anterior_mm]:null),
     known:selectedMode.frames.map(f=>f.chest_line?[0,0]:null),knownLabel:'centerline',unit:'mm'});
   el('length-panel').hidden=!selectedSequence.length_series;
-  if(selectedSequence.length_series)definitions.push({id:'length',keys:['l','t'],fit:selectedMode.frames.map(f=>f.lengths),known:selectedMode.frames.map(f=>f.reference_lengths),knownLabel:selectedSequence.length_reference_label||'reference length',unit:'mm'});
+  if(selectedSequence.length_series)definitions.push({id:'length',keys:['l','t','c'].slice(0,selectedMode.frames[0].lengths.length),labels:{l:'sacrolumbar',t:'thoracic',c:'cervical'},fit:selectedMode.frames.map(f=>f.lengths),known:selectedMode.frames.map(f=>f.reference_lengths),knownLabel:selectedSequence.length_reference_label||'reference length',unit:'mm'});
   const relaxed=selectedMode.problem?.relaxed_linkage_children||[];
   el('displacement-panel').hidden=!selectedSequence.displacement_series&&!relaxed.length;
   if(relaxed.length)definitions.push({id:'displacement',keys:['x','y'],labels:{x:'Left shoulder separation',y:'Right shoulder separation'},
@@ -33,7 +33,7 @@ function drawTimeSeries(){
   const key=[experiment.id,JSON.stringify(selectedSequence.parameters),el('mode').value,el('plot-body').value,el('plot-point').value].join('|')+['x','y','z','w'].map(k=>el('plot-'+k).checked).join();
   const index=selectedMode?frameIndex:0;
   for(const d of definitions){
-    const component=k=>d.id==='length'?['l','t'].indexOf(k):k==='d'?0:(d.id==='rotation'?['w','x','y','z']:['x','y','z']).indexOf(k);
+    const component=k=>d.id==='length'?['l','t','c'].indexOf(k):k==='d'?0:(d.id==='rotation'?['w','x','y','z']:['x','y','z']).indexOf(k);
     const graph=el(d.id+'-series'),t=times[index];
     const cursor={type:'line',xref:'x',yref:'paper',x0:t,x1:t,y0:0,y1:1,line:{color:'#fff9',width:1}};
     if(graph.dataset.plotKey!==key){

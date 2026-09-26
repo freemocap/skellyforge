@@ -38,3 +38,14 @@ def test_rejects_changed_keypoint_reference_layer():
     source=bank();source[0]['runs'][0]['methods']['b']['frames'][0]['recording_context']['keypoints']['point'][0]=10
     with pytest.raises(ValueError,match='recording context'):
         comparison_data(source)
+
+
+def test_full_recording_is_not_mixed_with_short_window_fits():
+    source=bank();full=copy.deepcopy(source[0]);full['id']='recording_full_body'
+    for method in full['runs'][0]['methods'].values():
+        method['frames'][0]['diagnostics']['Recording frame']=0
+        method['frames'][0]['diagnostics']['Recording timestamp (s)']=0.
+    result=comparison_data(source+[full])
+    assert result['frame_ids']==[0]
+    assert len(result['solutions'])==2
+    assert all(s['group']=='Full recording' for s in result['solutions'])

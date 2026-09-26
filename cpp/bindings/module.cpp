@@ -8,6 +8,12 @@
 #include "skellyforge/smoke.h"
 namespace py = pybind11;
 PYBIND11_MODULE(_native, m) {
+  m.attr("DEFAULT_LENGTH_PROPORTION_SCALE") = skellyforge::kDefaultLengthProportionScale;
+  py::class_<skellyforge::LengthProportionPrior>(m,"LengthProportionPrior")
+    .def(py::init<>())
+    .def_readwrite("segments",&skellyforge::LengthProportionPrior::segments)
+    .def_readwrite("ratios",&skellyforge::LengthProportionPrior::ratios)
+    .def_readwrite("scale",&skellyforge::LengthProportionPrior::scale);
   m.attr("DEFAULT_LENGTH_EQUALITY_SCALE") = skellyforge::kDefaultLengthEqualityScale;
   py::class_<skellyforge::LengthEqualityPrior>(m,"LengthEqualityPrior")
     .def(py::init<>())
@@ -28,6 +34,7 @@ PYBIND11_MODULE(_native, m) {
     .def_readwrite("distance_scale",&skellyforge::LandmarkLinePrior::distance_scale)
     .def_readwrite("anterior_scale",&skellyforge::LandmarkLinePrior::anterior_scale);
   py::class_<skellyforge::ChainSequenceFit>(m,"ChainSequenceFit")
+    .def_readonly("length_proportion_cost",&skellyforge::ChainSequenceFit::length_proportion_cost)
     .def_readonly("length_equality_cost",&skellyforge::ChainSequenceFit::length_equality_cost)
     .def_readonly("linkage_displacements",&skellyforge::ChainSequenceFit::linkage_displacements)
     .def_readonly("linkage_prior_cost",&skellyforge::ChainSequenceFit::linkage_prior_cost)
@@ -57,7 +64,7 @@ PYBIND11_MODULE(_native, m) {
     ;
   m.def("fit_chain_sequence",&skellyforge::fit_chain_sequence,py::kw_only(),
     py::arg("local"),py::arg("observed"),py::arg("parent_attachments"),py::arg("child_attachments"),py::arg("times"),
-    py::arg("position_scale"),py::arg("linear_acceleration_scale"),py::arg("angular_acceleration_scale"),py::arg("allow_displacement")=false,py::arg("displacement_scale")=skellyforge::kDefaultDisplacementScale,py::arg("displacement_acceleration_scale")=skellyforge::kDefaultDisplacementAccelerationScale,py::arg("displacement_bound")=skellyforge::kDefaultDisplacementBound,py::arg("parent_indices")=std::vector<int>{0,1},py::arg("initial_quaternions")=std::vector<skellyforge::ChainQuaternions>{},py::arg("initial_roots")=std::vector<skellyforge::Vec3>{},py::arg("rest_relative_quaternions")=skellyforge::ChainQuaternions{},py::arg("rest_pose_scale")=skellyforge::kDefaultRestPoseScale,py::arg("axial_reference_lengths")=std::vector<double>{},py::arg("length_prior_fraction")=skellyforge::kDefaultLengthPriorFraction,py::arg("length_acceleration_scale")=skellyforge::kDefaultLengthAccelerationScale,py::arg("observation_indices")=std::vector<std::vector<std::vector<int>>>{},py::arg("lengthening_prior_fraction")=py::none(),py::arg("free_axial_lengths")=false,py::arg("landmark_line_prior")=py::none(),py::arg("relaxed_linkage_children")=std::vector<int>{},py::arg("linkage_scale")=skellyforge::kDefaultLinkageScale,py::arg("linkage_acceleration_scale")=skellyforge::kDefaultLinkageAccelerationScale,py::arg("length_equality_prior")=py::none(),py::call_guard<py::gil_scoped_release>());
+    py::arg("position_scale"),py::arg("linear_acceleration_scale"),py::arg("angular_acceleration_scale"),py::arg("allow_displacement")=false,py::arg("displacement_scale")=skellyforge::kDefaultDisplacementScale,py::arg("displacement_acceleration_scale")=skellyforge::kDefaultDisplacementAccelerationScale,py::arg("displacement_bound")=skellyforge::kDefaultDisplacementBound,py::arg("parent_indices")=std::vector<int>{0,1},py::arg("initial_quaternions")=std::vector<skellyforge::ChainQuaternions>{},py::arg("initial_roots")=std::vector<skellyforge::Vec3>{},py::arg("rest_relative_quaternions")=skellyforge::ChainQuaternions{},py::arg("rest_pose_scale")=skellyforge::kDefaultRestPoseScale,py::arg("axial_reference_lengths")=std::vector<double>{},py::arg("length_prior_fraction")=skellyforge::kDefaultLengthPriorFraction,py::arg("length_acceleration_scale")=skellyforge::kDefaultLengthAccelerationScale,py::arg("observation_indices")=std::vector<std::vector<std::vector<int>>>{},py::arg("lengthening_prior_fraction")=py::none(),py::arg("free_axial_lengths")=false,py::arg("landmark_line_prior")=py::none(),py::arg("relaxed_linkage_children")=std::vector<int>{},py::arg("linkage_scale")=skellyforge::kDefaultLinkageScale,py::arg("linkage_acceleration_scale")=skellyforge::kDefaultLinkageAccelerationScale,py::arg("length_equality_prior")=py::none(),py::arg("length_proportion_prior")=py::none(),py::call_guard<py::gil_scoped_release>());
 
   py::class_<skellyforge::LinkedSequenceFit>(m,"LinkedSequenceFit")
     .def_readonly("quaternions",&skellyforge::LinkedSequenceFit::quaternions)

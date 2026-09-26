@@ -350,5 +350,21 @@ if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_spine_equality")',cont
  const thoracic=vm.runInContext('experiment.bodies.findIndex(b=>b.id==="thoracic")',context);
  nodes['body-focus'].value=String(thoracic);vm.runInContext('draw()',context);
  assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_equality").length',context)===3);
- console.log('Length equality: two scalar dependencies, no extra parameters, native residual counts, and either-segment filtering passed.');
+console.log('Length equality: two scalar dependencies, no extra parameters, native residual counts, and either-segment filtering passed.');
+}
+
+if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_full_body")',context)){
+ nodes.experiment.value='recording_full_body';vm.runInContext('chooseExperiment()',context);
+ vm.runInContext('frameIndex=selectedMode.frames.length-1;draw()',context);
+ assert(nodes.status.textContent.includes('unavailable (no mapped keypoint targets)'));
+ assert(!nodes.status.textContent.includes('NaN'));
+ console.log('Full recording: unsupported final frame is explicitly labeled, without a fabricated target RMS.');
+}
+if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_spine_proportions")',context)){
+ nodes.experiment.value='recording_spine_proportions';vm.runInContext('chooseExperiment()',context);
+ assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_proportion").length',context)===3);
+ assert(vm.runInContext('ceresMap.nodes.filter(n=>n.kind==="length_proportion").every(n=>n.connections.length===3&&n.connections.every(id=>id.startsWith("length-")))',context));
+ assert(nodes['problem-summary'].textContent.includes('2278 parameter blocks'));
+ assert(nodes['problem-summary'].textContent.includes('6273 residual blocks'));
+ console.log('Spine proportions: three scalar dependencies, flexible cervical geometry, and native problem counts passed.');
 }

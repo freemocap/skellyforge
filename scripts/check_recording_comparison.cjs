@@ -1,6 +1,6 @@
 /* Read-only real-data UI check. Real Three geometry; mocked browser rendering. */
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const html=fs.readFileSync('scripts/recording_comparison.html','utf8');
+const html=fs.readFileSync(process.argv[2]||'scripts/recording_comparison.html','utf8');
 const data=JSON.parse(html.match(/const RECORDING_COMPARISON=(.*?);<\/script>/s)[1]);
 const nodes={},images=[];
 function element(tag='div'){
@@ -13,11 +13,17 @@ const THREE=require('./vendor/three.min.js');THREE.WebGLRenderer=class{construct
 const context={RECORDING_COMPARISON:data,THREE,console,devicePixelRatio:1,innerWidth:1400,innerHeight:900,performance:{now:()=>0},requestAnimationFrame(){},ResizeObserver:class{constructor(fn){this.fn=fn}observe(){this.fn()}},Image:class{constructor(){images.push(this)}decode(){return Promise.resolve()}},document:{createElement:element,getElementById(id){assert(nodes[id],id);return nodes[id]},querySelector(){return element('aside')},addEventListener(){},documentElement:element('html'),body:element('body')},window:{addEventListener(){}}};
 vm.createContext(context);vm.runInContext(['recording_comparison_scene.js','recording_comparison_table.js','recording_comparison.js'].map(p=>fs.readFileSync('scripts/'+p,'utf8')).join('\n'),context);
 const run=source=>vm.runInContext(source,context);
-assert(run('reviewState.solutions.filter(s=>s.enabled).length')===2);
+if(data.solutions.some(s=>s.id==='proportional_spine')){
+ assert(nodes['inspector-lengths'].textContent.includes('cervical'));
+ assert(nodes['inspector-lengths'].textContent.includes('Actual shares:'));
+ assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="proportional_spine")).spine')==='Three flexible / ratio prior');
+}
+const expectedVisible=Math.min(2,data.solutions.length);
+assert(run('reviewState.solutions.filter(s=>s.enabled).length')===expectedVisible);
 if(data.solutions.some(s=>s.id==='equal_spine_lengths')){
  assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="equal_spine_lengths")).spine')==='Free + equal-length prior');
  assert(nodes['inspector-lengths'].textContent.includes('sacrolumbar'));
- assert(run('reviewData.solutions.filter((s,i)=>reviewState.solutions[i].enabled).every(s=>["lower_sc_relaxed","equal_spine_lengths"].includes(s.id))'));
+ assert(run('reviewData.solutions.filter((s,i)=>reviewState.solutions[i].enabled).every(s=>["proportional_spine","lower_sc_relaxed","equal_spine_lengths"].includes(s.id))'));
 }
 // Every saved landmark is placed verbatim, across all fits and every frame.
 for(let i=0;i<data.times.length;i++){
@@ -39,17 +45,25 @@ for(let i=0;i<data.times.length;i++){
  }
 }
 nodes['hide-all'].onclick();assert(run('viewer.solutions.every(s=>!s.group.visible)'));
-nodes['reset-solutions'].onclick();assert(run('viewer.solutions.filter(s=>s.group.visible).length')===2);
+nodes['reset-solutions'].onclick();assert(run('viewer.solutions.filter(s=>s.group.visible).length')===expectedVisible);
 run('fitTable.rows[0].solo.onclick()');assert(run('reviewState.solutions[0].enabled&&reviewState.solutions.filter(s=>s.enabled).length===1'));
 nodes['reset-solutions'].onclick();
 assert(run('fitTable.rows.length')===data.solutions.length);
-const before=run('JSON.stringify(reviewState.solutions)');run('fitTable.rows[1].inspect.onclick()');
+const inspectIndex=Math.min(1,data.solutions.length-1);
+const before=run('JSON.stringify(reviewState.solutions)');run(`fitTable.rows[${inspectIndex}].inspect.onclick()`);
 assert(run('JSON.stringify(reviewState.solutions)')===before);assert(nodes['fit-inspector'].open);
-assert(nodes['inspector-title'].textContent===data.solutions[1].label);
+assert(nodes['inspector-title'].textContent===data.solutions[inspectIndex].label);
 assert(nodes['inspector-settings'].textContent.includes('direct_mapping_sources'));
 run('fitTable.rows[0].opacity.value=35;fitTable.rows[0].opacity.onchange()');assert(run('reviewState.solutions[0].opacity')===.35);
-assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="lower_sc_relaxed")).shoulders')==='Relaxed');
-assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="lower_sc")).shoulders')==='Exact');
+if(data.solutions.some(s=>s.id==='lower_sc_relaxed'))assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="lower_sc_relaxed")).shoulders')==='Relaxed');
+if(data.solutions.some(s=>s.id==='lower_sc'))assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="lower_sc")).shoulders')==='Exact');
+if(data.frame_ids.at(-1)===221){
+ run('seekReview(reviewData.times.length-1)');
+ assert(nodes['support-status'].textContent.includes('No mapped keypoint targets'));
+ assert(nodes['frame-label'].textContent.includes('221'));
+ run('seekReview(0)');
+ assert(!nodes['support-status'].textContent);
+}
 nodes['region'].value='Left arm';nodes['region'].onchange();assert(run('viewer.solutions[0].bodies.every((b,i)=>b.g.visible===(reviewData.solutions[0].definitions[i].region==="Left arm"))'));
 nodes['region'].value='all';nodes['region'].onchange();
 nodes['timeline'].value=12;nodes['timeline'].oninput();assert(run('reviewIndex')===12);assert(nodes['frame-label'].textContent.includes(String(data.frame_ids[12])));

@@ -55,3 +55,7 @@ Validation: 41 relevant Python tests, including eight new native equality tests;
 two CTest checks; both viewer checks. Tests cover soft preference strength,
 unchanged parameter count, the additional residual count, unconstrained total
 length, symmetry, invalid definitions, and reconstruction of residual cost.
+
+The subsequent [full-recording and three-length proportion report](full_recording_fit_report.md)
+contains the 222-frame timing and the cervical-flexibility comparison. The numbers
+above remain the original 34-frame experiment, not a full-recording benchmark.

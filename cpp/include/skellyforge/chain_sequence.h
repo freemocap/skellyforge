@@ -8,6 +8,11 @@ struct LengthEqualityPrior {
   int segment_a=-1, segment_b=-1;
   double scale=kDefaultLengthEqualityScale;
 };
+struct LengthProportionPrior {
+  std::array<int,3> segments{-1,-1,-1};
+  std::array<double,3> ratios{1.,1.,1.}; // normalized internally; positive relative lengths
+  double scale=kDefaultLengthProportionScale; // mm, deviations from shares of total length
+};
 // Optional per-frame geometric preference, not another keypoint measurement.
 // Each active frame stores origin, unit lateral axis, unit anterior axis.
 struct LandmarkLinePrior {
@@ -17,6 +22,7 @@ struct LandmarkLinePrior {
   double distance_scale = 1., anterior_scale = 1.;
 };
 struct ChainSequenceFit {
+  double length_proportion_cost=0.;
   double length_equality_cost=0.;
   std::vector<std::vector<Vec3>> linkage_displacements;
   double linkage_prior_cost=0., linkage_acceleration_cost=0.;
@@ -51,5 +57,6 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<std::vector<std::vector<int>>>& observation_indices={},
   std::optional<double> lengthening_prior_fraction=std::nullopt, bool free_axial_lengths=false, const std::optional<LandmarkLinePrior>& landmark_line_prior=std::nullopt,
   const std::vector<int>& relaxed_linkage_children={}, double linkage_scale=kDefaultLinkageScale, double linkage_acceleration_scale=kDefaultLinkageAccelerationScale,
-  const std::optional<LengthEqualityPrior>& length_equality_prior=std::nullopt);
+  const std::optional<LengthEqualityPrior>& length_equality_prior=std::nullopt,
+  const std::optional<LengthProportionPrior>& length_proportion_prior=std::nullopt);
 }

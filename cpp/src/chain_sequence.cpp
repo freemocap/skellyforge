@@ -66,7 +66,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<Vec3>& parent_attachments,const std::vector<Vec3>& child_attachments,
   const std::vector<double>& times,double position_scale,
   double linear_acceleration_scale,double angular_acceleration_scale,
-  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior){
+  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior,const std::optional<LengthProportionPrior>& length_proportion_prior){
   const size_t n=times.size(),bodies=local.size();
   std::vector<bool> relaxed(bodies,false);
   for(int child:relaxed_linkage_children){
@@ -100,6 +100,23 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
       throw std::invalid_argument("Length equality requires two variable axial lengths");
     if(!std::isfinite(prior.scale) || prior.scale<=0)
       throw std::invalid_argument("Length equality scale must be finite and positive");
+  }
+  std::array<double,3> proportion_fractions{};
+  if(length_proportion_prior){
+    const auto& prior=*length_proportion_prior;
+    if(length_equality_prior)throw std::invalid_argument("Length proportion and equality preferences cannot be combined");
+    double total=0.;
+    for(int k=0;k<3;++k){
+      const int b=prior.segments[k];
+      if(b<0 || static_cast<size_t>(b)>=bodies || references[b]<=0)
+        throw std::invalid_argument("Length proportion requires variable axial segments");
+      for(int j=0;j<k;++j)if(prior.segments[j]==b)throw std::invalid_argument("Length proportion segments must be distinct");
+      if(!std::isfinite(prior.ratios[k]) || prior.ratios[k]<=0)throw std::invalid_argument("Length proportion ratios must be finite and positive");
+      total+=prior.ratios[k];
+    }
+    if(!std::isfinite(total) || !std::isfinite(prior.scale) || prior.scale<=0)
+      throw std::invalid_argument("Length proportion total and scale must be finite and positive");
+    for(int k=0;k<3;++k)proportion_fractions[k]=prior.ratios[k]/total;
   }
   if(n<3||observed.size()!=n)throw std::invalid_argument("At least three matching frames and timestamps are required");
   if(landmark_line_prior){
@@ -211,7 +228,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   }};
   translations();result.initial_quaternions=result.quaternions;result.initial_translations=result.translations;
   ceres::Problem problem;
-  std::vector<ceres::ResidualBlockId> landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities;
+  std::vector<ceres::ResidualBlockId> landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities,length_proportions;
   std::vector<std::vector<ceres::ResidualBlockId>> angular_blocks(bodies);
   for(size_t i=0;i<n;++i){
     problem.AddParameterBlock(result.roots[i].data(),3);
@@ -226,6 +243,12 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
           new LengthPriorResidual{references[b],std::sqrt(weights[i])/(length_prior_fraction*references[b]),
             std::sqrt(weights[i])/(extension_fraction*references[b])}),nullptr,&result.lengths[i][b]));
       }
+    }
+    if(length_proportion_prior){
+      const auto& prior=*length_proportion_prior;
+      length_proportions.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<LengthProportionResidual,3,1,1,1>(
+        new LengthProportionResidual{proportion_fractions,std::sqrt(weights[i])/prior.scale}),nullptr,
+        &result.lengths[i][prior.segments[0]],&result.lengths[i][prior.segments[1]],&result.lengths[i][prior.segments[2]]));
     }
     if(length_equality_prior){
       const auto& prior=*length_equality_prior;
@@ -324,6 +347,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     if(!problem.Evaluate(e,&value,nullptr,nullptr,nullptr))throw std::runtime_error("Cost evaluation failed");return value;};
   if(allow_displacement){result.displacement_prior_cost=cost(displacement_priors);result.displacement_acceleration_cost=cost(displacement_motion);}
   result.linkage_prior_cost=cost(linkage_priors);result.linkage_acceleration_cost=cost(linkage_motion);
+  result.length_proportion_cost=cost(length_proportions);
   result.length_equality_cost=cost(length_equalities);
   result.line_prior_cost=cost(line_blocks);
   result.length_prior_cost=cost(length_priors);result.length_acceleration_cost=cost(length_motion);
