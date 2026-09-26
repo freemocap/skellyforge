@@ -1,6 +1,8 @@
 #pragma once
 
 namespace skellyforge {
+inline constexpr double kDefaultLinkageScale = 10.; // mm, experimental residual scale, not an anatomical bound
+inline constexpr double kDefaultLinkageAccelerationScale = 300.; // mm/s^2 in parent local frame
 // Numerical policy for the experimental connected sequence solver.
 inline constexpr double kDefaultLengthPriorFraction = 0.25;
 inline constexpr double kDefaultLengthAccelerationScale = 500.; // mm/s^2

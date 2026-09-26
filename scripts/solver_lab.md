@@ -620,3 +620,101 @@ free lengths. This measures the preference's effect, not anatomical accuracy.
 Native line cost 0.7526182477654242 matches the independently reconstructed cost.
 80 Python + 2 native tests passed; viewer control/graph/plot tests passed with
 mocked DOM/WebGL (not screenshot validation).
+
+
+### Fixed shoulder-attachment comparison (2026-09-26)
+
+`poe solver-viewer-shoulders` runs `scripts.solver_shoulder_comparison` and adds
+experiment 15. It retains the accepted chest-line result as `current_sc` and
+compares two explicit reference-geometry profiles from `solver_shoulder_offsets`:
+SC/notch lowered by 10% of the saved thoracic reference extent; then that same
+lowering with the forward offset multiplied by 0.75. For this recording these
+are 26.95 mm reference lowering and 102.67 -> 77.00 mm forward offset. Lateral
+positions are unchanged. Local Z subsequently follows the existing axial model.
+
+Person scale is loaded from the recording, never re-estimated or exposed as a
+Ceres parameter. Saved clavicle lengths and rest quaternions are unchanged.
+Landmark reference positions and parent joint attachments come from one shared
+position table, so the native fit and rendered landmarks/attachments agree.
+Each method stores its own body definitions and geometry provenance. The viewer
+uses those definitions; the experiment's common body identities/ordering remain
+fixed. Initial child translations change as a consequence of the attachment
+geometry; root initialization, quaternion initialization and targets must match.
+
+Results are diagnostic, not a new default. Both cases converged (9.49 s and
+30.16 s). Left/right shoulder RMS errors were 27.17/28.17 mm for lowering and
+27.84/28.96 mm for lowering plus reduced forward offset, versus 27.99/29.09 mm
+for the reference. Both alternatives collapsed sacrolumbar at frame 193 and
+thoracic at frame 194 while the other spine length took up the span. The free
+length model permits this; no floor or length prior was silently added. Those
+frames have an explicit diagnostic warning. Zero axial scale now renders as
+zero instead of falling back to scale one.
+
+Validation: 11 focused Python tests passed. Viewer controls and exact rendered
+attachment/landmark/clavicle-origin coincidence are checked at frames 180, 192,
+193, 194 and 203. DOM/WebGL are mocked; this is not screenshot validation.
+The accepted experiment 14 remains available without geometry changes.
+## Relaxed clavicle-to-upper-arm linkages (2026-09-26)
+
+Experiment 16 compares the two fixed SC-offset profiles from experiment 15,
+each with exact and relaxed shoulder linkages. Generate with
+`poe solver-viewer-shoulder-linkages` after experiment 15 is available.
+This remains a SkellyForge lab experiment; the source Parquet and production
+pipelines are unchanged. Saved person scale and all clavicle/arm lengths stay fixed.
+
+The C++ sequence solver accepts `relaxed_linkage_children`. Each selected child
+adds one three-value parameter block per frame: `delta`, in its parent's local
+XYZ frame, millimeters. For these shoulders the child attachment is its origin:
+
+```text
+t_child = t_parent + R(q_parent) (parent_attachment + delta)
+r_linkage = sqrt(time_weight) * delta / linkage_scale_mm
+r_motion = ((delta_next-delta)/dt_next - (delta-delta_prev)/dt_prev)
+           / (linkage_acceleration_scale_mm_s2 * sqrt(midpoint_dt))
+```
+
+The general native equation also subtracts the rotated child attachment. Spine
+axial deformation is applied to reference attachments before adding delta.
+Quaternion parameter blocks remain WXYZ on QuaternionManifold. The linkage
+prior and temporal residuals are in the same Ceres Problem as the keypoint
+targets. Descendant arm residuals depend on the shoulder displacement block.
+There is no post-fit translation or display correction.
+
+Initial experimental residual scales: 10 mm for displacement and 300 mm/s^2
+for parent-local displacement acceleration, declared in
+`cpp/include/skellyforge/chain_solver_constants.h` and exposed through
+`scripts/solver_fit_settings.py`. Zero displacement is preferred, with no hard
+displacement bound. These are tuning values, not anatomical population limits.
+This is an effective linkage model, not a reconstruction of separately measured
+acromial and glenohumeral centers. The existing shoulder keypoint remains counted
+once at the acromion. Elbow/wrist/hand keypoints influence the upper arm through
+the connected arm; shoulder measurement evidence is not duplicated.
+
+Each 34-frame fit adds 68 parameter blocks and 132 residual blocks:
+2244 parameter blocks / 6239 residual blocks total.
+
+| Fixed reference geometry | Exact target RMS | Relaxed target RMS | Separation RMS / max | Solve |
+| --- | --- | --- | --- | --- |
+| Lower SC | 24.057 mm | 23.732 mm | 12.546 / 37.337 mm | 8.98 s, 34 iterations, CONVERGENCE |
+| Lower + closer SC | 23.798 mm | 23.438 mm | 12.864 / 38.936 mm | 43.47 s, iteration limit, NO_CONVERGENCE |
+
+Lower-SC left-arm target RMS changes from 29.026 to 26.620 mm; right-arm
+42.972 to 41.767 mm. These modest improvements do not establish anatomical
+accuracy. Both fits retain two frames with a zero axial spine length; that
+previous issue is not addressed by this experiment. Returned attachment-equation
+errors are below 5e-13 mm. Summed native residual-family costs match total cost
+within 2e-12.
+
+The default is the converged lower-SC relaxed fit. Yellow connectors and endpoint
+markers expose the actual separation; hover gives its identity and distance.
+The displacement plot shows both shoulders over time. The Ceres map shows XYZ
+displacement blocks, their priors, temporal residuals and descendant dependencies.
+Use the arm region filters to inspect these connections without the whole graph.
+
+Validation: 60 relevant Python tests (including seven new native-solver tests),
+two CTest checks, and viewer checks across all 16 experiments. New checks cover
+synthetic displacement recovery, exact remaining joints, parent-local rotation
+equivariance, residual strength, temporal cost reconstruction, invalid linkage
+selection, rendered connectors, Plotly traces, and Ceres map block counts.
+Viewer checks exercise Three geometry with mocked DOM/WebGL/Plotly; they are not
+a screenshot-based assessment of the animation.

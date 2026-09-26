@@ -47,9 +47,9 @@ function drawScene(frame,experiment){
   axisLabels.length=0;el('axis-labels').replaceChildren();
   el('segment-legend').textContent=el('segment-colors').value==='support'?
     'Green: rigid pose locally determined by non-collinear mapped targets. Purple: insufficient own targets. Gray: no direct targets. Connections and residual preferences still couple all segments; this is not a global observability test.':
-    el('segment-colors').value==='model'?'Blue: rigid geometry. Amber: variable axial length. Connected joints coincide exactly; rest-pose and temporal residuals are weighted preferences.':'Different segment colors; hover for geometry and target support.';
+    el('segment-colors').value==='model'?'Blue: rigid geometry. Amber: variable axial length. Yellow connectors: relaxed shoulder attachments when enabled; other joints coincide exactly. Rest-pose and temporal residuals are weighted preferences.':'Different segment colors; hover for geometry and target support.';
   frame.bodies.forEach((body,index)=>{
-    const definition=experiment.bodies[index];
+    const definition=(selectedMode.body_definitions||experiment.bodies)[index];
     const style=segmentStyle(body,index),segmentColor=style.color;
     for(const [name,color,qKey,tKey] of [['truth',0x42d9eb,'reference_quaternion','reference_translation'],['initial',0x8a96ab,'initial_quaternion','initial_translation'],['fitted',0xffac54,'quaternion','translation']]){
       if(!body[qKey])continue;
@@ -65,7 +65,7 @@ function drawScene(frame,experiment){
         el('axis-labels').appendChild(node);axisLabels.push({node,position:t});
       }
       for(const attachment of definition.attachments||(definition.attachment?[{position:definition.attachment,label:"attachment"}]:[])){
-        const attachmentPoint=[...attachment.position];if(name==='fitted')attachmentPoint[2]*=body.axial_scale||1;if(name==='truth')attachmentPoint[2]*=body.reference_axial_scale||1;
+        const attachmentPoint=[...attachment.position];if(name==='fitted')attachmentPoint[2]*=body.axial_scale??1;if(name==='truth')attachmentPoint[2]*=body.reference_axial_scale??1;
         const joint=vector(attachmentPoint).applyQuaternion(axes.quaternion).add(vector(t));
         const rodColor=name==='initial'?0x8a96ab:segmentColor;
         const marker=new THREE.Mesh(new THREE.SphereGeometry(name==='truth'?5.5:4,12,8),new THREE.MeshBasicMaterial({color:rodColor,wireframe:name!=='fitted'}));
@@ -75,6 +75,12 @@ function drawScene(frame,experiment){
     }
     body.observed.forEach((p,i)=>{if(!p)return;point(groups.observed,p,0xff64b4,`Observed target: ${definition.landmark_names[i]}`,!!frame.recording_context,frame.recording_context?8:3.5);line(groups.residuals,body.fitted[i],p,0xff64b4,`${definition.landmark_names[i]}: fitted-to-observed error`);});
   });
+  for(const link of frame.linkages||[]){
+    const label=experiment.bodies[link.child].label+' / fitted linkage displacement '+vector(link.local_displacement).length().toFixed(2)+' mm';
+    line(groups.fitted,link.parent_point,link.child_point,0xffe45c,label);
+    point(groups.fitted,link.parent_point,0xffe45c,label+' / clavicle attachment',true,6);
+    point(groups.fitted,link.child_point,0xffe45c,label+' / upper-arm attachment',false,4);
+  }
   if(experiment.displacement_link){
     const link=experiment.displacement_link;
     for(const [name,qKey,tKey,color] of [['truth','reference_quaternion','reference_translation',0x42d9eb],['fitted','quaternion','translation',0xf2d17b],['initial','initial_quaternion','initial_translation',0x8a96ab]]){

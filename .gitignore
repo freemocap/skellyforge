@@ -169,5 +169,6 @@ scripts/connected_fit_viewer.html
 scripts/sequence_fit_viewer.html
 scripts/recording_fit_viewer.html
 scripts/solver_viewer.html
+scripts/recording_comparison.html
 
 scripts/.solver_media/

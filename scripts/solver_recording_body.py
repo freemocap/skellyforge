@@ -15,6 +15,7 @@ from scipy.spatial.transform import Rotation
 
 from skellyforge import _native
 from scripts import solver_fit_settings as fit_settings
+from scripts.solver_shoulder_offsets import reference_positions, shoulder_diagnostics
 from scripts.solver_chest_line import (mapped_centerline, line_diagnostics, CHEST_LINE_DISTANCE_SCALE_MM, CHEST_LINE_ANTERIOR_SCALE_MM)
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 from scripts.recording_data import read_recording, recording_path, digest
@@ -23,7 +24,8 @@ from scripts.solver_recording_context import add_context
 from scripts.generate_solver_viewer import render_experiments
 
 
-def body_model(skeleton, saved, scales):
+def body_model(skeleton, saved, scales, shoulder_profile=None):
+    positions, shoulder_geometry = reference_positions(skeleton, scales, shoulder_profile)
     joints = {j.child.name: j for j in skeleton.joints.values()}
     roots = set(skeleton.segments) - set(joints)
     if len(roots) != 1:
@@ -35,9 +37,9 @@ def body_model(skeleton, saved, scales):
             raise ValueError('Disconnected or cyclic skeleton')
         names.extend(children)
     parents = [names.index(joints[n].parent.name) for n in names[1:]]
-    attachments = [(joints[n].connect_at.local_position.array * scales[joints[n].parent.name]).tolist() for n in names[1:]]
+    attachments = [positions[joints[n].connect_at.name].tolist() for n in names[1:]]
     display_names = [[k for k, v in skeleton.landmarks.items() if v.segment == n] for n in names]
-    display = [np.array([skeleton.landmarks[k].local_position.array * scales[n] for k in keys]) for n, keys in zip(names, display_names)]
+    display = [np.array([positions[k] for k in keys]) for n, keys in zip(names, display_names)]
     # A direct keypoint may also map to a child's origin. That is the same
     # connected point, not an independent measurement to count twice.
     candidates = {}
@@ -86,7 +88,7 @@ def body_model(skeleton, saved, scales):
             raise ValueError('Axial reference extent must be positive')
     return dict(names=names, parents=parents, attachments=attachments, display_names=display_names,
                 display=display, targets=targets, sources=sources, local=local, relative=relative,
-                references=references, bodies=bodies)
+                references=references, bodies=bodies, shoulder_geometry=shoulder_geometry)
 
 
 def frame_targets(record, model):
@@ -107,11 +109,11 @@ def frame_targets(record, model):
 
 
 def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fit_settings.LENGTH_PRIOR_FRACTION,
-                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False):
+                           lengthening_prior_fraction=None, free_axial_lengths=False, chest_line_prior=False, shoulder_profile=None, relaxed_shoulders=False):
     records, scale, provenance = read_recording(path, include_model=True)
     saved = provenance.pop('model')
     skeleton = SkeletonSnapshot.from_dict(provenance.pop('skeleton')).restore()
-    m = body_model(skeleton, saved, scale.segment_scales)
+    m = body_model(skeleton, saved, scale.segment_scales, shoulder_profile)
     selected = [r for r in records if start <= r['number'] <= end]
     if len(selected) != end-start+1 or len(selected) < 3:
         raise ValueError('Requested consecutive interval is not available')
@@ -143,9 +145,15 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         prior.frames = [None if f is None else [f['origin'],f['lateral'],f['anterior']] for f in line_frames]
         prior.distance_scale = CHEST_LINE_DISTANCE_SCALE_MM
         prior.anterior_scale = CHEST_LINE_ANTERIOR_SCALE_MM
+    relaxed = [m['names'].index(side+'_upper_arm') for side in ('left','right')] if relaxed_shoulders else []
+    for child in relaxed:
+        if m['names'][m['parents'][child-1]] not in ('left_clavicle','right_clavicle'):
+            raise ValueError('Shoulder experiment requires authored clavicle-to-upper-arm linkages')
     times = [r['time']-selected[0]['time'] for r in selected]
     print(f'Fitting {len(m["names"])} segments / {len(selected)} frames / {sum(len(v) for f in observed for v in f)} mapped keypoint targets', flush=True)
     result = _native.fit_chain_sequence(
+        relaxed_linkage_children=relaxed, linkage_scale=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
+        linkage_acceleration_scale=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
         landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
         lengthening_prior_fraction=lengthening_prior_fraction, free_axial_lengths=free_axial_lengths,
         length_acceleration_scale=fit_settings.LENGTH_ACCELERATION_SCALE_MM_S2,
@@ -157,8 +165,10 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
     axial = [b for b, ref in enumerate(m['references']) if ref]
     frames = []
     attachment_errors = []
+    linkage_separations = []
     for i, record in enumerate(selected):
         bodies = []
+        linkages = []
         diagnostics = {'Recording frame': record['number'], 'Recording timestamp (s)': record['time']}
         for b, name in enumerate(m['names']):
             q, t = result.quaternions[i][b], result.translations[i][b]
@@ -176,7 +186,13 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
                 parent = m['parents'][b-1]
                 expected = np.array(result.translations[i][parent])+Rotation.from_quat(result.quaternions[i][parent], scalar_first=True).apply(
                     axial_points(m['attachments'][b-1], m['references'][parent], result.lengths[i][parent]))
-                attachment_errors.append(float(np.linalg.norm(expected-t)))
+                delta=np.asarray(result.linkage_displacements[i][b])
+                if b in relaxed:
+                    separation=float(np.linalg.norm(delta));linkage_separations.append(separation)
+                    diagnostics[name+' linkage separation (mm)']=separation
+                    linkages.append(dict(child=b,parent=parent,local_displacement=delta.tolist(),parent_point=expected.tolist(),child_point=list(t)))
+                displaced=expected+Rotation.from_quat(result.quaternions[i][parent],scalar_first=True).apply(delta)
+                attachment_errors.append(float(np.linalg.norm(displaced-t)))
             bodies.append(dict(axial_scale=length/ref if ref else 1., mechanical_model='axial' if ref else 'rigid',
                 target_count=len(support), target_rank=rank, local=local.tolist(), truth=None, observed=obs,
                 fitted=fitted.tolist(), initial=starting.tolist(), quaternion=q, translation=t,
@@ -187,23 +203,30 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         diagnostics['Unavailable source keypoints for selected mappings'] = len(m['sources'])-sum(map(len,observed[i]))
         for b in axial:
             diagnostics[m['names'][b]+' length (mm)'] = result.lengths[i][b]
-        frames.append(dict(time=times[i], bodies=bodies, root=result.roots[i], costs=result.costs,
+        frames.append(dict(linkages=linkages, time=times[i], bodies=bodies, root=result.roots[i], costs=result.costs,
             lengths=[result.lengths[i][b] for b in axial], reference_lengths=[m['references'][b] for b in axial],
             converged=result.converged, seconds=result.seconds, report=result.report, diagnostics=diagnostics,
             observability='All model landmarks remain defined. Direct mapped keypoints supply measurement residuals. Exact joints, rest-pose and temporal residuals couple the full skeleton. Target counts do not establish global observability.'))
     for frame,geometry in zip(frames,line_frames):
         line_diagnostics(frame,geometry,chest_body,chest_slot)
+    shoulder_diagnostics(frames, m['bodies'])
     errors = [e for f in frames for b in f['bodies'] for e in b['residuals'] if e is not None]
     summary = {'Ceres parameter blocks': result.parameter_blocks, 'Ceres residual blocks': result.residual_blocks,
                'Observed landmark RMS (mm)': float(np.sqrt(np.mean(np.square(errors)))),
-               'Maximum attachment error (mm)': max(attachment_errors), 'Rest-pose initialization fallbacks': seed_fallbacks}
+               'Maximum attachment equation error (mm)': max(attachment_errors), 'Rest-pose initialization fallbacks': seed_fallbacks}
+    if relaxed:
+        summary['Maximum shoulder separation (mm)']=max(linkage_separations)
+        summary['RMS shoulder separation (mm)']=float(np.sqrt(np.mean(np.square(linkage_separations))))
     summary['Frames at axial length bounds'] = sum(any(abs(result.lengths[i][b]-bound*m['references'][b])<fit_settings.BOUND_CONTACT_TOLERANCE_MM
         for b in axial for bound in ((0.,) if free_axial_lengths else fit_settings.AXIAL_LENGTH_BOUND_FRACTIONS)) for i in range(len(frames)))
     for region in sorted({b['region'] for b in m['bodies']}):
         values = [e for f in frames for b,definition in zip(f['bodies'],m['bodies']) if definition['region']==region for e in b['residuals'] if e is not None]
         summary[region+' target RMS (mm)'] = float(np.sqrt(np.mean(np.square(values)))) if values else 'No direct targets'
     method = dict(frames=frames, summary=summary, problem=dict(chain=True, parents=m['parents'], connected=True,
-        temporal=True, acceleration=True, rest_prior=True, axial_segments=axial), settings=dict(
+        temporal=True, acceleration=True, rest_prior=True, axial_segments=axial, **(dict(relaxed_linkage_children=relaxed) if relaxed else {})), settings=dict(
+        relaxed_linkage_children=relaxed, linkage_scale_mm=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
+        linkage_acceleration_scale_mm_s2=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
+        shoulder_geometry=m['shoulder_geometry'],
         chest_line_prior=dict(enabled=chest_line_prior, body_index=chest_body, landmark_index=chest_slot,
             landmark='chest_center', distance_scale_mm=CHEST_LINE_DISTANCE_SCALE_MM,
             anterior_scale_mm=CHEST_LINE_ANTERIOR_SCALE_MM,
@@ -215,20 +238,27 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         position_scale_mm=fit_settings.POSITION_RESIDUAL_SCALE_MM, linear_motion_scale=fit_settings.ROOT_ACCELERATION_SCALE_MM_S2, angular_motion_scale=fit_settings.ANGULAR_ACCELERATION_SCALE_RAD_S2, scale_units=['mm/s^2','rad/s^2'],
         rest_pose_scale_radians=fit_settings.REST_POSE_RESIDUAL_SCALE_RAD, rest_relative_quaternions=m['relative'], direct_mapping_sources=m['sources'],
         initialization='Saved segment quaternions and root origin. Where a saved quaternion is unavailable: parent seed composed with authored relative T-pose. Initialization is not a measurement residual.',
-        costs_by_family=dict(landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
+        costs_by_family=dict(linkage_prior=result.linkage_prior_cost, linkage_acceleration=result.linkage_acceleration_cost, landmarks=result.landmark_cost, relative_pose=result.relative_pose_cost,
             root_acceleration=result.root_acceleration_cost, segment_angular_acceleration=result.angular_acceleration_costs,
             chest_line_prior=result.line_prior_cost, length_prior=result.length_prior_cost, length_acceleration=result.length_acceleration_cost)),
         objective='One connected full-body Ceres problem. Direct mapped keypoint targets counted once; no derived-landmark measurement residuals. Exact attachments; sacrolumbar and thoracic axial lengths; all other geometry rigid. Quaternion rest-pose and temporal residuals are preferences, not joint limits.')
+    if relaxed:
+        method['objective']=method['objective'].replace('Exact attachments;', 'Clavicle-to-upper-arm attachments have parent-local XYZ displacement parameters; all other attachments exact;')
+        method['objective']+=' Shoulder displacements have zero-reference and local acceleration residuals; no hard displacement bounds. The shoulder keypoint remains assigned once to the acromion; arm keypoints influence the upper arm through the connected arm. No separately observed humeral joint center is invented.'
+        for frame in frames:
+            frame['observability']=frame['observability'].replace('Exact joints,', 'Exact joints except two explicitly relaxed shoulder linkages,')
     if free_axial_lengths:
         method['objective'] += ' Free-length diagnostic: nonnegative lengths, no upper bound, no length-prior or length-acceleration residuals. Widths remain fixed.'
     if chest_line_prior:
         method['objective'] += ' Chest-center line preference: lateral and front/back distance, plus an extra anterior-only penalty. This is not independent measurement evidence.'
+    if shoulder_profile:
+        method['objective'] += ' Experimental fixed SC attachment geometry: '+m['shoulder_geometry']['label']+'. Saved person scale and rigid clavicle lengths retained.'
     provenance['method'] = method['objective']
     if digest(path) != provenance['sha256']:
         raise RuntimeError('Source recording changed during solve')
     print(result.report, summary, flush=True)
     return dict(id='recording_body', label='14 - Real recording / connected full body',
-        description=f'Frames {start}-{end}: all {len(m["names"])} saved segments, including head, fingers and feet. Two axial spine lengths. Source keypoints, mappings, model and scale unchanged. Experimental fit, not production output.',
+        description=f'Frames {start}-{end}: all {len(m["names"])} saved segments, including head, fingers and feet. Two axial spine lengths. Source keypoints, mappings and person scale unchanged. Any experimental attachment geometry is explicitly listed in solver settings. Experimental fit, not production output.',
         controls=[], bodies=m['bodies'], methods=[dict(id='full_body', label='Connected full body / axial spine')],
         runs=[dict(parameters={}, times=times, length_series=True, methods=dict(full_body=method))],
         metadata=dict(recording=provenance, units='mm', quaternion_order='wxyz', ceres_version=_native.ceres_version,

@@ -8,6 +8,7 @@ function drawCeresProblem(){
   const displacement=structure.displacement||false;
   const restPrior=structure.rest_prior||false;
   const axial=structure.axial_segments||[];
+  const relaxed=structure.relaxed_linkage_children||[];
   const linePrior=selectedMode.settings.chest_line_prior;
   const freeLengths=selectedMode.settings.free_axial_lengths===true;
   const [minimumLengthFraction,maximumLengthFraction]=selectedMode.settings.axial_length_bound_fractions||LEGACY_AXIAL_LENGTH_BOUND_FRACTIONS;
@@ -22,7 +23,7 @@ function drawCeresProblem(){
   function landmark(body,index,q,t,b){
     const count=body.observed.filter(p=>p!==null).length;
     if(!count)return;
-    residuals.push({index,bodyIndex:b,kind:chain?"chain":"landmark",bodyLabel:experiment.bodies[b].label,name:`${chain?"ChainLandmarkResidual":"LandmarkResidual"} × ${count}`,connections:chain?[t,...pathTo(b).map(j=>`q-${index}-${j}`),...pathTo(b).filter(j=>axial.includes(j)).map(j=>`length-${index}-${j}`),...(displacement&&b===2?[`displacement-${index}`]:[])]:[q,t],
+    residuals.push({index,bodyIndex:b,kind:chain?"chain":"landmark",bodyLabel:experiment.bodies[b].label,name:`${chain?"ChainLandmarkResidual":"LandmarkResidual"} × ${count}`,connections:chain?[t,...pathTo(b).map(j=>`q-${index}-${j}`),...pathTo(b).filter(j=>relaxed.includes(j)).map(j=>`linkage-${index}-${j}`),...pathTo(b).filter(j=>axial.includes(j)).map(j=>`length-${index}-${j}`),...(displacement&&b===2?[`displacement-${index}`]:[])]:[q,t],
       detail:`${experiment.bodies[b].label}; frame ${index}; fixed local/observed XYZ; 3D residual`,
       formula:chain?'r = scale * (chain-derived translation + R(q) local - observed)':connected?'r = scale * (R(q) (local - attachment) + joint - observed)':'r = scale × (R(q) local + translation - observed)'});
   }
@@ -46,6 +47,11 @@ function drawCeresProblem(){
         connections:[`root-${index}`,...path.map(j=>`q-${index}-${j}`),...path.filter(j=>axial.includes(j)).map(j=>`length-${index}-${j}`)],
         detail:`3 components; near-line scale ${linePrior.distance_scale_mm} mm; extra anterior scale ${linePrior.anterior_scale_mm} mm. Fixed mapped hip/shoulder frame. Modeling preference, not another measurement.`,
         formula:'r = sqrt(time weight) * [lateral / near scale, anterior / near scale, max(0, anterior) / anterior scale]'});
+    }
+    for(const b of relaxed){
+      const link=frame.linkages.find(l=>l.child===b);
+      const id=parameter(`linkage-${index}-${b}`,experiment.bodies[b].label+' parent-local XYZ displacement',link.local_displacement,false,index,{bodyIndex:b,kind:'displacement'});
+      residuals.push({index,bodyIndex:b,kind:'prior',bodyLabel:experiment.bodies[b].label,name:'LinkageDisplacementPriorResidual',connections:[id],detail:`3 components; parent local mm; scale ${selectedMode.settings.linkage_scale_mm} mm; no hard bounds`,formula:'r = sqrt(time weight) * local displacement / scale'});
     }
     if(restPrior)for(let b=1;b<experiment.bodies.length;b++){
       const parent=structure.parents[b-1];
@@ -72,6 +78,7 @@ function drawCeresProblem(){
       {bodyIndex:0,name:'Translation',scale:s.linear_motion_scale,ids:ids=>ids.map(i=>`t-${i}-0`),label:'translation'},
       {name:'Quaternion',scale:s.angular_motion_scale,ids:ids=>ids.map(i=>`q-${i}-0`),label:'rotation'}
     ];
+    for(const b of relaxed)families.push({bodyIndex:b,name:'Translation',scale:s.linkage_acceleration_scale_mm_s2,ids:ids=>ids.map(i=>`linkage-${i}-${b}`),label:experiment.bodies[b].label+' parent-local displacement'});
     if(displacement)families.push({name:"Displacement",scale:s.displacement_acceleration_scale,ids:ids=>ids.map(i=>`displacement-${i}`),label:"second linkage displacement"});
     if(!freeLengths)for(const b of axial)for(const ids of pairs)residuals.push({index:null,bodyIndex:b,kind:'length_motion',bodyLabel:experiment.bodies[b].label,name:'DisplacementAccelerationResidual (length)',connections:ids.map(i=>`length-${i}-${b}`),detail:`Scalar length acceleration; scale ${selectedMode.settings.length_acceleration_scale} mm/s^2; 1 component`,formula:'Interval length velocity difference / (scale * sqrt(midpoint dt))'});
     for(const ids of pairs)for(const family of families){
@@ -82,11 +89,11 @@ function drawCeresProblem(){
   }
   const observedCount=frame=>frame.bodies.reduce((sum,b)=>sum+b.observed.filter(p=>p!==null).length,0);
   const active=current.bodies.filter(b=>b.quaternion).length;
-  const blockCount=temporal?(chain?experiment.bodies.length+1:connected?3:2)*n+(displacement?n:0)+axial.length*n:connected?3:2*active;
-  const ambient=temporal?(chain?experiment.bodies.length*4+3:connected?11:7)*n+(displacement?n:0)+axial.length*n:connected?11:7*active;
-  const tangent=temporal?(chain?(experiment.bodies.length+1)*3:connected?9:6)*n+(displacement?n:0)+axial.length*n:connected?9:6*active;
-  const residualCount=temporal?frames.reduce((sum,f)=>sum+observedCount(f),0)+(chain?experiment.bodies.length+1:connected?3:2)*(n-(acceleration?2:1))+(displacement?2*n-2:0)+(restPrior?(experiment.bodies.length-1)*n:0)+(freeLengths?0:axial.length*(2*n-2))+(linePrior?.enabled?frames.filter(f=>f.chest_line).length:0):observedCount(current);
+  const blockCount=relaxed.length*n+(temporal?(chain?experiment.bodies.length+1:connected?3:2)*n+(displacement?n:0)+axial.length*n:connected?3:2*active);
+  const ambient=relaxed.length*n*3+(temporal?(chain?experiment.bodies.length*4+3:connected?11:7)*n+(displacement?n:0)+axial.length*n:connected?11:7*active);
+  const tangent=relaxed.length*n*3+(temporal?(chain?(experiment.bodies.length+1)*3:connected?9:6)*n+(displacement?n:0)+axial.length*n:connected?9:6*active);
+  const residualCount=relaxed.length*(2*n-2)+(temporal?frames.reduce((sum,f)=>sum+observedCount(f),0)+(chain?experiment.bodies.length+1:connected?3:2)*(n-(acceleration?2:1))+(displacement?2*n-2:0)+(restPrior?(experiment.bodies.length-1)*n:0)+(freeLengths?0:axial.length*(2*n-2))+(linePrior?.enabled?frames.filter(f=>f.chest_line).length:0):observedCount(current));
   el('problem-summary').textContent=`${temporal?'One sequence Problem':connected?'One connected Problem per frame':`${active} independent Problem(s) per frame`} | ${blockCount} parameter blocks (${ambient} stored values / ${tangent} tangent dimensions) | ${residualCount} residual blocks; ${displacement||axial.length?"geometry/pose residuals have 3 components, length/displacement residuals have 1":"each has 3 components"}. ${temporal?'Diagram shows one local time window; blocks outside it are omitted.':'Diagram shows the selected frame.'}`;
   renderCeresMap({parameters,residuals,indices});
-  el('problem-value').textContent=(axial.length?'Axial segments: local Z scales by length/reference; local X/Y stay fixed. Both attachment sides use deformed geometry. Connections remain exact; rigid segments do not change.':displacement?'First linkage exact. Second linkage has a bounded scalar displacement along the middle segment local Z axis. Rigid segment geometry stays fixed. Bounds restrict feasible values; prior and acceleration residuals are weighted preferences.':chain?'Exact chain: root position and world quaternions determine all segment translations by attachment coincidence. No separate joint-position blocks or attachment residual penalties.':connected?'Exact linkage: both landmark residual families reference the SAME joint-position parameter block. There is no attachment residual or stiffness weight. Joint XYZ uses the saved block value when available, otherwise the returned parent pose.':temporal?'Temporal coupling is inside this Ceres Problem. Smoothness residuals connect neighboring parameter blocks; it is a weighted preference, not an exact constraint.':'No temporal residuals. These Problems do not share parameter blocks across frames or segments.')+(freeLengths?' Free lengths: nonnegative, no upper bound, no length-prior or length-acceleration residuals.':'')+(temporal?' Temporal residual blocks couple frames inside this Problem; no post-fit smoothing.':'')+'\nLossFunction: nullptr (ordinary squared residuals). AutoDiff computes derivatives. ceres::Solve adjusts the parameter blocks.\nAssembly schematic follows the experiment code; this is not a live Ceres graph dump. Known synthetic truth is only used for evaluation.';
+  el('problem-value').textContent=(relaxed.length?'Selected shoulder linkages: child translation = parent translation + R(parent q) (parent attachment + fitted local XYZ displacement) - R(child q) child attachment. Zero-displacement and local acceleration residuals penalize separation and changes in separation. All other attachments remain exact. ':'')+(axial.length?'Axial segments: local Z scales by length/reference; local X/Y stay fixed. Both attachment sides use deformed geometry. Rigid segment geometry does not change; explicitly relaxed linkage displacements are described above.':displacement?'First linkage exact. Second linkage has a bounded scalar displacement along the middle segment local Z axis. Rigid segment geometry stays fixed. Bounds restrict feasible values; prior and acceleration residuals are weighted preferences.':chain?'Exact chain: root position and world quaternions determine all segment translations by attachment coincidence. No separate joint-position blocks or attachment residual penalties.':connected?'Exact linkage: both landmark residual families reference the SAME joint-position parameter block. There is no attachment residual or stiffness weight. Joint XYZ uses the saved block value when available, otherwise the returned parent pose.':temporal?'Temporal coupling is inside this Ceres Problem. Smoothness residuals connect neighboring parameter blocks; it is a weighted preference, not an exact constraint.':'No temporal residuals. These Problems do not share parameter blocks across frames or segments.')+(freeLengths?' Free lengths: nonnegative, no upper bound, no length-prior or length-acceleration residuals.':'')+(temporal?' Temporal residual blocks couple frames inside this Problem; no post-fit smoothing.':'')+'\nLossFunction: nullptr (ordinary squared residuals). AutoDiff computes derivatives. ceres::Solve adjusts the parameter blocks.\nAssembly schematic follows the experiment code; this is not a live Ceres graph dump. Known synthetic truth is only used for evaluation.';
 }

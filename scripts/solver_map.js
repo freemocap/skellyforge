@@ -54,8 +54,8 @@ function renderCeresMap({parameters, residuals, indices}) {
     parameters.filter(p => p.index === index).forEach((p, row) => {
       map.nodes.push({...p, kind: p.kind||(p.quaternion?'quaternion':'position'),
         x:x+18, y:68+row*rowHeight, w:245, h:cardHeight,
-        title:p.label, subtitle:p.kind==='length'?`Scalar / mm; bounds ${p.lower.toFixed(1)} to ${p.upper.toFixed(1)}`:p.kind==='displacement'?`Scalar / mm; bounds +/-${p.bound}`:p.quaternion?'wxyz · QuaternionManifold':'XYZ / mm · Euclidean',
-        detail:`Frame ${p.index}; ${['displacement','length'].includes(p.kind)?'1 stored value / 1 tangent dimension':p.quaternion?'4 stored values / 3 tangent dimensions':'3 stored values / 3 tangent dimensions'}. Values: ${p.values.map(v=>v.toFixed(5)).join(', ')}`});
+        title:p.label, subtitle:p.kind==='length'?`Scalar / mm; bounds ${p.lower.toFixed(1)} to ${p.upper.toFixed(1)}`:p.kind==='displacement'?(p.values.length===3?'Parent-local XYZ / mm; no hard bounds':`Scalar / mm; bounds +/-${p.bound}`):p.quaternion?'wxyz · QuaternionManifold':'XYZ / mm · Euclidean',
+        detail:`Frame ${p.index}; ${p.values.length===1?'1 stored value / 1 tangent dimension':p.quaternion?'4 stored values / 3 tangent dimensions':'3 stored values / 3 tangent dimensions'}. Values: ${p.values.map(v=>v.toFixed(5)).join(', ')}`});
     });
     residuals.filter(r => r.index === index).forEach((r, row) => {
       map.nodes.push({...r, id:`residual-${r.kind}-${r.connections.join("_")}`,

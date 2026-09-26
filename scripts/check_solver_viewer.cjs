@@ -25,6 +25,30 @@ const THREE=require('./vendor/three.min.js');THREE.WebGLRenderer=class{construct
 const context={THREE,Plotly:{react(g,t,l){g.traces=t;g._fullLayout=l;return Promise.resolve();},relayout(g,l){g.lastRelayout=l;},Plots:{resize(){}}},document:{createElement:element,addEventListener(){},getElementById:id=>{assert(nodes[id],`Missing DOM id ${id}`);return nodes[id]},documentElement:{style:{setProperty(){}}},body:{classList:{add(){},remove(){}}}},innerWidth:1400,innerHeight:900,devicePixelRatio:1,window:{addEventListener(){}},requestAnimationFrame(){},ResizeObserver:class{constructor(fn){this.fn=fn}observe(){this.fn()}},performance:{now:()=>0},console};
 vm.createContext(context);vm.runInContext(html.match(/<script>const EXPERIMENTS=([\s\S]*?)<\/script>/)[0].replace('<script>','').replace('</script>',''),context);
 vm.runInContext(['solver_scene.js','solver_layout.js','solver_time_series.js','solver_map.js','solver_problem.js','solver_viewer.js'].map(name=>fs.readFileSync('scripts/'+name,'utf8')).join('\n'),context);
+if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_shoulder_linkages")',context)){
+ nodes.experiment.value='recording_shoulder_linkages';vm.runInContext('chooseExperiment()',context);
+ nodes['body-region'].value='all';vm.runInContext('chooseRegion()',context);
+ for(const id of ['lower_sc_relaxed','lower_closer_sc_relaxed']){
+  nodes.mode.value=id;vm.runInContext('selectRun();draw()',context);
+  assert(nodes['problem-summary'].textContent.includes('2244 parameter blocks'));
+  assert(nodes['problem-summary'].textContent.includes('6239 residual blocks'));
+  assert(vm.runInContext('ceresMap.nodes.filter(n=>n.id.startsWith("linkage-")).length',context)===6);
+  assert(vm.runInContext('ceresMap.nodes.filter(n=>n.id.startsWith("linkage-")).every(n=>n.detail.includes("3 stored values")&&!n.subtitle.includes("undefined"))',context));
+  assert(vm.runInContext('ceresMap.nodes.some(n=>n.kind==="chain"&&!selectedMode.problem.relaxed_linkage_children.includes(n.bodyIndex)&&n.connections.some(c=>c.startsWith("linkage-")))',context));
+  assert(nodes['displacement-panel'].hidden===false);
+  assert(nodes['displacement-series'].traces.length===4);
+  for(const index of [0,12,13,14,23]){
+   vm.runInContext(`frameIndex=${index};draw()`,context);
+   const links=vm.runInContext('current.linkages',context);
+   for(const link of links){
+    const gap=new THREE.Vector3(...link.child_point).distanceTo(new THREE.Vector3(...link.parent_point));
+    assert(Math.abs(gap-Math.hypot(...link.local_displacement))<1e-8);
+   }
+   assert(vm.runInContext('groups.fitted.children.filter(n=>n.type==="Line"&&n.userData.label.includes("fitted linkage displacement")).length',context)===2);
+  }
+ }
+ console.log('Relaxed shoulders: XYZ blocks, descendant dependencies, native counts, plotted gaps and saved-geometry connectors passed.');
+}
 for(const exp of vm.runInContext('EXPERIMENTS',context)){
  nodes.experiment.value=exp.id;vm.runInContext('chooseExperiment()',context);
  for(const mode of exp.methods){
@@ -236,7 +260,7 @@ if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_body")',context)){
  nodes.experiment.value='recording_body';vm.runInContext('chooseExperiment()',context);
  assert(vm.runInContext('experiment.bodies.length',context)===61);
  assert(vm.runInContext('current.bodies.filter(b=>b.mechanical_model==="axial").length',context)===2);
- assert(vm.runInContext('selectedMode.summary["Maximum attachment error (mm)"]<1e-8',context));
+ assert(vm.runInContext('(selectedMode.summary["Maximum attachment equation error (mm)"]??selectedMode.summary["Maximum attachment error (mm)"])<1e-8',context));
  assert(vm.runInContext('selectedMode.summary["Ceres parameter blocks"]',context)===vm.runInContext('(experiment.bodies.length+3)*selectedMode.frames.length',context));
  assert(nodes['problem-summary'].textContent.includes(String(vm.runInContext('selectedMode.summary["Ceres residual blocks"]',context))+' residual blocks'));
  nodes['body-region'].value='Head and neck';nodes['body-region'].events.change[0]();
@@ -292,4 +316,26 @@ if(vm.runInContext('EXPERIMENTS.find(e=>e.id==="recording_body")?.methods.some(m
  nodes['chest-line-collapse'].onclick();nodes['chest-line-expand'].onclick();
  assert(nodes['chest-line-panel'].classList.contains('expanded-plot'));
  console.log('Chest centerline: overlay identities, display toggle, displacement plots, panel controls and actual Ceres block counts passed.');
+}
+
+if(vm.runInContext('EXPERIMENTS.some(e=>e.id==="recording_shoulders")',context)){
+ nodes.experiment.value='recording_shoulders';vm.runInContext('chooseExperiment()',context);
+ const thorax=vm.runInContext('experiment.bodies.findIndex(b=>b.id==="thoracic")',context);
+ for(const method of ['current_sc','lower_sc','lower_closer_sc']){
+  nodes.mode.value=method;vm.runInContext('selectRun()',context);
+  for(const index of [0,12,13,14,23]){
+   vm.runInContext(`frameIndex=${index};draw()`,context);
+   for(const side of ['left','right']){
+    const name=side+'_sternoclavicular';
+    const marker=vm.runInContext(`groups.fitted.children.find(n=>n.userData.label==='thoracic / fitted ${name} (attachment, not landmark)')`,context);
+    const expected=vm.runInContext(`current.bodies[${thorax}].fitted[experiment.bodies[${thorax}].landmark_names.indexOf('${name}')]`,context);
+    assert(marker.position.distanceTo(new THREE.Vector3(...expected))<1e-8);
+    const child=vm.runInContext(`experiment.bodies.findIndex(b=>b.id==='${side}_clavicle')`,context);
+    const origin=vm.runInContext(`current.bodies[${child}].translation`,context);
+    assert(marker.position.distanceTo(new THREE.Vector3(...origin))<1e-8);
+   }
+  }
+  assert(nodes['problem-summary'].textContent.includes(String(vm.runInContext('selectedMode.summary["Ceres residual blocks"]',context))+' residual blocks'));
+ }
+ console.log('Shoulder variants: per-method reference attachments agree with fitted landmarks and exact clavicle origins at upright/bending frames.');
 }

@@ -21,7 +21,7 @@ function chooseExperiment(){
     select.value=String(saved[control.id]??(control.id==='noise'?1:control.values[0]));
     select.addEventListener('change',()=>{saved[control.id]=Number(select.value);savedChoices.set(experiment.id,saved);stop();frameIndex=0;selectRun();});label.appendChild(select);container.appendChild(label);
   }
-  options(el('mode'),experiment.methods);el('mode').value=saved.method||experiment.methods.at(-1).id;
+  options(el('mode'),experiment.methods);el('mode').value=saved.method||experiment.default_method||experiment.methods.at(-1).id;
   options(el('plot-body'),experiment.bodies.map((b,i)=>({id:i,label:b.label})));el('plot-body').value='0';
   options(el('video-camera'),(experiment.annotated_views||[]).map((v,i)=>({id:i,label:v.label})));el('video-camera').value='0';
   el('annotated-frame').dataset.key='';
@@ -102,7 +102,7 @@ function drawAnnotatedFrame(){
   for(let n=number+1;n<Math.min(number+4,view.count);n++)prepareAnnotatedFrame(urlFor(n));
 }
 el('video-camera').addEventListener('change',drawAnnotatedFrame);
-options(el('experiment'),EXPERIMENTS);el('experiment').value=EXPERIMENTS.some(e=>e.id==='recording_body')?'recording_body':EXPERIMENTS.some(e=>e.id==='recording_torso')?'recording_torso':'torso';
+options(el('experiment'),EXPERIMENTS);el('experiment').value=EXPERIMENTS.some(e=>e.id==='recording_shoulder_linkages')?'recording_shoulder_linkages':EXPERIMENTS.some(e=>e.id==='recording_shoulders')?'recording_shoulders':EXPERIMENTS.some(e=>e.id==='recording_body')?'recording_body':EXPERIMENTS.some(e=>e.id==='recording_torso')?'recording_torso':'torso';
 el('body-region').addEventListener('change',()=>{chooseRegion();ceresMap.autoFit=true;draw();});
 el('body-focus').addEventListener('change',()=>{ceresMap.autoFit=true;draw();});
 el('segment-colors').addEventListener('change',draw);

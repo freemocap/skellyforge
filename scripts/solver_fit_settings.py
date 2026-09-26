@@ -6,6 +6,9 @@ reported separately so diagnostics and the viewer describe the actual solver.
 """
 from skellyforge import _native
 
+SHOULDER_LINKAGE_SCALE_MM = _native.DEFAULT_LINKAGE_SCALE
+SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2 = _native.DEFAULT_LINKAGE_ACCELERATION_SCALE
+
 POSITION_RESIDUAL_SCALE_MM = 10.
 ROOT_ACCELERATION_SCALE_MM_S2 = 3000.
 ANGULAR_ACCELERATION_SCALE_RAD_S2 = 20.
