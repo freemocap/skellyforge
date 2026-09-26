@@ -25,6 +25,23 @@ def prior(ratios=(18.,20.,6.3),segments=(0,1,2),scale=50.):
     return p
 
 
+def test_rest_prior_can_be_enabled_without_bounds_or_length_smoothing():
+    args, _ = inputs()
+    baseline = _native.fit_chain_sequence(**args)
+    weak = _native.fit_chain_sequence(**args, free_length_rest_prior=True, length_prior_fraction=.5)
+    strong = _native.fit_chain_sequence(**args, free_length_rest_prior=True, length_prior_fraction=.25)
+    assert weak.residual_blocks == baseline.residual_blocks + 9
+    assert weak.length_acceleration_cost == strong.length_acceleration_cost == 0
+    assert baseline.length_prior_cost == 0
+    assert weak.length_prior_cost > 0
+    # The old bounded mode would cap every length at 160 mm.
+    assert np.max(strong.lengths) > 160
+    assert np.linalg.norm(np.asarray(strong.lengths)-80) < np.linalg.norm(np.asarray(weak.lengths)-80)
+    residual = (np.asarray(strong.lengths)-80)/(.25*80)
+    expected = .5*np.sum(residual**2*np.array([.25,.5,.25])[:,None])
+    assert strong.length_prior_cost == pytest.approx(expected)
+
+
 def test_recovers_variable_total_length_and_reports_exact_prior_cost():
     args,truth=inputs();p=prior()
     baseline=_native.fit_chain_sequence(**args)

@@ -73,8 +73,9 @@ Use the same per-frame root translation, unit WXYZ quaternion, axial length,
 and shoulder displacement parameter blocks. Retain measurement, rest-pose,
 chest-line, linkage, proportion, and three-frame temporal residual definitions.
 
-Fit overlapping windows, initializing new frames from existing segment fits and
-the overlap from the preceding connected solve. Preserve temporal residuals
+Fit overlapping windows, initializing the first window from saved segment fits,
+retaining the overlap, and copying the preceding connected pose into each newly
+introduced frame. Preserve temporal residuals
 across boundaries and the original full-sequence time weights. Do not independently
 normalize each window or average quaternion components to hide seams.
 
@@ -106,8 +107,9 @@ as recommended by the [Ceres performance guide](https://ceres-solver.readthedocs
    using the owner's supplied ratios on the established short movement window.
    Verify endpoint-compatible published attribution before treating the ratios as
    an anthropometric default.
-3. Expose detailed Ceres timings; implement an overlapping-window comparison
-   using the same objective and explicit boundary policy.
+3. Implemented: detailed Ceres reports and 3/5/7 active-frame comparisons with
+   two constant history frames; optional full-recording refinement of the
+   assembled solution. See `processing_comparison.md` for results and commands.
 4. Compare runtime, keypoint residuals, length ratios, attachment equations,
    boundary velocity/acceleration, missing-keypoint intervals, and forward versus
    reverse processing. Show the active window and committed frames in the viewer.

@@ -171,5 +171,12 @@ scripts/recording_fit_viewer.html
 scripts/solver_viewer.html
 scripts/recording_comparison.html
 scripts/recording_window_comparison.html
+scripts/recording_processing_comparison.html
 
 scripts/.solver_media/
+
+scripts/recording_spine_ratio_comparison.html
+
+scripts/recording_sc_offset_comparison.html
+
+scripts/recording_rest_length_comparison.html

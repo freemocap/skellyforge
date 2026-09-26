@@ -66,7 +66,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<Vec3>& parent_attachments,const std::vector<Vec3>& child_attachments,
   const std::vector<double>& times,double position_scale,
   double linear_acceleration_scale,double angular_acceleration_scale,
-  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior,const std::optional<LengthProportionPrior>& length_proportion_prior){
+  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior,const std::optional<LengthProportionPrior>& length_proportion_prior,const ChainSolveOptions& solve_options,bool free_length_rest_prior){
   const size_t n=times.size(),bodies=local.size();
   std::vector<bool> relaxed(bodies,false);
   for(int child:relaxed_linkage_children){
@@ -179,12 +179,40 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         throw std::invalid_argument("Root must be fully observed; child frames must be full or empty");
     }
   }
+  if(!std::isfinite(solve_options.function_tolerance)||solve_options.function_tolerance<0)throw std::invalid_argument("Function tolerance must be finite and nonnegative");
+  if(solve_options.fixed_prefix_frames<0 || static_cast<size_t>(solve_options.fixed_prefix_frames)>n || solve_options.max_iterations<0)
+    throw std::invalid_argument("Invalid fixed prefix or iteration limit");
+  if(!solve_options.frame_weights.empty()){
+    if(solve_options.frame_weights.size()!=n)throw std::invalid_argument("Frame weights must match timestamps");
+    for(double w:solve_options.frame_weights)if(!std::isfinite(w)||w<=0)throw std::invalid_argument("Frame weights must be finite and positive");
+    weights=solve_options.frame_weights;
+  }
+  if(!solve_options.initial_lengths.empty()){
+    if(solve_options.initial_lengths.size()!=n)throw std::invalid_argument("Initial lengths must match frames");
+    for(const auto& frame:solve_options.initial_lengths){
+      if(frame.size()!=bodies)throw std::invalid_argument("Initial lengths must match segments");
+      for(size_t b=0;b<bodies;++b){const double value=frame[b];
+        if(!std::isfinite(value)||value<0 || (references[b]==0 && value!=0))throw std::invalid_argument("Invalid initial axial length");
+        if(references[b]>0 && !free_axial_lengths && (value<kAxialLengthMinimumFraction*references[b] || value>kAxialLengthMaximumFraction*references[b]))throw std::invalid_argument("Initial length violates bounds");
+      }
+    }
+  }
+  if(!solve_options.initial_linkage_displacements.empty()){
+    if(solve_options.initial_linkage_displacements.size()!=n)throw std::invalid_argument("Initial linkage displacements must match frames");
+    for(const auto& frame:solve_options.initial_linkage_displacements){
+      if(frame.size()!=bodies)throw std::invalid_argument("Initial linkage displacements must match segments");
+      for(size_t b=0;b<bodies;++b)for(double value:frame[b])
+        if(!std::isfinite(value)||(!relaxed[b]&&value!=0))throw std::invalid_argument("Invalid initial linkage displacement");
+    }
+  }
   if(!seeded)for(size_t b=1;b<bodies;++b)
     if(observed.front()[b].empty()||observed.back()[b].empty())throw std::invalid_argument("Child gaps must be bounded by observations");
   ChainSequenceFit result;
   result.displacements.resize(n,0.);
   result.linkage_displacements.resize(n,std::vector<Vec3>(bodies,Vec3{0.,0.,0.}));
   result.lengths.resize(n,references);
+  if(!solve_options.initial_lengths.empty())result.lengths=solve_options.initial_lengths;
+  if(!solve_options.initial_linkage_displacements.empty())result.linkage_displacements=solve_options.initial_linkage_displacements;
   result.quaternions.resize(n,ChainQuaternions(bodies));result.roots.resize(n);
   result.translations.resize(n,std::vector<Vec3>(bodies));
   if(seeded){result.quaternions=initial_quaternions;result.roots=initial_roots;}
@@ -239,6 +267,8 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
       else {
         problem.SetParameterLowerBound(&result.lengths[i][b],0,kAxialLengthMinimumFraction*references[b]);
         problem.SetParameterUpperBound(&result.lengths[i][b],0,kAxialLengthMaximumFraction*references[b]);
+      }
+      if(!free_axial_lengths || free_length_rest_prior){
         length_priors.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<LengthPriorResidual,1,1>(
           new LengthPriorResidual{references[b],std::sqrt(weights[i])/(length_prior_fraction*references[b]),
             std::sqrt(weights[i])/(extension_fraction*references[b])}),nullptr,&result.lengths[i][b]));
@@ -338,9 +368,19 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         new QuaternionAccelerationResidual{before,after,1/(angular_acceleration_scale*std::sqrt(midpoint_dt))}),nullptr,
         result.quaternions[i-1][b].data(),result.quaternions[i][b].data(),result.quaternions[i+1][b].data()));
   }
+  for(int i=0;i<solve_options.fixed_prefix_frames;++i){
+    problem.SetParameterBlockConstant(result.roots[i].data());
+    for(size_t b=0;b<bodies;++b){
+      problem.SetParameterBlockConstant(result.quaternions[i][b].data());
+      if(references[b]>0)problem.SetParameterBlockConstant(&result.lengths[i][b]);
+      if(relaxed[b])problem.SetParameterBlockConstant(result.linkage_displacements[i][b].data());
+    }
+    if(allow_displacement)problem.SetParameterBlockConstant(&result.displacements[i]);
+  }
   ceres::Solver::Options options;options.linear_solver_type=ceres::SPARSE_NORMAL_CHOLESKY;options.logging_type=ceres::SILENT;
-  options.max_num_iterations=kChainMaximumIterations;options.function_tolerance=kChainFunctionTolerance;options.gradient_tolerance=kChainGradientTolerance;options.parameter_tolerance=kChainParameterTolerance;
-  ceres::Solver::Summary summary;ceres::Solve(options,&problem,&summary);
+  options.max_num_iterations=solve_options.max_iterations;options.function_tolerance=solve_options.function_tolerance;options.gradient_tolerance=kChainGradientTolerance;options.parameter_tolerance=kChainParameterTolerance;
+  ceres::Solver::Summary summary;
+  if(!solve_options.evaluate_only)ceres::Solve(options,&problem,&summary);
   translations();for(const auto& step:summary.iterations)result.costs.push_back(step.cost);
   auto cost=[&](const std::vector<ceres::ResidualBlockId>& blocks){ceres::Problem::EvaluateOptions e;e.residual_blocks=blocks;double value;
     if(blocks.empty())return 0.;
@@ -355,7 +395,12 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   result.landmark_cost=cost(landmark_blocks);result.root_acceleration_cost=cost(root_blocks);
   for(const auto& blocks:angular_blocks)result.angular_acceleration_costs.push_back(cost(blocks));
   result.parameter_blocks=problem.NumParameterBlocks();result.residual_blocks=problem.NumResidualBlocks();
-  result.converged=summary.termination_type==ceres::CONVERGENCE;result.report=summary.BriefReport();result.seconds=summary.total_time_in_seconds;
+  if(solve_options.evaluate_only){
+    double total; if(!problem.Evaluate(ceres::Problem::EvaluateOptions{},&total,nullptr,nullptr,nullptr))throw std::runtime_error("State evaluation failed");
+    result.costs={total};result.usable=true;result.converged=false;result.seconds=0.;result.report="Evaluation only: no optimization performed";result.full_report=result.report;
+  }else{
+    result.usable=summary.IsSolutionUsable();result.converged=summary.termination_type==ceres::CONVERGENCE;result.report=summary.BriefReport();result.full_report=summary.FullReport();result.seconds=summary.total_time_in_seconds;result.iterations=static_cast<int>(summary.iterations.size());
+  }
   return result;
 }
 }

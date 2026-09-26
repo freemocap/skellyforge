@@ -10,7 +10,7 @@ native-build = "python scripts/native_build.py build"
 native-install = "python scripts/native_build.py install"
 test-native = "python scripts/native_build.py test"
 test = "python -m pytest"
-test-native-python = "python -m pytest skellyforge/tests/test_native_extension.py skellyforge/tests/test_native_rigid_fit.py skellyforge/tests/test_native_rigid_sequence.py skellyforge/tests/test_native_linked_rigid_fit.py skellyforge/tests/test_native_linked_sequence.py skellyforge/tests/test_native_chain_sequence.py skellyforge/tests/test_native_displacement.py skellyforge/tests/test_native_branching.py skellyforge/tests/test_native_torso.py skellyforge/tests/test_native_axial.py skellyforge/tests/test_native_indexed_targets.py skellyforge/tests/test_native_asymmetric_length.py"
+test-native-python = "python -m pytest skellyforge/tests/test_native_extension.py skellyforge/tests/test_native_rigid_fit.py skellyforge/tests/test_native_rigid_sequence.py skellyforge/tests/test_native_linked_rigid_fit.py skellyforge/tests/test_native_linked_sequence.py skellyforge/tests/test_native_chain_sequence.py skellyforge/tests/test_native_displacement.py skellyforge/tests/test_native_branching.py skellyforge/tests/test_native_torso.py skellyforge/tests/test_native_axial.py skellyforge/tests/test_native_indexed_targets.py skellyforge/tests/test_native_asymmetric_length.py skellyforge/tests/test_native_window_sequence.py"
 build-wheel = "python scripts/native_build.py wheel"
 solver-viewer-body = "python -m scripts.solver_recording_body"
 
@@ -20,3 +20,10 @@ recording-comparison = "python -m scripts.generate_recording_comparison"
 solver-viewer-spine-equality = "python -m scripts.solver_spine_equality"
 solver-viewer-full-recording = "python -m scripts.solver_full_recording"
 solver-viewer-spine-proportions = "python -m scripts.solver_spine_proportions"
+solver-viewer-processing = "python -m scripts.solver_processing_comparison"
+
+solver-viewer-spine-ratios = "python -m scripts.solver_spine_ratio_comparison"
+
+solver-viewer-sc-offset = "python -m scripts.solver_sc_offset_comparison"
+
+solver-viewer-rest-lengths = "python -m scripts.solver_rest_length_comparison"

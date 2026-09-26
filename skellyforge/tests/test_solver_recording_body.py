@@ -5,6 +5,41 @@ from scripts.recording_data import read_recording, recording_path
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 
 
+def test_native_sequence_arrays_are_read_once(inputs):
+    """Avoid copying recording-sized C++ vectors for each displayed segment."""
+    from collections import Counter
+    from skellyforge import _native
+    from scripts.solver_recording_body import recording_body_catalog
+
+    reads = Counter()
+
+    class CountedResult:
+        def __init__(self, result):
+            self.result = result
+
+        def __getattr__(self, name):
+            reads[name] += 1
+            return getattr(self.result, name)
+
+    def evaluate(**kwargs):
+        assert kwargs['length_proportion_prior'].ratios == [20., 20., 13.]
+        options = _native.ChainSolveOptions()
+        options.evaluate_only = True
+        return CountedResult(_native.fit_chain_sequence(**kwargs, solve_options=options))
+
+    catalog = recording_body_catalog(recording_path(), 200, 202, free_axial_lengths=True,
+                           chest_line_prior=True, shoulder_profile='lower_sc',
+                           relaxed_shoulders=True, proportional_spine_lengths=True,
+                           spine_proportion_ratios=(20., 20., 13.), solve_sequence=evaluate)
+    prior = catalog['runs'][0]['methods']['full_body']['settings']['length_proportion_prior']
+    assert prior['ratios'] == [20., 20., 13.]
+    assert prior['fractions'] == pytest.approx([20/53, 20/53, 13/53])
+    for name in ('quaternions', 'translations', 'initial_quaternions',
+                 'initial_translations', 'lengths', 'linkage_displacements',
+                 'roots', 'costs'):
+        assert reads[name] == 1
+
+
 @pytest.fixture(scope='module')
 def inputs():
     path=recording_path()

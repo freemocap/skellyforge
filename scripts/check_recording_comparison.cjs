@@ -13,12 +13,29 @@ const THREE=require('./vendor/three.min.js');THREE.WebGLRenderer=class{construct
 const context={RECORDING_COMPARISON:data,THREE,console,devicePixelRatio:1,innerWidth:1400,innerHeight:900,performance:{now:()=>0},requestAnimationFrame(){},ResizeObserver:class{constructor(fn){this.fn=fn}observe(){this.fn()}},Image:class{constructor(){images.push(this)}decode(){return Promise.resolve()}},document:{createElement:element,getElementById(id){assert(nodes[id],id);return nodes[id]},querySelector(){return element('aside')},addEventListener(){},documentElement:element('html'),body:element('body')},window:{addEventListener(){}}};
 vm.createContext(context);vm.runInContext(['recording_comparison_scene.js','recording_comparison_table.js','recording_comparison.js'].map(p=>fs.readFileSync('scripts/'+p,'utf8')).join('\n'),context);
 const run=source=>vm.runInContext(source,context);
+if(data.solutions.some(s=>s.processing)){
+ for(let method=0;method<data.solutions.length;method++){
+  run(`fitTable.rows[${method}].inspect.onclick()`);
+  const p=data.solutions[method].processing,covered=[];
+  for(const w of p.windows){
+   for(let i=w.active_start;i<=w.committed_end;i++)covered.push(i);
+   run(`seekReview(${w.active_start})`);
+   assert(nodes['inspector-processing'].textContent.includes(`window ${w.index+1}/${p.windows.length}`));
+   assert(nodes['inspector-processing'].textContent.includes(`${w.iterations} Ceres iterations`));
+   assert(nodes['window-report'].textContent.includes('Solver Summary'));
+   assert(!nodes['processing-band'].hidden);
+   assert(nodes['processing-band'].style.background.includes('linear-gradient'));
+  }
+  assert.deepStrictEqual(covered,Array.from({length:data.times.length},(_,i)=>i));
+ }
+ run('seekReview(0)');
+}
 if(data.solutions.some(s=>s.id==='proportional_spine')){
  assert(nodes['inspector-lengths'].textContent.includes('cervical'));
  assert(nodes['inspector-lengths'].textContent.includes('Actual shares:'));
  assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="proportional_spine")).spine')==='Three flexible / ratio prior');
 }
-const expectedVisible=Math.min(2,data.solutions.length);
+const expectedVisible=data.solutions.some(s=>s.id==='sc_forward_75')?2:data.solutions.some(s=>s.processing)?1:Math.min(2,data.solutions.length);
 assert(run('reviewState.solutions.filter(s=>s.enabled).length')===expectedVisible);
 if(data.solutions.some(s=>s.id==='equal_spine_lengths')){
  assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="equal_spine_lengths")).spine')==='Free + equal-length prior');

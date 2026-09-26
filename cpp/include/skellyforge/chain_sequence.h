@@ -21,7 +21,20 @@ struct LandmarkLinePrior {
   std::vector<std::optional<std::array<Vec3,3>>> frames;
   double distance_scale = 1., anterior_scale = 1.;
 };
+struct ChainSolveOptions {
+  std::vector<std::vector<double>> initial_lengths;
+  std::vector<std::vector<Vec3>> initial_linkage_displacements;
+  std::vector<double> frame_weights; // full-recording quadrature weights sliced with a window
+  int fixed_prefix_frames=0;
+  int max_iterations=kChainMaximumIterations;
+  double function_tolerance=kChainFunctionTolerance;
+  bool evaluate_only=false; // score supplied state without optimizing
+};
 struct ChainSequenceFit {
+  bool usable=false;
+  int iterations=0;
+  std::string full_report;
+
   double length_proportion_cost=0.;
   double length_equality_cost=0.;
   std::vector<std::vector<Vec3>> linkage_displacements;
@@ -58,5 +71,6 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   std::optional<double> lengthening_prior_fraction=std::nullopt, bool free_axial_lengths=false, const std::optional<LandmarkLinePrior>& landmark_line_prior=std::nullopt,
   const std::vector<int>& relaxed_linkage_children={}, double linkage_scale=kDefaultLinkageScale, double linkage_acceleration_scale=kDefaultLinkageAccelerationScale,
   const std::optional<LengthEqualityPrior>& length_equality_prior=std::nullopt,
-  const std::optional<LengthProportionPrior>& length_proportion_prior=std::nullopt);
+  const std::optional<LengthProportionPrior>& length_proportion_prior=std::nullopt,
+  const ChainSolveOptions& solve_options=ChainSolveOptions{}, bool free_length_rest_prior=false);
 }

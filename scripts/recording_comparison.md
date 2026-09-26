@@ -73,6 +73,15 @@ in that unsupported tail. Those frames must not be interpreted as measured poses
 
 ## Validation
 
+The processing comparison is a separate generated page:
+`recording_processing_comparison.html`. Run
+`uv run --no-sync poe solver-viewer-processing --windows 3 5 7 --refine` to compare
+3/5/7 active-frame passes and full-recording refinement of the three-frame pass.
+The table identifies processing policy. Details show the finalizing window for
+the selected frame and its Ceres report. The timeline band marks fixed history
+in amber and active frames in cyan; playback displays finalized output, not a
+live optimization. See `processing_comparison.md` for timing and interpretation.
+
 `python -m pytest skellyforge/tests/test_recording_comparison.py -q`
 checks immutable export and rejection of mismatched frame/context inputs.
 

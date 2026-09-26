@@ -12,6 +12,7 @@ def comparison_data(bank):
     has_full = any(e['id']=='recording_full_body' for e in bank)
     has_equality = any(e['id']=='recording_spine_equality' for e in bank)
     for experiment_id, group, allowed in (
+        ('recording_processing', 'Processing', None),
         ('recording_full_body', 'Full recording', None),
         ('recording_spine_proportions', 'Spine proportions', {'proportional_spine'}),
         ('recording_spine_equality', 'Spine length coupling', {'equal_spine_lengths','lower_sc_relaxed'}),
@@ -31,7 +32,7 @@ def comparison_data(bank):
                 choices.append((experiment, group, choice, experiment['runs'][0]['methods'][choice['id']]))
     if not choices:
         raise ValueError('No saved real full-body fits; generate the recording solver experiments first')
-    priority = {'Full recording': -3, 'Spine proportions': -2, 'Spine length coupling': -1, 'Relaxed shoulder connections': 0, 'Shoulder offsets': 1, 'Spine comparisons': 2}
+    priority = {'Processing': -4, 'Full recording': -3, 'Spine proportions': -2, 'Spine length coupling': -1, 'Relaxed shoulder connections': 0, 'Shoulder offsets': 1, 'Spine comparisons': 2}
     choices.sort(key=lambda choice: priority[choice[1]])
     reference = choices[0][0]
     ref_frames = choices[0][3]['frames']
@@ -53,6 +54,7 @@ def comparison_data(bank):
             id=choice['id'], label=choice['label'], group=group,
             color={'proportional_spine':'#d0a4ff','equal_spine_lengths':'#ffd273','lower_sc':'#77b5ff', 'lower_sc_relaxed':'#82e39c', 'lower_closer_sc':'#e8ae71', 'lower_closer_sc_relaxed':'#ff7899'}.get(choice['id'], PALETTE[index % len(PALETTE)]),
             definitions=definitions, settings=method['settings'], objective=method['objective'],
+            processing=method.get('processing'),
             provenance=method.get('metadata', experiment['metadata']), summary=method['summary'],
             converged=frames[0]['converged'], seconds=frames[0]['seconds'], report=frames[0]['report'],
             frames=[dict(bodies=[dict(quaternion=b['quaternion'], translation=b['translation'],

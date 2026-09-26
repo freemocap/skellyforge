@@ -58,9 +58,31 @@ This is a reproducible initial build configuration, not a performance conclusion
 or a promise never to upgrade. Dependency notices accompany the module.
 
 The smoke solve exercises compilation, linking, Ceres autodifferentiation, solve
-termination, returned results and C++ exception translation. Additional native Python tests now exercise quaternion rigid fitting, exact point
-linkages and temporal residual blocks for rigid and linked sequences. Human skeleton
-FK, non-rigid connections and joint bounds are not yet covered by these experiments.
+termination, returned results and C++ exception translation. Native Python tests
+also exercise quaternion rigid fitting, connected FK, temporal residuals, axial
+lengths, relaxed linkages and moving-window boundary states. These experiments
+do not establish anatomical joint limits or production integration.
+
+## Moving-window experiment API
+
+`fit_chain_sequence(..., solve_options=ChainSolveOptions())` retains the existing
+residuals and quaternion manifolds. Options provide initial axial lengths and
+local linkage displacements, original full-recording frame weights, a fixed
+prefix, maximum iterations, and function tolerance. The fixed prefix uses
+`SetParameterBlockConstant` for every root, quaternion, axial length and relaxed
+linkage parameter block in those frames. `evaluate_only` scores a supplied state
+without optimization. Results expose usability, iteration count and Ceres
+`FullReport`, including Jacobian and linear-solver timing.
+
+The Python controller in `scripts/solver_window_sequence.py` composes these
+native solves. It does not smooth or average their output. See
+`scripts/processing_comparison.md` for boundary policy, measurements and limits.
+
+`free_length_rest_prior=True` enables the existing `LengthPriorResidual` while
+`free_axial_lengths=True` retains nonnegative lengths without upper bounds or
+length-acceleration residuals. The flag defaults to false, preserving existing
+free-length behavior. This allows rest-length strength to be tested independently
+of bounds and temporal smoothing; it introduces no new residual formula.
 
 ## Packaging
 

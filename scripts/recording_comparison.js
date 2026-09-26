@@ -2,7 +2,7 @@
 const reviewData=RECORDING_COMPARISON;
 const byId=id=>document.getElementById(id);
 const reviewState={region:'all',grid:true,keypoints:true,landmarks:true,segments:true,linkages:true,savedLandmarks:false,savedSegments:false,axes:false,
-  solutions:reviewData.solutions.map(s=>({enabled:(reviewData.solutions.some(v=>v.id==='proportional_spine')?['proportional_spine','equal_spine_lengths']:reviewData.solutions.some(v=>v.id==='equal_spine_lengths')?['lower_sc_relaxed','equal_spine_lengths']:['lower_sc','lower_sc_relaxed']).includes(s.id),opacity:s.id==='equal_spine_lengths'?.9:.65,color:s.color}))};
+  solutions:reviewData.solutions.map(s=>({enabled:(reviewData.solutions.some(v=>v.id==='sc_75_rest_25')?['sc_forward_75','sc_75_rest_25']:reviewData.solutions.some(v=>v.id==='sc_forward_75')?['neck_12','sc_forward_75']:reviewData.solutions.some(v=>v.id==='neck_12')?['neck_12']:reviewData.solutions.some(v=>v.processing)?(reviewData.solutions.some(v=>v.id==='windows_3')?['windows_3']:[reviewData.solutions[0].id]):reviewData.solutions.some(v=>v.id==='proportional_spine')?['proportional_spine','equal_spine_lengths']:reviewData.solutions.some(v=>v.id==='equal_spine_lengths')?['lower_sc_relaxed','equal_spine_lengths']:['lower_sc','lower_sc_relaxed']).includes(s.id),opacity:s.id==='equal_spine_lengths'?.9:.65,color:s.color}))};
 if(!reviewState.solutions.some(s=>s.enabled))reviewState.solutions.at(-1).enabled=true;
 const initialChoices=reviewState.solutions.map(s=>({...s}));
 let reviewIndex=0,reviewPlaying=false,playOrigin=0,playTime=0;
