@@ -73,3 +73,22 @@ def test_legacy_segment_without_observation_frame_does_not_invent_one():
         restored.segments["thoracic"].frame_definition
         == snapshot.restore().segments["thoracic"].frame_definition
     )
+
+
+import json
+from dataclasses import asdict
+
+
+def test_json_snapshot_decoder_preserves_saved_definitions_and_legacy_absence():
+    snapshot = SkeletonSnapshot.capture(SkeletonDefinition.from_default_yaml())
+    data = json.loads(json.dumps(asdict(snapshot), default=lambda item: item.value))
+    decoded = SkeletonSnapshot.from_dict(data)
+    restored = SkeletonSnapshot.capture(decoded.restore())
+    assert (
+        json.loads(json.dumps(asdict(restored), default=lambda item: item.value))
+        == data
+    )
+    for segment in data["segments"]:
+        segment.pop("observation_frame", None)
+    legacy = SkeletonSnapshot.from_dict(data).restore()
+    assert all(s.observation_frame is None for s in legacy.segments.values())

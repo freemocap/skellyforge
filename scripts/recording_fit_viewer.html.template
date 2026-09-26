@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Real recording: connected fit review</title>
+<style>body{margin:0;background:#1a1a2e;color:#edf3fc;font:14px system-ui;display:flex;height:100vh}#scene{flex:1;min-width:0}aside{width:370px;padding:18px;overflow:auto}label{display:block;margin:12px 0}input[type=range]{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}#tooltip{position:fixed;pointer-events:none;white-space:pre-line;background:#101522ee;padding:9px}button{padding:6px;margin:3px}</style>
+<div id="tooltip" hidden></div><div id="scene"></div><aside><h2>Real recording: connected fit</h2>
+<p>Orange: saved post hoc segments. Blue: experimental connected upper-body fit using the saved dimensions. Pink wire spheres: saved Forge landmarks. Small green spheres: original tracker keypoints used by the recorded reconstruction.</p>
+<p>Neither skeleton is ground truth. This review does not change the recording or replace the production pipeline.</p>
+<button id="play">Play</button><button id="fit">Fit view</button><button id="shoulders">Focus shoulders</button>
+<input id="frame" type="range" aria-label="Recording frame"><p id="clock"></p>
+<button id="late" hidden>Last quarter</button><button id="all">Start of selected window</button>
+<label><input id="saved" type="checkbox" checked> Orange: saved segments</label>
+<label><input id="connected" type="checkbox" checked> Blue: experimental connected fit</label>
+<label><input id="points" type="checkbox" checked> Pink: saved landmarks</label>
+<label><input id="keypoints" type="checkbox" checked> Green: saved keypoints</label>
+<label><input id="axes" type="checkbox" checked> Selected XYZ axes</label>
+<label>Axes for <select id="axes_layer"><option value="connected">Connected fit</option><option value="saved">Saved segments</option></select></label>
+<label>Segment <select id="segment"></select></label>
+<p>Hover any visible point or bone for its name. Only the upper body is fitted. Legs and hands are saved context. Residuals below are distances to the observed targets, not anatomical accuracy.</p>
+<pre id="status"></pre><details><summary>Recording, initialization and explicit fitting settings</summary><pre id="source"></pre></details>
+</aside><script>__ASSETS__</script><script>const DATA=__DATA__;</script><script>__VIEWER__</script></html>

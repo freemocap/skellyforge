@@ -1,0 +1,9 @@
+{
+  "version": 3,
+  "configurePresets": [{
+    "name": "dev", "binaryDir": "${sourceDir}/build/native",
+    "cacheVariables": {"CMAKE_BUILD_TYPE": "Release", "SKELLYFORGE_NATIVE_TESTS": "ON"}
+  }],
+  "buildPresets": [{"name": "dev", "configurePreset": "dev", "configuration": "Release", "jobs": 4}],
+  "testPresets": [{"name": "dev", "configurePreset": "dev", "configuration": "Release", "output": {"outputOnFailure": true}}]
+}

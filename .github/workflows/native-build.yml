@@ -1,0 +1,37 @@
+name: Native build smoke tests
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cpp/**'
+      - 'CMake*'
+      - 'pyproject.toml'
+      - 'poe_tasks.toml'
+      - 'scripts/native_build.py'
+      - 'skellyforge/tests/test_native*.py'
+      - '.github/workflows/native-build.yml'
+permissions:
+  contents: read
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv venv
+      - run: uv pip install "scikit-build-core>=0.11,<0.12" "pybind11>=3,<4" "cmake>=3.28,<4" ninja poethepoet pytest beartype
+      - run: uv run --no-sync poe native-install
+      - run: uv run --no-sync poe test-native
+      - run: uv run --no-sync poe test-native-python
+      - run: uv run --no-sync poe build-wheel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/*.whl

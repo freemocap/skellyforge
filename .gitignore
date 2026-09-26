@@ -14,6 +14,8 @@ freemocap\user_preferences.yaml
 
 # C extensions
 *.so
+*.pyd
+skellyforge/licenses/
 
 # Distribution / packaging
 .Python
@@ -163,3 +165,9 @@ node_modules/
 # Regenerate it with `python scripts/generate_skeleton_viewer.py`.
 scripts/skeleton_viewer.html
 scripts/real_skeleton_viewer.html
+scripts/connected_fit_viewer.html
+scripts/sequence_fit_viewer.html
+scripts/recording_fit_viewer.html
+scripts/solver_viewer.html
+
+scripts/.solver_media/

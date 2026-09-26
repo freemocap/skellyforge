@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Connected sequence fit</title>
+<style>body{margin:0;background:#1a1a2e;color:#edf3fc;font:14px system-ui;display:flex;height:100vh}#scene{flex:1;min-width:0}aside{width:380px;padding:18px;overflow:auto}label{display:block;margin:12px 0}input[type=range]{width:100%}pre{white-space:pre-wrap;font-size:12px}#tooltip{position:fixed;pointer-events:none;white-space:pre-line;background:#101522ee;padding:9px}button{padding:6px;margin:3px}</style>
+<div id="tooltip" hidden></div><div id="scene"></div><aside><h2>Connected sequence fit</h2>
+<p>Same 11 noisy synthetic observations, two fitting methods. Orange: each frame fitted separately. Green: four frames fitted jointly. Blue: known synthetic pose. Pink: noisy observations.</p>
+<label>Case <select id="case"></select></label>
+<button id="play">Play</button><button id="fit">Fit view</button><button id="shoulders">Focus shoulders</button>
+<input id="frame" type="range" aria-label="Frame"><p id="clock"></p>
+<button id="late" hidden>Last quarter</button><button id="all" hidden>All</button>
+<label><input id="saved" type="checkbox"> Orange: independent fit</label>
+<label><input id="sequence" type="checkbox" checked> Green: sequence fit</label>
+<label><input id="reference" type="checkbox" checked> Blue: known synthetic pose</label>
+<label><input id="points" type="checkbox" checked> Pink: noisy observations</label>
+<label hidden><input id="keypoints" type="checkbox">Unused</label>
+<label><input id="axes" type="checkbox" checked> Selected XYZ axes</label>
+<label>Axes for <select id="axes_layer"><option value="sequence">Sequence fit</option><option value="saved">Independent fit</option></select></label>
+<label>Segment <select id="segment"></select></label>
+<p>Short axes: selected fitting method. Longer pale axes: known pose. Compare the static and moving cases; smoother does not necessarily mean more accurate.</p>
+<pre id="status"></pre><details><summary>Explicit fitting settings</summary><pre id="source"></pre></details>
+<p>This short synthetic window tests the implementation. It does not establish an anatomical model, a unique pose, or long-recording performance.</p>
+</aside><script>__ASSETS__</script><script>const DATA=__DATA__;</script><script>__VIEWER__</script></html>

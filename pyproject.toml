@@ -1,6 +1,20 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["scikit-build-core>=0.11,<0.12", "pybind11>=3,<4"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+cmake.version = ">=3.28,<4"
+build-dir = "build/wheel/{wheel_tag}"
+wheel.packages = ["skellyforge"]
+install.components = ["python"]
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "skellyforge/__init__.py"
+
+[tool.poe]
+include = "poe_tasks.toml"
+executor.type = "simple"
 
 [project]
 name = "skellyforge"
@@ -15,12 +29,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ] #additional classifiers can be found here: https://pypi.org/classifiers/
 
-# Runtime dependencies are deliberately few: the engine is numpy plus a YAML parser, and
-# `beartype` to make the annotations load-bearing. `scipy`, `pandas`, `toml` and `pyarrow`
-# were here for the post_processing package that has since been deleted, and had no other
-# callers.
+# SciPy supplies the sparse least-squares optimizer for connected sequence fitting.
 dependencies = [
     "numpy",
+    "scipy>=1.13",
     "pyyaml>=6.0",
     "beartype>=0.22.9",
     # Imported lazily: `__init__.py` currently configures stdlib logging instead, because
@@ -42,6 +54,7 @@ recording-viewer = ["pyarrow>=18"]
 # resolve skellytracker, and the runtime boundary (skellyforge never imports
 # skellytracker) is preserved by construction.
 [dependency-groups]
+native = ["scikit-build-core>=0.11,<0.12", "pybind11>=3,<4", "cmake>=3.28,<4", "ninja", "poethepoet"]
 dev = ["pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools", "skellytracker"]
 
 [tool.uv]
@@ -52,8 +65,8 @@ skellylogs = { git = "https://github.com/freemocap/skellylogs", branch = "main" 
 skellytracker = { git = "https://github.com/freemocap/skellytracker", branch = "development-streaming" }
 
 [tool.pytest.ini_options]
-# The suite runs on numpy and pyyaml alone - no heavy optional dependencies - so it stays
-# fast and CI-cheap. Roughly three seconds for the whole thing.
+# The suite exercises NumPy geometry and SciPy connected fitting. Recording-viewer
+# tests that read Parquet additionally use the recording-viewer extra.
 testpaths = ["skellyforge/tests"]
 python_files = ["test_*.py"]
 addopts = "-q --strict-markers"

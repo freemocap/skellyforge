@@ -3,6 +3,12 @@
 Review date: 2026-09-24. Proposal only; no production calculation changes.
 This is the next-stage design for `full-skeleton-solve.md`.
 
+Update, 2026-09-25: the fixed-dimension candidate below is historical prototype
+context. The current [composable fitting design](composable-skeleton-fitting.md)
+introduces non-rigid linkages and specifies Ceres parameters/residuals. Existing
+mapping ownership and preservation of mapped versus fitted landmarks still
+apply. No new production linkage model has been implemented.
+
 ## Findings from current code
 
 Both RTMPose and MediaPipe body mapping YAMLs in Tracker currently map:

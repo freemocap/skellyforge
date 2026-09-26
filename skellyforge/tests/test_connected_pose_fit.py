@@ -9,6 +9,7 @@ from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose
 from skellyforge.core.skeleton.pose.fit_connected_pose import (
     fit_connected_pose,
     LandmarkTarget,
+    RootPoseTolerances,
 )
 from skellyforge.core.skeleton.pose.model_scale_fitting import ModelScaleFit
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
@@ -39,6 +40,118 @@ def setup():
         root_world_orientation=RotationQuaternion.identity(),
     )
     return args
+
+
+def test_free_root_recovers_rigid_motion_without_changing_connections():
+    args = setup()
+    moved = {
+        **args,
+        "root_origin": Point.from_xyz(x=240.0, y=-160.0, z=920.0),
+        "root_world_orientation": RotationQuaternion.from_rotation_vector(
+            rotation_vector=np.array([0.15, -0.2, 0.3])
+        ),
+    }
+    _, _, desired = synthesize_fitted_pose(**moved)
+    targets = {
+        n: LandmarkTarget(position=desired[n], tolerance=0.1)
+        for n in (
+            "left_hip_socket",
+            "right_hip_socket",
+            "left_acromion",
+            "right_acromion",
+        )
+    }
+    result = fit_connected_pose(
+        **args,
+        targets=targets,
+        rotation_tolerances_radians={},
+        root_tolerances=RootPoseTolerances(1000.0, 1.0),
+    )
+    assert max(result.target_errors.values()) < 0.001
+    assert_geometry(
+        {
+            **args,
+            "root_origin": result.world_origins["pelvis"],
+            "root_world_orientation": result.world_orientations["pelvis"],
+        },
+        result,
+    )
+    assert (
+        result.world_orientations["pelvis"].angle_to(
+            other=moved["root_world_orientation"]
+        )
+        < 1e-5
+    )
+
+
+@pytest.mark.parametrize(
+    "translation,rotation", [(0.0, 1.0), (1.0, -1.0), (np.inf, 1.0), (1.0, np.nan)]
+)
+def test_root_priors_require_valid_scales(translation, rotation):
+    with pytest.raises(ValueError, match="Root tolerances"):
+        RootPoseTolerances(translation, rotation)
+
+
+def test_free_root_solution_is_equivariant_to_world_transform_and_units():
+    args = setup()
+    _, _, points = synthesize_fitted_pose(**args)
+    desired = {
+        n: Point.from_array(values=points[n].array + np.array([40.0, -30.0, 70.0]))
+        for n in (
+            "left_hip_socket",
+            "right_hip_socket",
+            "left_acromion",
+            "right_acromion",
+        )
+    }
+
+    def run(arguments, observations, unit):
+        return fit_connected_pose(
+            **arguments,
+            targets={n: LandmarkTarget(p, unit) for n, p in observations.items()},
+            rotation_tolerances_radians=dict.fromkeys(
+                arguments["segment_relative_orientations"], 0.5
+            ),
+            root_tolerances=RootPoseTolerances(1000 * unit, 1.0),
+        )
+
+    first = run(args, desired, 1.0)
+    q = RotationQuaternion.from_rotation_vector(
+        rotation_vector=np.array([0.3, -0.4, 0.2])
+    )
+    unit = 0.001
+    t = np.array([0.2, -0.1, 0.8])
+    transform = lambda p: Point.from_array(
+        values=q.rotate_vector(vector=p.array) * unit + t
+    )
+    original = args["fit"]
+    scaled = ModelScaleFit(
+        fitted_scale=original.fitted_scale * unit,
+        segment_scales={n: v * unit for n, v in original.segment_scales.items()},
+        segment_lengths={n: v * unit for n, v in original.segment_lengths.items()},
+        measured_segment_names=original.measured_segment_names,
+        voting_segment_names=original.voting_segment_names,
+    )
+    second = run(
+        {
+            **args,
+            "fit": scaled,
+            "root_origin": transform(args["root_origin"]),
+            "root_world_orientation": q * args["root_world_orientation"],
+        },
+        {n: transform(p) for n, p in desired.items()},
+        unit,
+    )
+    for n in args["segment_names"]:
+        np.testing.assert_allclose(
+            second.world_origins[n].array,
+            transform(first.world_origins[n]).array,
+            atol=1e-6,
+        )
+        assert (
+            second.world_orientations[n].angle_to(other=q * first.world_orientations[n])
+            < 1e-5
+        )
 
 
 def solve(args, points, **kwargs):
@@ -196,3 +309,97 @@ def test_small_target_jitter_does_not_cause_large_rotations():
         for n, q in args["segment_relative_orientations"].items():
             assert result.relative_orientations[n].angle_to(other=q) < np.deg2rad(2.0)
         assert_geometry(args, result)
+
+
+def test_upper_body_static_noise_keeps_connections_and_bounded_rotations():
+    args = setup()
+    rest = RestPose.from_default_yaml(skeleton=args["skeleton"])
+    names = args["segment_names"] | frozenset(
+        (
+            "cervical_spine",
+            "skull",
+            "left_upper_arm",
+            "right_upper_arm",
+            "left_lower_arm",
+            "right_lower_arm",
+        )
+    )
+    args = {
+        **args,
+        "segment_names": names,
+        "segment_relative_orientations": {
+            n: rest.relative_orientations[n] for n in names if n != "pelvis"
+        },
+    }
+    _, _, exact = synthesize_fitted_pose(**args)
+    rng = np.random.default_rng(42)
+    target_names = (
+        "left_hip_socket",
+        "right_hip_socket",
+        "left_acromion",
+        "right_acromion",
+        "left_elbow",
+        "right_elbow",
+        "left_wrist",
+        "right_wrist",
+        "left_ear",
+        "right_ear",
+        "nose",
+    )
+    targets = {
+        n: LandmarkTarget(
+            Point.from_array(values=exact[n].array + rng.normal(0.0, 1.0, 3)), 1.0
+        )
+        for n in target_names
+    }
+    result = fit_connected_pose(
+        **args,
+        targets=targets,
+        rotation_tolerances_radians=dict.fromkeys(
+            args["segment_relative_orientations"], 0.5
+        ),
+        root_tolerances=RootPoseTolerances(1000.0, 1.0),
+    )
+    assert result.final_cost < result.initial_cost
+    assert_geometry(
+        {
+            **args,
+            "root_origin": result.world_origins["pelvis"],
+            "root_world_orientation": result.world_orientations["pelvis"],
+        },
+        result,
+    )
+    # Regression bound for this explicit 1 mm noise/prior setup, not an
+    # anatomical range or a guarantee for arbitrary noise and missing points.
+    for name, reference in args["segment_relative_orientations"].items():
+        assert result.relative_orientations[name].angle_to(
+            other=reference
+        ) < np.deg2rad(5.0)
+
+
+def test_unobserved_twist_uses_explicit_pose_prior_not_initial_guess():
+    args = setup()
+    rest = RestPose.from_default_yaml(skeleton=args["skeleton"])
+    names = args["segment_names"] | frozenset(("left_upper_arm", "left_lower_arm"))
+    neutral = {n: rest.relative_orientations[n] for n in names if n != "pelvis"}
+    args = {**args, "segment_names": names, "segment_relative_orientations": neutral}
+    _, _, points = synthesize_fitted_pose(**args)
+    initial = dict(neutral)
+    initial["left_lower_arm"] = neutral[
+        "left_lower_arm"
+    ] * RotationQuaternion.from_rotation_vector(
+        rotation_vector=np.array([0.0, 0.0, 0.8])
+    )
+    result = fit_connected_pose(
+        **{**args, "segment_relative_orientations": initial},
+        targets={"left_wrist": LandmarkTarget(points["left_wrist"], 1.0)},
+        rotation_tolerances_radians={"left_lower_arm": 0.5},
+        pose_prior_orientations=neutral,
+    )
+    assert result.target_errors["left_wrist"] < 1e-6
+    assert (
+        result.relative_orientations["left_lower_arm"].angle_to(
+            other=neutral["left_lower_arm"]
+        )
+        < 1e-5
+    )

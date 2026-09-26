@@ -17,3 +17,10 @@ after r128 - the same files live under `examples/jsm/` as ES modules from r129 o
 off r128 therefore means moving the viewer to `<script type="module">` and an import map,
 not just changing a version number here. Fetch a replacement with
 `npm pack three@<version>` and copy the two files in.
+# Plotly
+
+`plotly-basic-2.35.2.min.js` is Plotly's official basic distribution, downloaded
+from https://cdn.plot.ly/plotly-basic-2.35.2.min.js . MIT license is retained in
+`PLOTLY_LICENSE`. SHA256:
+`138c2e81014b979dc00867a93da55b7605a17495ee78dd7afb433b7f021dfcfa`.
+It is bundled into the solver viewer for offline interactive time-series plots.

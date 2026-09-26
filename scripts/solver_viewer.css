@@ -1,0 +1,53 @@
+:root{color-scheme:dark;--panel-width:420px;--border:#2c3b51;--muted:#9faec3;--accent:#65dae5}
+[hidden]{display:none!important}
+#workspace{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}#workspace #scene{min-height:100px}
+#time-series{height:var(--plot-height,340px);flex-shrink:0;min-height:100px;overflow:auto;background:#121d2c;padding:12px 16px}.plot-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.plot-toolbar label{margin:0;font-size:12px}.plot-toolbar strong{margin-right:auto}.plot-help{margin:8px 0;font-size:11px}.plot-panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.plot-panels article{min-width:0;background:#192638;border:1px solid #2c3b51;border-radius:8px;padding:10px}.plot-panels h3{margin:0 0 4px}.plot-panels output{display:block;font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;color:#b8c8dc;margin-top:5px}#frame{width:100%;accent-color:var(--accent)}
+#plot-divider{height:8px;flex-shrink:0;cursor:row-resize;touch-action:none;background:#26384f;position:relative}#plot-divider:after{content:'';position:absolute;left:calc(50% - 22px);top:3px;width:44px;height:2px;background:#718ba7}#plot-divider:hover,#plot-divider:focus-visible{background:#3a6277;outline:none}
+*{box-sizing:border-box}body{margin:0;background:#151b29;color:#e7edf7;font:13px/1.55 system-ui,sans-serif;display:flex;height:100vh;height:100dvh;overflow:hidden}
+#scene{flex:1;min-width:0;position:relative;overflow:hidden}canvas{display:block}.scene-caption{position:absolute;top:22px;left:24px;z-index:1;pointer-events:none;font-size:11px;letter-spacing:.16em;color:var(--accent)}.scene-caption span{display:block;font-size:16px;letter-spacing:0;color:#e7edf7;margin-top:4px}.scene-caption small{display:block;letter-spacing:0;color:var(--muted);margin-top:5px}
+#panel{flex:0 0 var(--panel-width);width:var(--panel-width);min-width:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#425773 #172130;background:linear-gradient(145deg,#1d293b,#141d2c);padding:24px;box-shadow:-12px 0 35px #0002}
+header{margin-bottom:22px}.eyebrow{font-size:10px;letter-spacing:.16em;color:var(--accent);font-weight:700}h2{font-size:27px;letter-spacing:-.035em;margin:5px 0 10px;font-weight:650}.badge{display:inline-block;border:1px solid #3a5c69;border-radius:20px;padding:3px 10px;color:#abe5e9;background:#22404a66;font-size:11px}
+section{border:1px solid var(--border);border-radius:12px;background:#182436b0;padding:16px;margin-bottom:14px}h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:0 0 12px;color:#cedbed}p{color:var(--muted);font-size:12px;margin:10px 0 14px}p:last-child{margin-bottom:0}label{display:flex;align-items:center;gap:9px;margin:9px 0;flex-wrap:wrap}select{margin-left:auto;min-width:66px}select,button{font:inherit;padding:7px 11px;background:#26364d;color:#eef5ff;border:1px solid #455a76;border-radius:7px}button{cursor:pointer}button:hover,select:hover{background:#314762;border-color:#6b879f}button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;margin:0;cursor:pointer}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.65 ui-monospace,Consolas,monospace;background:#0e1826;border:1px solid #283951;border-radius:8px;padding:12px;font-variant-numeric:tabular-nums}#status{border-left:3px solid var(--accent)}code{color:#cde7f5}#cost{width:100%;height:100px;background:#101c2c;border:1px solid var(--border);border-radius:8px;margin-bottom:12px}table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}td{text-align:right}thead th{color:var(--muted);font-weight:500;text-align:right}thead th:first-child,tbody th{text-align:left}td,th{padding:6px 8px;border-bottom:1px solid #2b3b5055}tbody tr:nth-child(even){background:#ffffff03}details{margin-top:16px}summary{cursor:pointer;color:#c8d8ed}
+#divider{flex:0 0 9px;cursor:col-resize;touch-action:none;position:relative;background:#172233;z-index:3;border-left:1px solid #2b3d55;border-right:1px solid #2b3d55}#divider:after{content:'';position:absolute;top:calc(50% - 22px);left:3px;width:2px;height:44px;border-radius:2px;background:#6b829d}#divider:hover,#divider:focus-visible,#divider.dragging{background:#325367;outline:none}#divider:hover:after,#divider:focus-visible:after{background:var(--accent)}body.resizing{cursor:col-resize;user-select:none}body.resizing canvas{pointer-events:none}
+#tooltip{position:fixed;z-index:5;background:#080e19f5;border:1px solid #425b75;border-radius:8px;padding:10px;pointer-events:none;white-space:pre-line;font:12px/1.5 ui-monospace,monospace;box-shadow:0 8px 25px #0005}
+
+/* Plotly owns the SVGs inside charts; only size their containing panels. */
+.plot-panels{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;overflow:visible}
+.plot-panels article{resize:both;overflow:hidden;flex:none;width:100%;height:420px;min-width:280px;min-height:240px;display:flex;flex-direction:column;position:relative;padding:8px 8px 18px}
+.plot-panels article:after{content:'\2198';position:absolute;bottom:0;right:5px;color:#8ba8c7;font-size:18px;pointer-events:none}
+.plot-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}.plot-heading button{font-size:11px;padding:3px 9px}.plot-heading h3{margin:0}
+.plot-chart{flex:1;min-height:0;min-width:0;width:100%}.plot-panels output{flex:none}
+.plot-panels article.expanded-plot{position:fixed;inset:12px;z-index:30;width:auto!important;height:auto!important;resize:none;box-shadow:0 0 0 20px #080e19e8}
+.plot-chart svg{background:transparent;border:0;border-radius:0;margin:0}
+#panel section{resize:vertical;overflow:auto;min-height:110px}
+
+#problem-panel{height:520px}#problem-series{overflow:auto}#problem-series svg{display:block;max-width:none}#problem-summary{margin:6px 0;font-size:12px}#problem-value{font-size:11px}
+
+#problem-panel{height:620px;min-height:380px}
+#problem-series{overflow:hidden;touch-action:none;cursor:grab;background:#101c2c;border-radius:8px;min-height:100px}
+#problem-series:active{cursor:grabbing}
+#problem-series svg{width:100%;height:100%;display:block;user-select:none}
+#problem-series [data-node]:focus{outline:none}
+#problem-series [data-node]:focus rect:first-of-type{stroke:#fff;stroke-width:3}
+.map-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;flex:none}
+.map-toolbar button{padding:3px 9px;font-size:12px}.map-toolbar label{margin:0 8px;font-size:11px}
+#map-zoom{margin-left:auto;color:#9faec3;font-size:11px}
+.map-legend{display:flex;gap:5px 14px;flex-wrap:wrap;margin-bottom:8px;flex:none}
+.map-legend span{font-size:10px;color:var(--kind)}.map-legend span:before{content:'';display:inline-block;width:7px;height:7px;background:var(--kind);border-radius:2px;margin-right:4px}
+/* Reserve hover details space so text cannot resize the map and trigger auto-fit. */
+#problem-selection{height:72px;min-height:72px;max-height:72px;flex:none;overflow:auto;overflow-wrap:anywhere;scrollbar-gutter:stable;white-space:pre-wrap;margin:6px 0;font-size:11px}
+.map-explanation{margin:0;flex:none;max-height:130px;overflow:auto;font-size:11px}
+#problem-summary{max-height:44px;overflow:auto;flex:none}
+
+.plot-panels article.collapsed-panel{height:48px!important;min-height:48px!important;resize:horizontal;padding-bottom:8px}
+.plot-panels article.collapsed-panel>:not(.plot-heading){display:none!important}
+.plot-heading h3{flex:1}.plot-heading button{flex:none}
+.map-filters{margin:0 0 6px;flex:none;max-height:170px;overflow:auto}
+.map-legend label{font-size:10px;color:var(--kind);margin:3px 0;gap:4px}
+
+#video-panel{height:440px}#video-series{position:relative;overflow:hidden;background:#080e17}
+#annotated-frame{width:100%;height:100%;object-fit:contain;display:block}
+#video-camera{max-width:85%}#video-value{min-height:24px}
+
+#axis-labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}.axis-origin-label{position:absolute;font-size:10px;color:#e1edff;background:#152031bc;padding:1px 3px;border-radius:3px;white-space:nowrap}

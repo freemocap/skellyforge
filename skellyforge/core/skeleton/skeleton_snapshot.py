@@ -133,6 +133,110 @@ class SkeletonSnapshot:
     derived_quantities: tuple[str, ...]
     coordinate_system: str
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "SkeletonSnapshot":
+        """Decode JSON-compatible snapshot values without consulting defaults.
+
+        Unknown fields fail through the dataclass constructors. Older snapshots
+        may omit observation_frame; that remains absent rather than reconstructed.
+        """
+
+        def frame(value):
+            return FrameSnapshot(
+                **{
+                    **value,
+                    "primary_axis": tuple(value["primary_axis"]),
+                    "secondary_axis": (
+                        tuple(value["secondary_axis"])
+                        if value["secondary_axis"] is not None
+                        else None
+                    ),
+                    "handedness": Handedness(value["handedness"]),
+                }
+            )
+
+        return cls(
+            **{
+                **data,
+                "landmarks": tuple(
+                    LandmarkSnapshot(
+                        **{
+                            **v,
+                            "position": tuple(v["position"]),
+                            "aliases": tuple(v["aliases"]),
+                        }
+                    )
+                    for v in data["landmarks"]
+                ),
+                "segments": tuple(
+                    SegmentSnapshot(
+                        **{
+                            **v,
+                            "landmarks": tuple(v["landmarks"]),
+                            "aliases": tuple(v["aliases"]),
+                            "frame": frame(v["frame"]),
+                            "observation_frame": (
+                                frame(v["observation_frame"])
+                                if v.get("observation_frame") is not None
+                                else None
+                            ),
+                        }
+                    )
+                    for v in data["segments"]
+                ),
+                "joints": tuple(
+                    JointSnapshot(
+                        **{
+                            **v,
+                            "convention": EulerConvention(
+                                **{
+                                    **v["convention"],
+                                    "angle_names": tuple(
+                                        v["convention"]["angle_names"]
+                                    ),
+                                    "zero_offsets": tuple(
+                                        v["convention"]["zero_offsets"]
+                                    ),
+                                }
+                            ),
+                        }
+                    )
+                    for v in data["joints"]
+                ),
+                "chains": tuple(
+                    ChainSnapshot(
+                        **{
+                            **v,
+                            "segments": tuple(v["segments"]),
+                            "joints": tuple(v["joints"]),
+                        }
+                    )
+                    for v in data["chains"]
+                ),
+                "landmark_groups": tuple(
+                    LandmarkGroup(
+                        **{
+                            **v,
+                            "landmark_names": tuple(v["landmark_names"]),
+                            "tags": tuple(v["tags"]),
+                        }
+                    )
+                    for v in data["landmark_groups"]
+                ),
+                "landmark_connections": tuple(
+                    LandmarkConnectionGroup(
+                        **{
+                            **v,
+                            "pairs": tuple(tuple(p) for p in v["pairs"]),
+                            "tags": tuple(v["tags"]),
+                        }
+                    )
+                    for v in data["landmark_connections"]
+                ),
+                "derived_quantities": tuple(data["derived_quantities"]),
+            }
+        )
+
     def __post_init__(self) -> None:
         for records in (
             self.landmarks,

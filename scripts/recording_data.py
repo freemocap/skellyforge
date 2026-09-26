@@ -37,7 +37,7 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def read_recording(path, sensor_group=None):
+def read_recording(path, sensor_group=None, *, include_model=False):
     try:
         import pyarrow.parquet as pq
     except ImportError as error:
@@ -177,6 +177,7 @@ def read_recording(path, sensor_group=None):
             channel=channel,
             keypoint_channel=keypoint_channel,
             skeleton=run["models"]["standard_human"]["skeleton"],
+            **({"model": run["models"]["standard_human"]} if include_model else {}),
             method="Replay of saved segment origins, world rotations, fixed dimensions, landmarks and keypoints. No reconstruction, refitting or optimization in the viewer.",
         ),
     )

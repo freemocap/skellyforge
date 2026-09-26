@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Connected fit: synthetic comparison</title>
+<style>body{margin:0;background:#1a1a2e;color:#edf3fc;font:14px system-ui;display:flex;height:100vh}#scene{flex:1;min-width:0}aside{width:360px;padding:18px;overflow:auto}label{display:block;margin:12px 0}input[type=range]{width:100%}pre{white-space:pre-wrap;font-size:12px}#tooltip{position:fixed;pointer-events:none;white-space:pre-line;background:#101522ee;padding:9px}button{padding:6px;margin:3px}</style>
+<div id="tooltip" hidden></div><div id="scene"></div><aside><h2>Connected fit: synthetic comparison</h2>
+<p>Static comparisons, not a recording or temporal solve. Slider 0–2: whole-body displacement; 3–5: arms overhead. Each shows initial, fixed-pelvis fit, then free-pelvis fit. Samples 6–9: static T-pose with independent 1 mm landmark noise.</p>
+<p>Orange is the fitted model; blue is the known synthetic pose; pink spheres are the 11 observation targets. Lengths remain fixed. The synthetic reference is only used to generate observations and display errors, never supplied as the fitter's pose.</p>
+<button id="play" hidden>Play</button><button id="fit">Fit view</button><button id="shoulders">Focus shoulders</button>
+<input id="frame" type="range" aria-label="Comparison"><p id="clock"></p>
+<button id="late" hidden>Last quarter</button><button id="all">Initial pose</button>
+<label><input id="saved" type="checkbox" checked> Orange: model segments</label>
+<label><input id="reference" type="checkbox" checked> Blue: known synthetic pose</label>
+<label><input id="points" type="checkbox" checked> Pink: synthetic targets</label>
+<label hidden><input id="keypoints" type="checkbox">Unused</label>
+<label><input id="axes" type="checkbox" checked> Selected XYZ axes</label>
+<p>Short saturated axes belong to the fit; longer pale axes belong to the known reference. Select a segment to inspect its rotation and origin errors below.</p>
+<label>Segment <select id="segment"></select></label><pre id="status"></pre>
+<p>Small positional error does not prove unique joint rotations. These in-model examples do not establish anatomical accuracy, real-shoulder performance, or sequence stability.</p>
+<details><summary>Inputs and explicit fitting settings</summary><pre id="source"></pre></details>
+</aside><script>__ASSETS__</script><script>const DATA=__DATA__;</script><script>__VIEWER__</script></html>

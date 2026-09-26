@@ -31,6 +31,21 @@ class LandmarkTarget:
 
 
 @dataclass(frozen=True)
+class RootPoseTolerances:
+    """Explicit priors toward the supplied root pose; translation uses fit units."""
+
+    translation: float
+    rotation_radians: float
+
+    def __post_init__(self):
+        if any(
+            not np.isfinite(v) or v <= 0
+            for v in (self.translation, self.rotation_radians)
+        ):
+            raise ValueError("Root tolerances must be finite and positive")
+
+
+@dataclass(frozen=True)
 class ConnectedPoseFit:
     world_orientations: dict[str, RotationQuaternion]
     world_origins: dict[str, Point]
@@ -39,13 +54,14 @@ class ConnectedPoseFit:
     target_errors: dict[str, float]
     initial_cost: float
     final_cost: float
-    iterations: int
+    iterations: int | None
+    """None when the optimizer reports evaluations instead of iteration count."""
     termination: str
     targets_within_tolerance: bool
     """Independent of optimizer termination: a converged compromise can miss targets."""
 
 
-def fit_connected_pose(
+def _prepare_connected_pose(
     *,
     skeleton: SkeletonDefinition,
     fit: ModelScaleFit,
@@ -55,10 +71,16 @@ def fit_connected_pose(
     segment_names: frozenset[str],
     targets: Mapping[str, LandmarkTarget],
     rotation_tolerances_radians: Mapping[str, float],
-    max_iterations: int = 60,
-    gradient_tolerance: float = 1e-6,
-) -> ConnectedPoseFit:
-    """Fit selected rotations jointly, keeping the root and other local rotations fixed.
+    root_tolerances: RootPoseTolerances | None = None,
+    pose_prior_orientations: Mapping[str, RotationQuaternion] | None = None,
+    allow_missing_targets: bool = False,
+):
+    """Fit selected rotations and, optionally, the root pose jointly.
+
+    Root remains fixed unless root_tolerances is supplied. Root increments are
+    expressed in the initial root frame; translation is scaled by fitted_scale
+    for dimensionless numerical coordinates. Root priors penalize displacement
+    and rotation from the initial pose, not from world zero.
 
     Keys in rotation_tolerances_radians are exactly the movable non-root segments.
     All other selected local rotations remain unchanged. For each movable segment,
@@ -70,15 +92,15 @@ def fit_connected_pose(
     mutation. Nonfinite targets fail. Callers may omit unavailable targets, but at
     least one is required. Results report iteration exhaustion/stalling explicitly.
     """
-    if (
-        max_iterations < 1
-        or not np.isfinite(gradient_tolerance)
-        or gradient_tolerance <= 0
+    if (not targets and not allow_missing_targets) or (
+        not rotation_tolerances_radians and root_tolerances is None
     ):
-        raise ValueError("Iterations and gradient tolerance must be positive")
-    if not targets or not rotation_tolerances_radians:
-        raise ValueError("At least one target and movable segment are required")
+        raise ValueError("At least one target and movable segment or root are required")
     movable = tuple(sorted(rotation_tolerances_radians))
+    if pose_prior_orientations is not None and not set(movable).issubset(
+        pose_prior_orientations
+    ):
+        raise ValueError("Pose priors must cover every movable joint")
     if not set(movable).issubset(segment_relative_orientations):
         raise ValueError("Movable segments must be selected non-root segments")
     angular_scales = np.repeat([rotation_tolerances_radians[n] for n in movable], 3)
@@ -114,6 +136,16 @@ def fit_connected_pose(
         if j.child.name in segment_names
     }
     target_names = tuple(sorted(targets))
+    angular_count = 3 * len(movable)
+    prior_scales = angular_scales
+    if root_tolerances is not None:
+        prior_scales = np.concatenate(
+            (
+                angular_scales,
+                np.repeat(root_tolerances.rotation_radians, 3),
+                np.repeat(root_tolerances.translation / fit.fitted_scale, 3),
+            )
+        )
 
     def evaluate(delta):
         local = dict(reference)
@@ -124,24 +156,94 @@ def fit_connected_pose(
                 )
                 * reference[name]
             )
+        root_q, root_p = root_world_orientation, root_origin
+        if root_tolerances is not None:
+            root_q = root_world_orientation * RotationQuaternion.from_rotation_vector(
+                rotation_vector=delta[angular_count : angular_count + 3]
+            )
+            root_p = Point.from_array(
+                values=root_origin.array
+                + root_world_orientation.rotate_vector(
+                    vector=delta[angular_count + 3 :] * fit.fitted_scale
+                )
+            )
         world, origins, landmarks = synthesize_pose(
             skeleton=skeleton,
             joint_relative_orientations={joint_names[n]: q for n, q in local.items()},
-            root_world_orientation=root_world_orientation,
-            root_origin=root_origin,
+            root_world_orientation=root_q,
+            root_origin=root_p,
             segment_scales=fit.segment_scales,
             segment_names=segment_names,
         )
-        positional = np.concatenate(
-            [
-                (landmarks[n].array - targets[n].position.array) / targets[n].tolerance
-                for n in target_names
-            ]
+        positional = (
+            np.concatenate(
+                [
+                    (landmarks[n].array - targets[n].position.array)
+                    / targets[n].tolerance
+                    for n in target_names
+                ]
+            )
+            if target_names
+            else np.empty(0)
         )
-        residual = np.concatenate((positional, delta / angular_scales))
+        prior = delta / prior_scales
+        if pose_prior_orientations is not None:
+            for i, name in enumerate(movable):
+                prior[3 * i : 3 * i + 3] = (
+                    pose_prior_orientations[name].conjugate() * local[name]
+                ).to_rotation_vector() / rotation_tolerances_radians[name]
+        residual = np.concatenate((positional, prior))
         return residual, (world, origins, landmarks, local)
 
-    delta = np.zeros(3 * len(movable))
+    rotation_count = angular_count + (3 if root_tolerances is not None else 0)
+    return evaluate, len(prior_scales), rotation_count
+
+
+def fit_connected_pose(
+    *,
+    skeleton: SkeletonDefinition,
+    fit: ModelScaleFit,
+    segment_relative_orientations: Mapping[str, RotationQuaternion],
+    root_world_orientation: RotationQuaternion,
+    root_origin: Point,
+    segment_names: frozenset[str],
+    targets: Mapping[str, LandmarkTarget],
+    rotation_tolerances_radians: Mapping[str, float],
+    root_tolerances: RootPoseTolerances | None = None,
+    pose_prior_orientations: Mapping[str, RotationQuaternion] | None = None,
+    max_iterations: int = 60,
+    gradient_tolerance: float = 1e-6,
+) -> ConnectedPoseFit:
+    """Fit connected geometry with explicit pose priors and optional root motion.
+
+    Joint increments are in parent coordinates; root increments are in the
+    initial root frame. All tolerances must be positive. Missing observations
+    may be omitted, but this single-frame fitter requires at least one target.
+    No temporal smoothing or anatomical limits are implied by this local solve.
+    pose_prior_orientations separates the preferred joint pose from the starting
+    guess. If omitted, the starting guess also supplies that preference.
+    """
+    if (
+        max_iterations < 1
+        or not np.isfinite(gradient_tolerance)
+        or gradient_tolerance <= 0
+    ):
+        raise ValueError("Iterations and gradient tolerance must be positive")
+    evaluate, size, rotation_count = _prepare_connected_pose(
+        skeleton=skeleton,
+        fit=fit,
+        segment_relative_orientations=segment_relative_orientations,
+        root_world_orientation=root_world_orientation,
+        root_origin=root_origin,
+        segment_names=segment_names,
+        targets=targets,
+        rotation_tolerances_radians=rotation_tolerances_radians,
+        root_tolerances=root_tolerances,
+        pose_prior_orientations=pose_prior_orientations,
+    )
+    target_names = tuple(sorted(targets))
+
+    delta = np.zeros(size)
     residual, geometry = evaluate(delta)
     initial_cost = cost = float(residual @ residual)
     if not np.isfinite(cost):
@@ -172,7 +274,10 @@ def fit_connected_pose(
             )[0]
             candidate = delta + step
             # Stay in the principal rotation-vector neighborhood of the reference.
-            if np.any(np.linalg.norm(candidate.reshape(-1, 3), axis=1) >= np.pi):
+            if np.any(
+                np.linalg.norm(candidate[:rotation_count].reshape(-1, 3), axis=1)
+                >= np.pi
+            ):
                 damping *= 10
                 continue
             trial_residual, trial_geometry = evaluate(candidate)
