@@ -36,7 +36,7 @@ class WindowSequenceFit:
         return getattr(self.final,name)
 
 
-def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, progress=None):
+def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, initial_function_tolerance=None, progress=None):
     if active_frames<3 or not isinstance(active_frames,int):
         raise ValueError('Active window must contain at least three frames')
     if arguments.get('allow_displacement'):
@@ -74,7 +74,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         options=_native.ChainSolveOptions()
         options.initial_lengths=lengths[lo:hi];options.initial_linkage_displacements=displacements[lo:hi]
         options.frame_weights=weights[lo:hi].tolist();options.fixed_prefix_frames=first-lo
-        options.function_tolerance=function_tolerance
+        options.function_tolerance=initial_function_tolerance if first==0 and initial_function_tolerance is not None else function_tolerance
         options.max_iterations=max_iterations;window['solve_options']=options
         started=perf_counter();result=_native.fit_chain_sequence(**window);elapsed=perf_counter()-started
         if not result.usable:raise RuntimeError(f"Window {first}: {result.report}")
@@ -105,6 +105,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     if not final.usable:raise RuntimeError(final.report)
     processing=dict(active_frames=active_frames,boundary_frames=BOUNDARY_FRAMES,refined=False,
         frame_weights=weights.tolist(),max_iterations=max_iterations,function_tolerance=function_tolerance,windows=trace,
+        initial_function_tolerance=initial_function_tolerance,
         window_solve_seconds=window_seconds,final_pass_seconds=final.seconds,final_pass_wall_seconds=final_wall,
         final_pass_report=final.full_report,wall_seconds=perf_counter()-wall_start,
         evaluation_scope='Final assembled trajectory scored once under the full-sequence objective; window costs are not summed.',

@@ -102,9 +102,11 @@ def frame_targets(record, model):
             source = model['sources'][key]
             if source not in record['keypoints']:
                 continue
-            if key not in record['points'] or not np.allclose(record['points'][key], record['keypoints'][source], atol=fit_settings.DIRECT_MAPPING_TOLERANCE_MM, rtol=0):
+            # A saved reconstruction can be absent even with a few valid
+            # keypoints. Direct mappings still define targets in that case.
+            if key in record['points'] and not np.allclose(record['points'][key], record['keypoints'][source], atol=fit_settings.DIRECT_MAPPING_TOLERANCE_MM, rtol=0):
                 raise ValueError(f'Frame {record["number"]}: direct mapping disagrees with keypoint {source} -> {key}')
-            values.append(record['points'][key].tolist())
+            values.append(record['keypoints'][source].tolist())
             slots.append(j)
         observed.append(values)
         indices.append(slots)
@@ -310,6 +312,8 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
         if processing['refined']:method['objective']+=' Followed by one full-sequence optimization initialized from the windowed result.'
         else:method['objective']+=' Final assembled state is evaluated globally without another optimization.'
         method['settings']['processing']=dict(active_frames=processing['active_frames'],refined=processing['refined'],boundary_frames=processing['boundary_frames'],max_iterations=processing['max_iterations'],function_tolerance=processing['function_tolerance'])
+        if processing.get('initial_function_tolerance') is not None:
+            method['settings']['processing']['initial_function_tolerance']=processing['initial_function_tolerance']
         summary.update({'Window solve seconds':processing['window_solve_seconds'],
                         'Final pass solve seconds':processing['final_pass_seconds'],
                         'Processing wall seconds':processing['wall_seconds'],

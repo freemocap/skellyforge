@@ -26,7 +26,7 @@ function createComparisonTable(data,state,refresh){
     const opacity=node('input');opacity.type='number';opacity.min=0;opacity.max=100;opacity.step=5;opacity.setAttribute('aria-label',solution.label+' opacity percent');opacity.title='Opacity (%)';displayControls.appendChild(opacity);display.appendChild(displayControls);
     const solo=node('button','Solo');solo.setAttribute('aria-label','Show only '+solution.label);solo.onclick=()=>{state.solutions.forEach((s,i)=>s.enabled=i===index);refresh();};row.appendChild(display);
     const processing=solution.processing;
-    cell(row,processing?`${processing.active_frames}-frame${processing.refined?' + global':''}`:'Full sequence');
+    cell(row,processing?`${processing.active_frames}-frame${processing.refined?' + global':''}${solution.id.startsWith('tolerance_')?' / '+processing.function_tolerance.toExponential()+(processing.initial_function_tolerance?' / strict start':''):''}`:'Full sequence');
     const spineLabel=solution.settings.length_proportion_prior?.enabled?solution.settings.length_proportion_prior.ratios.join(':'):solution.settings.length_equality_prior?.enabled?'Equal prior':solution.settings.free_axial_lengths?'Free':'Length prior';
     const spineCell=cell(row,spineLabel);spineCell.title=description.spineDetail;
     cell(row,solution.settings.shoulder_geometry?`${Math.round(100*solution.settings.shoulder_geometry.forward_factor)}%`:'Original');

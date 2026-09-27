@@ -20,6 +20,16 @@ def options_from(result):
     return options
 
 
+def test_strict_initial_window_preserves_its_committed_pose():
+    args,_=seeded()
+    baseline=fit_windows(args,function_tolerance=1e-6)
+    candidate=fit_windows(args,function_tolerance=1e-4,initial_function_tolerance=1e-6)
+    np.testing.assert_array_equal(candidate.quaternions[0],baseline.quaternions[0])
+    np.testing.assert_array_equal(candidate.lengths[0],baseline.lengths[0])
+    np.testing.assert_array_equal(candidate.roots[0],baseline.roots[0])
+    assert candidate.processing['initial_function_tolerance']==1e-6
+
+
 def test_evaluation_and_fixed_prefix_preserve_all_supplied_parameters():
     args,start=seeded();options=options_from(start);options.evaluate_only=True
     args.update(initial_quaternions=start.quaternions,initial_roots=start.roots)

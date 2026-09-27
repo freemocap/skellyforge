@@ -16,7 +16,8 @@ RECORDING_FUNCTION_TOLERANCE = 1e-6
 
 def publish(candidates, *, comparison='processing'):
     pages={'processing':'recording_processing_comparison.html', 'ratios':'recording_spine_ratio_comparison.html',
-           'shoulders':'recording_sc_offset_comparison.html', 'rest_lengths':'recording_rest_length_comparison.html'}
+           'shoulders':'recording_sc_offset_comparison.html', 'rest_lengths':'recording_rest_length_comparison.html',
+           'performance':'recording_sample_performance.html'}
     if comparison not in pages:raise ValueError('Unknown comparison type')
     ratio_comparison=comparison=='ratios'
     shoulder_comparison=comparison in ('shoulders','rest_lengths')
@@ -56,6 +57,10 @@ def publish(candidates, *, comparison='processing'):
             if key not in ('processing','initialization','costs_by_family') and method['settings'].get(key)!=value:
                 raise ValueError('Processing comparison changed model setting: '+key)
         label=f'{p["active_frames"]} active frames'+(' + full refinement' if p['refined'] else ' / sequential')
+        if comparison=='performance':
+            label+=f' / tolerance {p["function_tolerance"]:g}'
+            if p.get('initial_function_tolerance') is not None:
+                label+=f' / first window {p["initial_function_tolerance"]:g}'
         if shoulder_comparison:
             ratios=':'.join(f'{v:g}' for v in method['settings']['length_proportion_prior']['ratios'])
             label=f"{ratios} / SC forward {100*method['settings']['shoulder_geometry']['forward_factor']:g}%"

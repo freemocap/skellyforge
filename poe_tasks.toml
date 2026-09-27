@@ -27,3 +27,4 @@ solver-viewer-spine-ratios = "python -m scripts.solver_spine_ratio_comparison"
 solver-viewer-sc-offset = "python -m scripts.solver_sc_offset_comparison"
 
 solver-viewer-rest-lengths = "python -m scripts.solver_rest_length_comparison"
+solver-viewer-sample-performance = "python -m scripts.solver_sample_performance"

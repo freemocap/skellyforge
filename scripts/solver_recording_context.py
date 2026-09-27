@@ -23,7 +23,10 @@ def annotated_previews(path,records):
     paths=sorted((path.parent/'annotated_videos').glob('*.mp4'))
     if not paths:raise FileNotFoundError('No annotated videos beside '+str(path))
     if not shutil.which('ffprobe') or not shutil.which('ffmpeg'):raise RuntimeError('Annotated previews require ffprobe and ffmpeg on PATH')
-    folder=Path(__file__).parent/'.solver_media'/'recording_torso'
+    # Keep sample previews separate so generating them cannot change the videos
+    # shown by already-published test-recording comparisons.
+    media_name='recording_sample' if path.stem=='freemocap_sample_data_data' else 'recording_torso'
+    folder=Path(__file__).parent/'.solver_media'/media_name
     folder.mkdir(parents=True,exist_ok=True)
     views=[]
     for index,video in enumerate(paths):
@@ -39,7 +42,7 @@ def annotated_previews(path,records):
             if digest(video)!=signature['sha256']:raise RuntimeError('Annotated video changed during decoding')
             if not all((camera/f'{i:06d}.jpg').exists() for i in range(len(times))):raise RuntimeError('Annotated preview decode incomplete')
             manifest.write_text(json.dumps(signature,indent=2))
-        views.append(dict(label=video.name,source=str(video),sha256=signature['sha256'],base=f'.solver_media/recording_torso/camera{index}/',count=len(times)))
+        views.append(dict(label=video.name,source=str(video),sha256=signature['sha256'],base=f'.solver_media/{media_name}/camera{index}/',count=len(times)))
     return views
 
 

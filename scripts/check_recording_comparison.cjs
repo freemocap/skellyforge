@@ -84,7 +84,8 @@ if(data.frame_ids.at(-1)===221){
 nodes['region'].value='Left arm';nodes['region'].onchange();assert(run('viewer.solutions[0].bodies.every((b,i)=>b.g.visible===(reviewData.solutions[0].definitions[i].region==="Left arm"))'));
 nodes['region'].value='all';nodes['region'].onchange();
 nodes['timeline'].value=12;nodes['timeline'].oninput();assert(run('reviewIndex')===12);assert(nodes['frame-label'].textContent.includes(String(data.frame_ids[12])));
-run('seekReview(0);toggleReview();advanceReview(500)');assert(run('reviewIndex')===3);
+run('seekReview(0);toggleReview();advanceReview(500)');
+assert(run('reviewIndex')===data.times.findLastIndex(t=>t<=data.times[0]+0.5));
 nodes.loop.checked=false;run('advanceReview(100000)');assert(!run('reviewPlaying'));assert(run('reviewIndex')===data.times.length-1);
 nodes.loop.checked=true;run('seekReview(0);toggleReview();advanceReview(100000)');assert(run('reviewPlaying'));assert(run('reviewIndex')>=0&&run('reviewIndex')<data.times.length);
 run('pauseReview();seekReview(0)');

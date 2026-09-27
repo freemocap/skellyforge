@@ -180,3 +180,5 @@ scripts/recording_spine_ratio_comparison.html
 scripts/recording_sc_offset_comparison.html
 
 scripts/recording_rest_length_comparison.html
+scripts/recording_sample_performance.html
+scripts/recording_test_sample_metrics.html

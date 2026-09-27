@@ -82,6 +82,13 @@ def test_direct_mapping_disagreement_is_not_silently_accepted(inputs):
         frame_targets(changed,model)
 
 
+def test_direct_keypoint_targets_do_not_require_saved_reconstruction(inputs):
+    records,_,model=inputs
+    record=next(r for r in records if r['number']==192)
+    before=frame_targets(record,model)
+    assert frame_targets({**record,'points':{}},model)==before
+
+
 def test_missing_tail_keypoints_only_changes_initialization(monkeypatch,inputs):
     import numpy as np
     from scripts import solver_recording_body as adapter
