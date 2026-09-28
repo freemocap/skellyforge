@@ -38,3 +38,7 @@ solver-viewer-length-coupling = "python -m scripts.solver_length_coupling"
 solver-viewer-fixed-neck = "python -m scripts.solver_fixed_neck"
 solver-viewer-spine-positions = "python -m scripts.solver_spine_positions"
 solver-validate-spine-positions = "python -m scripts.solver_spine_validation"
+solver-inspector-capture = "python -m scripts.solver_spine_positions --recording test --inspect-windows 0 193 219"
+test-problem-inspector = "node scripts/check_problem_inspector.cjs"
+
+test-fitting = "python -m pytest skellyforge/tests/test_native_window_sequence.py skellyforge/tests/test_native_problem_inspection.py skellyforge/tests/test_native_position_prior.py skellyforge/tests/test_native_shared_length.py skellyforge/tests/test_native_axis_prior.py skellyforge/tests/test_native_half_space.py skellyforge/tests/test_native_spine_preferences.py"

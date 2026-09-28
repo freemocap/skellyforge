@@ -8,7 +8,7 @@ from scripts.recording_data import recording_path, read_recording
 from scripts.solver_recording_body import recording_body_catalog
 from scripts.solver_recording_context import add_context
 from scripts.solver_processing_comparison import publish, RECORDING_FUNCTION_TOLERANCE
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 
 RATIO_CASES = {'neck_12': (20., 20., 12.), 'neck_13': (20., 20., 13.),
                'neck_14': (20., 20., 14.)}

@@ -8,7 +8,7 @@ from scripts.solver_recording_body import recording_body_catalog
 from scripts.solver_recording_context import add_context
 from scripts.solver_rest_length_comparison import add_review_metrics
 from scripts.solver_processing_comparison import publish
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 
 OUTPUT = Path(__file__).resolve().parents[1] / 'build/shared_spine_length'
 RATIOS = (20., 20., 12.)

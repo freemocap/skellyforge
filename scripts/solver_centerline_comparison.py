@@ -13,7 +13,7 @@ from scripts.solver_spine_preferences import add_twist_diagnostics
 from scripts.solver_sc_anterior import add_sc_diagnostics
 from scripts.solver_spine_stability import metrics, BASE_REST_SCALE, TOTAL_LENGTH_BOUNDS, TWIST_SCALE
 from scripts.solver_shared_spine_length import RATIOS, FUNCTION_TOLERANCE, MAX_ITERATIONS
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 from scripts.solver_processing_comparison import publish
 
 OUTPUT = Path(__file__).resolve().parents[1] / 'build/centerline'

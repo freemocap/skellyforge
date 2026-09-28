@@ -7,7 +7,7 @@ from time import perf_counter
 from scripts.recording_data import recording_path,read_recording
 from scripts.solver_recording_body import recording_body_catalog
 from scripts.solver_recording_context import add_context
-from scripts.solver_window_sequence import fit_windows,refine_window_result,DEFAULT_MAX_ITERATIONS
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows,refine_window_result,DEFAULT_MAX_ITERATIONS
 from scripts.solver_shoulder_offsets import shoulder_diagnostics
 from scripts.generate_recording_comparison import comparison_data,write_comparison,FOLDER
 

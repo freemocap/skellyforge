@@ -25,6 +25,7 @@ const mapKinds = {
 const mapEscape = text => String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const hiddenMapKinds=new Set();
 function renderCeresMap({parameters, residuals, indices}) {
+  ceresMap.redraw=null;
   ceresMap.input={parameters,residuals,indices};
   const region=el('body-region').value;
   const focus=el('body-focus').value;
@@ -74,6 +75,12 @@ function renderCeresMap({parameters, residuals, indices}) {
       x:(i%temporalColumns)*cellWidth+18, y:temporalY+30+Math.floor(i/temporalColumns)*94, w:cellWidth-36, h:cardHeight,
       title:r.bodyLabel, subtitle:r.name, detail:r.detail+'\n'+r.formula});
   });
+  paintCeresMap(backgrounds);
+}
+// Shared SVG and interactions. Layout may come from the old lab schematic or
+// directly inspected native blocks; this layer never constructs solver edges.
+function paintCeresMap(backgrounds='') {
+  const map=ceresMap;
   const byId = new Map(map.nodes.map(n => [n.id,n]));
   map.edges = map.nodes.filter(n => n.connections).flatMap(n => n.connections.filter(source=>byId.has(source)).map(source => ({source,target:n.id})));
   if (!byId.has(map.selected)) map.selected = null;
@@ -142,7 +149,7 @@ function installCeresMapControls() {
   if (ceresMap.installed) return;
   ceresMap.installed=true;
   const host=el('problem-series'),map=ceresMap;
-  const refresh=()=>{map.autoFit=true;renderCeresMap(map.input);};
+  const refresh=()=>{map.autoFit=true;if(map.redraw)map.redraw();else renderCeresMap(map.input);};
   for(const [kind,style] of Object.entries(mapKinds)){
     const label=document.createElement('label');label.style.color=style.color;
     const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=true;checkbox.id='map-type-'+kind;

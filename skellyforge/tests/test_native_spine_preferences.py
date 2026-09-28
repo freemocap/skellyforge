@@ -56,7 +56,7 @@ def test_twist_uses_authored_rest_and_is_world_rotation_invariant():
 
 
 def test_bounded_twist_windows_preserve_committed_history():
-    from scripts.solver_window_sequence import fit_windows
+    from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
     args,_=inputs();args['times']=[i*.5 for i in range(7)]
     args['observed']=[args['observed'][0]]*7
     args['initial_quaternions']=[[[1.,0.,0.,0.]]*3]*7

@@ -1,4 +1,4 @@
-"""Sequential fixed-lag experiments using the existing native Ceres objective.
+"""Sequential fixed-lag fitting using the native Ceres objective.
 
 No pose averaging or post-fit smoothing. Two committed frames remain constant
 in each problem so acceleration residuals cross the moving boundary.
@@ -31,12 +31,13 @@ class WindowSequenceFit:
     report: str
     initial_quaternions: list
     initial_translations: list
+    inspected_windows: dict | None = None
 
     def __getattr__(self,name):
         return getattr(self.final,name)
 
 
-def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, initial_function_tolerance=None, progress=None, fixed_length_segments=()):
+def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, initial_function_tolerance=None, progress=None, fixed_length_segments=(), inspect_windows=()):
     if active_frames<3 or not isinstance(active_frames,int):
         raise ValueError('Active window must contain at least three frames')
     if arguments.get('allow_displacement'):
@@ -58,6 +59,10 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     if any(len(targets)!=n for targets in prior_targets):
         raise ValueError('Position prior targets must match the full recording timestamps')
     if active_frames>n:raise ValueError('Window exceeds recording length')
+    inspect_windows=set(inspect_windows)
+    if any(not isinstance(i,int) or i<0 or i>n-active_frames for i in inspect_windows):
+        raise ValueError('Inspected window index is outside the sequence')
+    inspections={}
     if not args.get('initial_quaternions') or not args.get('initial_roots'):
         raise ValueError('Window fitting requires explicit segment/root initialization')
     weights=frame_weights(times)
@@ -97,6 +102,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             for name in ('segment','local_lateral','local_anterior','scale'):setattr(sliced_axis,name,getattr(axis_prior,name))
             sliced_axis.frames=axis_frames[lo:hi];window['segment_axis_prior']=sliced_axis
         options=_native.ChainSolveOptions()
+        options.inspect_problem=first in inspect_windows
         options.landmark_position_priors=sliced_position_priors(lo,hi)
         options.landmark_huber_scale_mm=huber_scale
         options.fixed_length_segments=list(fixed_length_segments)
@@ -106,6 +112,9 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         options.max_iterations=max_iterations;window['solve_options']=options
         started=perf_counter();result=_native.fit_chain_sequence(**window);elapsed=perf_counter()-started
         if not result.usable:raise RuntimeError(f"Window {first}: {result.report}")
+        if options.inspect_problem:
+            inspections[first]=dict(frame_start=lo,active_start=first,frame_end=hi-1,
+                initial=result.problem_initial,final=result.problem_final)
         for target,source in ((quaternions,result.quaternions),(roots,result.roots),
                               (lengths,result.lengths),(displacements,result.linkage_displacements)):
             # Fixed history is immutable, including lengths and shoulder displacements.
@@ -147,7 +156,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     converged=all(w['converged'] for w in trace)
     report=f'{len(trace)} sequential windows; {sum(w["converged"] for w in trace)} converged. '+'Final full-sequence evaluation only; no global optimization.'
     return WindowSequenceFit(final,processing,window_seconds+final.seconds,converged,report,
-                             initial_q,initial_t)
+                             initial_q,initial_t,inspections)
 
 
 def refine_window_result(arguments, window_result, *, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE):
@@ -171,4 +180,4 @@ def refine_window_result(arguments, window_result, *, max_iterations=DEFAULT_MAX
                       final_pass_report=final.full_report,wall_seconds=processing['wall_seconds']+elapsed,
                       refinement_max_iterations=max_iterations,refinement_function_tolerance=function_tolerance)
     return WindowSequenceFit(final,processing,window_result.seconds+final.seconds,final.converged,
-        window_result.report+' Post-hoc refinement: '+final.report,final.initial_quaternions,final.initial_translations)
+        window_result.report+' Post-hoc refinement: '+final.report,final.initial_quaternions,final.initial_translations,window_result.inspected_windows)

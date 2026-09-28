@@ -1,6 +1,7 @@
 #pragma once
 #include "skellyforge/rigid_fit.h"
 #include "skellyforge/chain_solver_constants.h"
+#include "skellyforge/problem_inspection.h"
 #include <optional>
 namespace skellyforge {
 using ChainQuaternions = std::vector<std::array<double,4>>;
@@ -55,6 +56,7 @@ struct LandmarkPositionPrior {
   double scale=1.; // mm; soft residual, not a hard positional bound
 };
 struct ChainSolveOptions {
+  bool inspect_problem=false;
   double landmark_huber_scale_mm=0.; // zero disables robust loss; threshold in physical mm
   std::vector<LandmarkPositionPrior> landmark_position_priors;
   std::vector<int> fixed_length_segments; // independent axial blocks held at reference length
@@ -67,6 +69,7 @@ struct ChainSolveOptions {
   bool evaluate_only=false; // score supplied state without optimizing
 };
 struct ChainSequenceFit {
+  std::optional<ProblemInspection> problem_initial, problem_final;
   double position_prior_cost=0.;
   bool usable=false;
   int iterations=0;

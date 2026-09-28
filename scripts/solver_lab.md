@@ -1046,3 +1046,18 @@ tests passed after adding an optimizer-response check (four overlap that suite).
 All three CTest checks passed. The Node viewer check passed for two fits across
 all 1108 frames. Report and detailed residual-family costs are retained in
 `build/sc_anterior/report.md` and `metrics.json`.
+## Actual Ceres problem preview
+
+From the SkellyForge repository, `poe solver-inspector-capture` runs the accepted
+test-recording fit and saves native before/after problem snapshots for windows
+0, 193 and 219. It requires the prepared test recording and built native extension.
+`poe solver-viewer-serve` serves the scripts directory on port 8773. Open
+<http://127.0.0.1:8773/problem_inspector.html>.
+
+Select a window and before/after state, filter by residual implementation, then
+hover or pin blocks to inspect their actual connections. Details show the native
+properties directly. The recording viewer below shows finalized poses, not the
+selected window's intermediate state. Anatomical block names and linked 3D
+selection are not implemented yet. This is the native inspection preview, not
+the finished packaged inspector. `poe test-problem-inspector` checks the graph
+against the saved native snapshots.

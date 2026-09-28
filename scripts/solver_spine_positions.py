@@ -14,7 +14,7 @@ from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 from scripts.recording_data import recording_path, read_recording
 from scripts.solver_recording_body import body_model, recording_body_catalog
 from scripts.solver_recording_context import add_context
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 from scripts.solver_shared_spine_length import RATIOS, FUNCTION_TOLERANCE, MAX_ITERATIONS
 from scripts.solver_spine_stability import BASE_REST_SCALE, TWIST_SCALE
 from scripts.generate_recording_comparison import comparison_data, write_comparison
@@ -66,6 +66,7 @@ def audit(candidate, records):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--recording',choices=('test','sample'),default='sample')
+    parser.add_argument('--inspect-windows',type=int,nargs='*',default=[])
     args=parser.parse_args()
     output=OUTPUT if args.recording=='sample' else OUTPUT/'test'
     page='recording_spine_positions.html' if args.recording=='sample' else 'recording_test_spine_positions.html'
@@ -73,12 +74,16 @@ def main():
     skeleton=SkeletonSnapshot.from_dict(meta['skeleton']).restore()
     model=body_model(skeleton,meta['model'],scale.segment_scales,'lower_closer_sc',flexible_cervical=True)
     priors=position_priors(model,records)
+    inspected={}
     def solve(**kwargs):
         kwargs['landmark_position_priors']=priors
         kwargs['landmark_huber_scale_mm']=KEYPOINT_HUBER_SCALE_MM
-        return fit_windows(kwargs,active_frames=3,max_iterations=MAX_ITERATIONS,
+        result=fit_windows(kwargs,active_frames=3,max_iterations=MAX_ITERATIONS,
             function_tolerance=FUNCTION_TOLERANCE,
+            inspect_windows=args.inspect_windows,
             progress=lambda w,n: print('Window',w['index']+1,'/',n,flush=True) if w['index']%200==0 else None)
+        inspected.update(result.inspected_windows)
+        return result
     started=perf_counter()
     candidate=recording_body_catalog(path,records[0]['number'],records[-1]['number'],
         free_axial_lengths=True,free_length_rest_prior=True,length_prior_fraction=BASE_REST_SCALE,
@@ -93,6 +98,19 @@ def main():
     method['summary']['Read and fit wall seconds']=perf_counter()-started
     result=audit(candidate,records)
     output.mkdir(parents=True,exist_ok=True)
+    if inspected:
+        from skellyforge.tools.solver_inspector.inspection import inspection_data
+        inspection_folder=Path(__file__).parent/'.solver_inspections'/args.recording
+        inspection_folder.mkdir(parents=True,exist_ok=True)
+        windows=[]
+        for index,snapshot in inspected.items():
+            snapshot['segment_names']=model['names']
+            filename=f'window_{index}.json'
+            (inspection_folder/filename).write_text(json.dumps(inspection_data(snapshot),allow_nan=False))
+            windows.append(dict(index=index,file=filename,frame_start=snapshot['frame_start'],
+                active_start=snapshot['active_start'],frame_end=snapshot['frame_end']))
+        (inspection_folder/'manifest.json').write_text(json.dumps(dict(recording=args.recording,
+            source=candidate['metadata'],windows=windows),indent=2))
     print('Axial acceptance',json.dumps(result),flush=True)
     (output/'candidate_metrics.json').write_text(json.dumps(result,indent=2))
     add_context(candidate)

@@ -4,7 +4,7 @@ import pytest
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
 from skellyforge.tests.test_native_window_sequence import seeded
-from scripts.solver_window_sequence import fit_windows, frame_weights, refine_window_result
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows, frame_weights, refine_window_result
 from scripts.solver_axial_geometry import axial_points
 
 

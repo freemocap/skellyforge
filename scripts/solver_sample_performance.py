@@ -12,7 +12,7 @@ from scripts.solver_recording_body import recording_body_catalog
 from scripts.solver_recording_context import add_context
 from scripts.solver_rest_length_comparison import add_review_metrics
 from scripts.solver_processing_comparison import publish
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 
 CASES = (('tolerance_1e-06', 1e-6, None), ('tolerance_1e-05', 1e-5, None),
          ('tolerance_0.0001', 1e-4, None), ('tolerance_warm_1e-05', 1e-5, 1e-6))

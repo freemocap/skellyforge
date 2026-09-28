@@ -391,14 +391,18 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   }};
   translations();result.initial_quaternions=result.quaternions;result.initial_translations=result.translations;
   ceres::Problem problem;
+  std::unordered_map<const double*,ParameterIdentity> identities;
+  std::unordered_map<ceres::ResidualBlockId,std::string> purposes;
   std::vector<ceres::ResidualBlockId> half_space_blocks,twist_blocks,axis_blocks,landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities,length_proportions;
   std::vector<std::vector<ceres::ResidualBlockId>> angular_blocks(bodies);
   for(size_t i=0;i<n;++i){
     problem.AddParameterBlock(result.roots[i].data(),3);
+    if(solve_options.inspect_problem)identities[result.roots[i].data()]={int(i),0,"Root translation (mm)"};
     for(size_t b=0;b<bodies;++b)if(references[b]>0){
       auto* length=length_pointer(i,b);
       const double reference=parameter_reference(b);
       problem.AddParameterBlock(length,1);
+      if(solve_options.inspect_problem)identities[length]={int(i),shares[b]>0?-1:int(b),shares[b]>0?"Shared axial length (mm)":"Length (mm)"};
       // Free-length diagnostic: retain only the nonnegative length domain.
       if(free_axial_lengths)problem.SetParameterLowerBound(length,0,0.);
       else {
@@ -437,17 +441,22 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     for(int child:relaxed_linkage_children){
       auto* delta=result.linkage_displacements[i][child].data();
       problem.AddParameterBlock(delta,3);
+      if(solve_options.inspect_problem)identities[delta]={int(i),child,"Linkage displacement (mm)"};
       linkage_priors.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<LinkageDisplacementPriorResidual,3,3>(
         new LinkageDisplacementPriorResidual{std::sqrt(weights[i])/linkage_scale}),nullptr,delta));
     }
     if(allow_displacement){
       problem.AddParameterBlock(&result.displacements[i],1);
+      if(solve_options.inspect_problem)identities[&result.displacements[i]]={int(i),2,"Axial displacement (mm)"};
       problem.SetParameterLowerBound(&result.displacements[i],0,-displacement_bound);
       problem.SetParameterUpperBound(&result.displacements[i],0,displacement_bound);
       displacement_priors.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<DisplacementPriorResidual,1,1>(
         new DisplacementPriorResidual{std::sqrt(weights[i])/displacement_scale}),nullptr,&result.displacements[i]));
     }
-    for(size_t b=0;b<bodies;++b)problem.AddParameterBlock(result.quaternions[i][b].data(),4,new ceres::QuaternionManifold());
+    for(size_t b=0;b<bodies;++b){
+      problem.AddParameterBlock(result.quaternions[i][b].data(),4,new ceres::QuaternionManifold());
+      if(solve_options.inspect_problem)identities[result.quaternions[i][b].data()]={int(i),int(b),"World quaternion (wxyz)"};
+    }
     if(segment_axis_prior && segment_axis_prior->frames[i]){
       const auto& p=*segment_axis_prior;
       axis_blocks.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<SegmentAxisResidual,2,4>(
@@ -572,9 +581,29 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   for(size_t i=0;i<n;++i)
     for(int b:solve_options.fixed_length_segments)
       problem.SetParameterBlockConstant(length_pointer(i,b));
+  if(solve_options.inspect_problem){
+    for(auto id:landmark_blocks)purposes[id]="Keypoint fit";
+    for(auto id:position_prior_blocks)purposes[id]="Axial landmark position";
+    for(auto id:half_space_blocks)purposes[id]="SC anterior preference";
+    for(auto id:line_blocks)purposes[id]="Chest centerline preference";
+    for(auto id:axis_blocks)purposes[id]="Segment axes preference";
+    for(auto id:twist_blocks)purposes[id]="Relative twist preference";
+    for(auto id:relative_pose_blocks)purposes[id]="Relative rest pose";
+    for(auto id:length_priors)purposes[id]="Rest length preference";
+    for(auto id:length_proportions)purposes[id]="Spine length proportions";
+    for(auto id:length_equalities)purposes[id]="Equal length preference";
+    for(auto id:linkage_priors)purposes[id]="Linkage displacement preference";
+    for(auto id:displacement_priors)purposes[id]="Axial displacement preference";
+    for(auto id:length_motion)purposes[id]="Length acceleration";
+    for(auto id:linkage_motion)purposes[id]="Linkage acceleration";
+    for(auto id:displacement_motion)purposes[id]="Axial displacement acceleration";
+    for(auto id:root_blocks)purposes[id]="Root translation acceleration";
+    for(const auto& blocks:angular_blocks)for(auto id:blocks)purposes[id]="Quaternion acceleration";
+  }
   ceres::Solver::Options options;options.linear_solver_type=ceres::SPARSE_NORMAL_CHOLESKY;options.logging_type=ceres::SILENT;
   options.max_num_iterations=solve_options.max_iterations;options.function_tolerance=solve_options.function_tolerance;options.gradient_tolerance=kChainGradientTolerance;options.parameter_tolerance=kChainParameterTolerance;
   ceres::Solver::Summary summary;
+  if(solve_options.inspect_problem)result.problem_initial=inspect_problem(problem,identities,purposes);
   if(!solve_options.evaluate_only)ceres::Solve(options,&problem,&summary);
   if(shared_axial_length && !solve_options.evaluate_only)
     for(size_t i=solve_options.fixed_prefix_frames;i<n;++i)
@@ -603,6 +632,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   }else{
     result.usable=summary.IsSolutionUsable();result.converged=summary.termination_type==ceres::CONVERGENCE;result.report=summary.BriefReport();result.full_report=summary.FullReport();result.seconds=summary.total_time_in_seconds;result.iterations=static_cast<int>(summary.iterations.size());
   }
+  if(solve_options.inspect_problem)result.problem_final=inspect_problem(problem,identities,purposes);
   return result;
 }
 }

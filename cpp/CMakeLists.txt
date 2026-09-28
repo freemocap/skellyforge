@@ -1,4 +1,4 @@
-add_library(skellyforge_solver STATIC src/smoke.cpp src/rigid_fit.cpp src/rigid_sequence.cpp src/linked_rigid_fit.cpp src/linked_sequence.cpp src/chain_sequence.cpp)
+add_library(skellyforge_solver STATIC src/smoke.cpp src/rigid_fit.cpp src/rigid_sequence.cpp src/linked_rigid_fit.cpp src/linked_sequence.cpp src/chain_sequence.cpp src/problem_inspection.cpp)
 target_include_directories(skellyforge_solver PUBLIC include)
 target_link_libraries(skellyforge_solver PUBLIC Ceres::ceres)
 pybind11_add_module(_native bindings/module.cpp)

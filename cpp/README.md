@@ -1,7 +1,11 @@
 # Native Ceres infrastructure
 
-This is a compiled C++ extension, not PyCeres. It currently exposes only an
-automatic-differentiation scalar smoke solve. No skeleton fitting changes.
+This is a C++17 extension using Ceres and pybind11, imported as
+`skellyforge._native`. It implements rigid and connected skeleton fitting,
+automatically differentiated residuals, quaternion manifolds, and direct problem
+inspection. Python owns moving-window execution; C++ owns each Ceres problem.
+See [the fitting API](../skellyforge/core/skeleton/fitting/README.md) for the
+runtime boundary and extraction status.
 
 ## Development
 
@@ -74,7 +78,7 @@ linkage parameter block in those frames. `evaluate_only` scores a supplied state
 without optimization. Results expose usability, iteration count and Ceres
 `FullReport`, including Jacobian and linear-solver timing.
 
-The Python controller in `scripts/solver_window_sequence.py` composes these
+The Python controller in `skellyforge/core/skeleton/fitting/window_sequence.py` composes these
 native solves. It does not smooth or average their output. See
 `scripts/processing_comparison.md` for boundary policy, measurements and limits.
 

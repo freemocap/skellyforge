@@ -3,7 +3,7 @@ import pytest
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
 from skellyforge.tests.test_native_length_proportion import inputs
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 
 
 def setup(angle=0., axis='z'):

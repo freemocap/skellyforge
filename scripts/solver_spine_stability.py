@@ -12,7 +12,7 @@ from scripts.solver_rest_length_comparison import add_review_metrics
 from scripts.solver_axial_axes import add_axis_geometry
 from scripts.solver_spine_preferences import add_twist_diagnostics
 from scripts.solver_processing_comparison import publish
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 from scripts.solver_shared_spine_length import RATIOS, FUNCTION_TOLERANCE, MAX_ITERATIONS, length_metrics
 
 OUTPUT=Path(__file__).resolve().parents[1]/'build/spine_stability'

@@ -7,7 +7,7 @@ from scripts.solver_recording_body import recording_body_catalog
 from scripts.solver_recording_context import add_context
 from scripts.solver_rest_length_comparison import add_review_metrics
 from scripts.solver_processing_comparison import publish
-from scripts.solver_window_sequence import fit_windows
+from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
 from scripts.solver_axial_axes import add_axis_geometry
 from scripts.solver_shared_spine_length import RATIOS, REST_LENGTH_FRACTION, FUNCTION_TOLERANCE, MAX_ITERATIONS, length_metrics
 
