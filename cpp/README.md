@@ -111,3 +111,10 @@ nonempty custom flags remain untouched. On MSVC, verify `/O2 /Ob2 /DNDEBUG` in
 CMakeCache.txt and `/O2` plus `NDEBUG` in the actual compiler command log. Use
 `poe native-install` to rebuild both Ceres and Forge after this repair. Do not
 judge solver performance from the previous unoptimized binary.
+
+## Validate an installed wheel
+
+See [WHEEL_VALIDATION.md](WHEEL_VALIDATION.md) for the isolated install and
+synthetic/real-recording validation commands, dependency correction and platform
+limits. `poe wheel-validation-inputs` prepares bounded test inputs without changing
+recordings. The runtime check must use the isolated interpreter with `-I`.

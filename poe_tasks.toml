@@ -42,3 +42,5 @@ solver-inspector-capture = "python -m scripts.solver_spine_positions --recording
 test-problem-inspector = "node scripts/check_problem_inspector.cjs"
 
 test-fitting = "python -m pytest skellyforge/tests/test_native_window_sequence.py skellyforge/tests/test_native_problem_inspection.py skellyforge/tests/test_native_position_prior.py skellyforge/tests/test_native_shared_length.py skellyforge/tests/test_native_axis_prior.py skellyforge/tests/test_native_half_space.py skellyforge/tests/test_native_spine_preferences.py"
+
+wheel-validation-inputs = "python -m scripts.validate_installed_wheel prepare --inputs build/wheel_validation/inputs.json.gz"

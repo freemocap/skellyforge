@@ -283,3 +283,60 @@ Installed-wheel validation and packaging the inspector are still outstanding;
 FreeMoCap integration remains a separate stage.
 
 All 15 residual-family cost comparisons also match exactly on both recordings.
+
+
+### Installed-wheel checkpoint
+
+Built and installed the Windows CPython 3.12 wheel into an isolated environment
+outside the repository. Python -I loaded the package and native module only from
+that environment. Synthetic window fitting and native inspection passed; the
+complete 222-frame fit matched saved quaternions, translations and axial lengths
+exactly. Runtime: 91.21 s native / 93.85 s wall. Build inputs and commands are in
+cpp/WHEEL_VALIDATION.md. Clean installation exposed an unused, unavailable
+skellylogs runtime requirement; removed it and its unused source, refreshed the
+lock offline without advancing Git revisions. Other-platform and clean-machine
+runtime validation remain outstanding. Inspector frontend packaging is next.
+
+
+### Logging correction / supersedes wheel dependency removal
+
+The SkellyLogs removal was rejected: shared logging is required. Restored the
+committed dependency declaration, source declaration, lockfile and temporary
+logging-workaround comment. The earlier wheel's successful numerical check does
+not validate the accepted dependency configuration. Investigate/fix SkellyLogs
+lifecycle in its repository, then integrate through the human commit/push boundary.
+No solver mathematics has changed.
+
+
+### Logging integration and remaining delivery stages
+
+Removed the temporary import-time basicConfig workaround. Standalone entry
+points use SkellyLogs console/file handlers; application consumers retain
+ownership of handlers and IPC relay. Added preparation and bounded-frequency
+window progress logs, per-window DEBUG details and convergence/timing summaries.
+43 focused tests pass, including exact numerical equality with logging enabled.
+Shared logging smoke test passes in UTF-8 mode. Legacy Windows CP1252 redirected
+console formatting still fails on SkellyLogs Unicode decorations; this is a
+shared formatter issue, not a solver failure. No native mathematics changed.
+
+Remaining order of work:
+1. Close installed-wheel validation with the required SkellyLogs dependency,
+   including supported build/install instructions and dependency availability.
+   The previous diagnostic wheel is not the release acceptance evidence.
+2. Package the existing recording inspector as a supported Forge tool. Preserve
+   native parameter/residual snapshots and existing real-data checks; do not
+   add a separately maintained visualization model.
+3. Confirm packaged accepted fits on both prepared recordings and document
+   runtime, residuals, convergence limitations and reproduction commands.
+   Human commits/pushes Forge before consumer integration.
+4. In FreeMoCap, add an explicit optional post-hoc skeleton-fitting stage after
+   trajectory preparation, person alignment and person-scale preparation.
+   Specify saved fitted geometry and solver provenance using the current Parquet
+   conventions; preserve keypoints and existing segment outputs. Add UI options,
+   progress/error reporting and save/reload integration tests. This is a separate
+   core stage, not a change to the live segment pipeline.
+5. After pipeline and Parquet round-trip acceptance, implement exports from the
+   saved result: CSV wide/tall and NumPy first, then glTF and BVH. Flexible spine
+   lengths and relaxed shoulder connections require explicit representation or
+   projection decisions for a fixed-offset BVH armature; do not silently discard
+   those differences or claim exact equivalence to the fitted geometry.

@@ -3,12 +3,16 @@
 No pose averaging or post-fit smoothing. Two committed frames remain constant
 in each problem so acceleration residuals cross the moving boundary.
 """
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from time import perf_counter
 
 import numpy as np
 from skellyforge import _native
+
+logger = logging.getLogger(__name__)
+PROGRESS_INTERVAL_SECONDS = 5.0
 
 BOUNDARY_FRAMES = 2
 DEFAULT_MAX_ITERATIONS = _native.ChainSolveOptions().max_iterations
@@ -79,7 +83,10 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     line_frames=prior.frames if prior is not None else None
     initial_q=[None]*n;initial_t=[None]*n;introduced=0
     trace=[];window_seconds=0.;wall_start=perf_counter()
-    for first in range(n-active_frames+1):
+    total_windows = n-active_frames+1
+    last_progress = wall_start
+    logger.info('Starting Ceres sequence: frames=%d, segments=%d, windows=%d, active_frames=%d, boundary_frames=%d, max_iterations=%d, function_tolerance=%g', n, bodies, total_windows, active_frames, BOUNDARY_FRAMES, max_iterations, function_tolerance)
+    for first in range(total_windows):
         lo=max(0,first-BOUNDARY_FRAMES);hi=first+active_frames
         if first:
             # Newly arriving frame starts from the preceding connected solution.
@@ -111,7 +118,9 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         options.function_tolerance=initial_function_tolerance if first==0 and initial_function_tolerance is not None else function_tolerance
         options.max_iterations=max_iterations;window['solve_options']=options
         started=perf_counter();result=_native.fit_chain_sequence(**window);elapsed=perf_counter()-started
-        if not result.usable:raise RuntimeError(f"Window {first}: {result.report}")
+        if not result.usable:
+            logger.error("Unusable Ceres window %d/%d, frames=%d:%d: %s", first+1, total_windows, lo, hi-1, result.report)
+            raise RuntimeError(f"Window {first}: {result.report}")
         if options.inspect_problem:
             inspections[first]=dict(frame_start=lo,active_start=first,frame_end=hi-1,
                 initial=result.problem_initial,final=result.problem_final)
@@ -130,7 +139,12 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             iterations=result.iterations,converged=result.converged,initial_cost=result.costs[0],final_cost=result.costs[-1],
             parameter_blocks=result.parameter_blocks,residual_blocks=result.residual_blocks,
             report=result.report,full_report=result.full_report))
-        if progress:progress(trace[-1],n-active_frames+1)
+        logger.debug('Ceres window %d/%d: active=%d:%d, iterations=%d, converged=%s, cost=%g -> %g, native_seconds=%.3f; %s', first+1, total_windows, first, hi-1, result.iterations, result.converged, result.costs[0], result.costs[-1], result.seconds, result.report)
+        now = perf_counter()
+        if first == 0 or first+1 == total_windows or now-last_progress >= PROGRESS_INTERVAL_SECONDS:
+            logger.info('Ceres progress: windows=%d/%d, elapsed_seconds=%.3f, nonconverged=%d', first+1, total_windows, now-wall_start, sum(not w['converged'] for w in trace))
+            last_progress = now
+        if progress:progress(trace[-1],total_windows)
     options=_native.ChainSolveOptions()
     options.landmark_position_priors=sliced_position_priors(0,n)
     options.landmark_huber_scale_mm=huber_scale
@@ -142,6 +156,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     started=perf_counter()
     final=_native.fit_chain_sequence(**{**args,'initial_quaternions':quaternions,'initial_roots':roots,'solve_options':options})
     final_wall=perf_counter()-started
+    logger.info('Ceres full-sequence evaluation complete (no optimization): seconds=%.3f', final_wall)
     if not final.usable:raise RuntimeError(final.report)
     processing=dict(active_frames=active_frames,boundary_frames=BOUNDARY_FRAMES,refined=False,
         frame_weights=weights.tolist(),max_iterations=max_iterations,function_tolerance=function_tolerance,windows=trace,
@@ -154,6 +169,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         latency='At least active_frames minus one intervals of pose lookahead. This offline prototype uses full-recording timestamp weights, prepared scale and initialization; it is not an end-to-end live pipeline.')
     if fixed_length_segments:processing['fixed_length_segments']=list(fixed_length_segments)
     converged=all(w['converged'] for w in trace)
+    logger.log(logging.INFO if converged else logging.WARNING, 'Ceres sequence finished: converged_windows=%d/%d, native_seconds=%.3f, wall_seconds=%.3f; usable nonconverged windows are retained', sum(w['converged'] for w in trace), total_windows, window_seconds+final.seconds, processing['wall_seconds'])
     report=f'{len(trace)} sequential windows; {sum(w["converged"] for w in trace)} converged. '+'Final full-sequence evaluation only; no global optimization.'
     return WindowSequenceFit(final,processing,window_seconds+final.seconds,converged,report,
                              initial_q,initial_t,inspections)

@@ -182,3 +182,23 @@ The accepted recording viewer uses the same packaged preparation and execution.
 It retains rendering and reporting code in scripts. Installed-wheel validation,
 packaging the inspector frontend and FreeMoCap integration remain separate steps.
 No FreeMoCap dependency update is needed to develop or validate this package here.
+
+
+## Logging ownership and progress
+
+Library imports never configure root handlers. FreeMoCap owns SkellyLogs setup
+when using `fit_human`. Standalone `python -m skellyforge` and the accepted
+`scripts.solver_spine_positions` entry point configure SkellyLogs with
+`use_websocket=False`: console/file logs without an unconsumed IPC queue.
+Run with `python -X utf8` in legacy Windows redirected consoles; the installed
+SkellyLogs formatter contains Unicode characters not supported by CP1252.
+
+INFO reports preparation, settings, first/last window and progress at least once
+every five seconds between completed windows, then final evaluation and timing.
+A single native solve can take longer than that interval. DEBUG records every
+window's frame range, iterations, convergence, costs and native report.
+Nonconverged but usable results remain accepted by the existing policy, with a
+WARNING summary. Unusable windows log ERROR and raise. No tolerances, residuals,
+initialization or callback semantics are changed. Per-window native reports and
+problem inspection remain available in the returned result; logs do not replace
+the inspector or create another representation of its Ceres graph.

@@ -23,9 +23,4 @@ import faulthandler
 
 faulthandler.enable()
 
-# NOTE: temporary stand-in for the skellylogs websocket-backed logger, whose
-# multiprocessing queue cannot be opened under the current sandbox. Restore the
-# `skellylogs.configure_logging` call when the richer handlers are needed again.
-import logging
-
-logging.basicConfig(level=logging.INFO)
+# Logging is configured by the owning application or standalone entry point.

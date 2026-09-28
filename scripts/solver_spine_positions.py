@@ -113,4 +113,7 @@ def main():
         raise RuntimeError('Axial position acceptance failed; comparison saved for diagnosis, not an accepted fit')
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    from skellylogs import LogLevels, configure_logging
+    configure_logging(LogLevels.INFO, use_websocket=False)
+    main()

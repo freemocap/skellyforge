@@ -35,10 +35,6 @@ dependencies = [
     "scipy>=1.13",
     "pyyaml>=6.0",
     "beartype>=0.22.9",
-    # Imported lazily: `__init__.py` currently configures stdlib logging instead, because
-    # skellylogs' websocket handler cannot open its multiprocessing queue under every
-    # sandbox. Restore the `skellylogs.configure_logging` call when the richer handlers
-    # are wanted again.
     "skellylogs",
 ]
 
