@@ -59,7 +59,8 @@ def test_full_model_and_single_counted_keypoint_mappings(inputs):
     assert len(set(model['sources'].values()))==len(model['sources'])
     for child,parent in enumerate(model['parents'],1):
         assert parent<child
-    for body in model['bodies']:
+    from scripts.solver_recording_body import display_bodies
+    for body in display_bodies(skeleton, model):
         assert body['region']
 
 

@@ -1,10 +1,66 @@
 # Connected sequence fitting
 
-This package owns the sequential window controller previously implemented in
-`scripts/solver_window_sequence.py`. The extraction preserves the numerical
-implementation. Recording loading, body-model preparation and the accepted human
-fit configuration still live in the recording scripts; they are the next
-extraction stage. This is not yet a one-call recording-to-skeleton API.
+This package owns connected model preparation, native argument construction,
+the accepted human-fit configuration and moving-window execution. Recording
+loading and viewer-specific grouping/diagnostics remain in scripts. The package
+accepts prepared in-memory trajectories; it does not rerun tracking, triangulation,
+gap filling, filtering, ground alignment or person scaling.
+
+## Human fitting entry point
+
+```python
+from skellyforge.core.skeleton.fitting import fit_human
+
+fitted = fit_human(skeleton, saved_model, segment_scales, records,
+                   inspect_windows=(0,))
+sequence = fitted.sequence
+quaternions = sequence.quaternions
+translations = sequence.translations
+segment_names = fitted.model["names"]
+```
+
+Inputs use the existing recording adapter contract:
+
+- `skeleton`: restored SkellyForge skeleton definition.
+- `saved_model`: mapping definitions (`mappings`, including prefix and entries)
+  and authored relative `rest_pose.orientations` in wxyz order.
+- `segment_scales`: previously estimated scale keyed by segment name.
+- `records`: ordered dictionaries with `number`, `time` (seconds), `keypoints`
+  (source names to XYZ), `points` (mapped landmark names to XYZ), `rotations`
+  (segment world wxyz quaternions), and `origins` (segment world XYZ).
+  Vector entries follow the existing NumPy-array adapter contract.
+
+`HumanFit.model` contains the ordered geometry and source mappings actually used.
+`preparation` contains initialization/target bookkeeping; `sequence` is the same
+`WindowSequenceFit` documented below. Model landmarks remain fully defined.
+Available direct keypoint targets are counted once even when an attachment shares
+that mapping. Saved mapped axial landmark positions supply explicit correlated
+position preferences, not additional independent measurements. Preparation keeps
+the existing initialization fallbacks; it does not manufacture measured targets.
+
+The caller supplies gap-filled, filtered (where appropriate), aligned trajectories.
+This extraction preserves existing missing-keypoint handling for compatibility;
+it does not add a second gap-filling algorithm inside the solver.
+
+### Numerical code ownership
+
+- `body_model.py`: tree ordering, scaled local geometry, mappings and axial extents.
+- `reference_geometry.py`: fixed SC reference-offset profile before optimization.
+- `centerline.py`, `axis_priors.py`, `spine_priors.py`, `sc_prior.py`: existing
+  geometric preparation for native residuals. Viewer drawing remains in scripts.
+- `preparation.py`: native inputs, initialization, configured residual objects.
+- `human.py`: accepted combination and public `fit_human` entry point.
+- `settings.py`: shared numerical scales; Ceres defaults are read from `_native`.
+- `window_sequence.py`: window execution and optional full-recording refinement.
+
+`human_fit_options()` returns the accepted configuration: three flexible axial
+lengths; soft 20:20:12 proportions; rest-length fraction 0.5; existing chest-line,
+shoulder-axis and twist preferences; lowered SC with forward factor 0.75; relaxed
+shoulder connections; axial landmark position scale 5 mm; keypoint Huber transition
+30 mm; three active frames, 200 maximum iterations and function tolerance 1e-6.
+The ratios are the accepted experimental values, not verified anthropometric
+measurements. Residual scales are preferences, not hard anatomical limits.
+
 
 ## Execution and ownership
 
@@ -103,15 +159,26 @@ has no dependency on the repository's `scripts` directory. Cross-platform wheel
 publication remains a separate release task; a passing checkout test is not a
 portable-wheel validation.
 
-## Validation and remaining extraction
+## Validation and integration status
 
 `test-fitting` exercises window boundaries, initialization, optional refinement,
-priors and native inspection through the package imports. Changes to residual
-math also require native and geometric tests. Changes to the human configuration
-require test/sample recording comparisons of quaternions, fitted landmarks,
-lengths, residuals and timing, plus visual review. Preserve the accepted fit.
+priors and native inspection. The recording-body and shoulder-offset tests also
+exercise the extracted model preparation and viewer adapter.
 
-Next: move recording-independent body-model/argument preparation and the accepted
-configuration out of experiments, then have recording adapters and the inspector
-call that single implementation. Do not move HTML generation or Parquet loading
-into the numerical package. FreeMoCap integration is a later, separate handoff.
+To compare against the saved accepted test/sample fits without overwriting them:
+
+```powershell
+uv run --no-sync python -m scripts.validate_packaged_human_fit --recording test
+uv run --no-sync python -m scripts.validate_packaged_human_fit --recording sample
+```
+
+These diagnostics require prepared recordings and the saved accepted candidates
+under `build/spine_positions`. They check source SHA, segment order and all fitted
+quaternions, translations, axial lengths and landmark positions; timing and results
+are saved under `build/package_extraction`. They never reprocess the source videos
+or overwrite prepared recordings. Timing is machine/load dependent.
+
+The accepted recording viewer uses the same packaged preparation and execution.
+It retains rendering and reporting code in scripts. Installed-wheel validation,
+packaging the inspector frontend and FreeMoCap integration remain separate steps.
+No FreeMoCap dependency update is needed to develop or validate this package here.

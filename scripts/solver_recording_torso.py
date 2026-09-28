@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import numpy as np
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
-from scripts import solver_fit_settings as fit_settings
+from skellyforge.core.skeleton.fitting import settings as fit_settings
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from scripts.recording_data import recording_path, read_recording, digest

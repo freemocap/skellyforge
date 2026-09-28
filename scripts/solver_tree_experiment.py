@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
-from scripts import solver_fit_settings as fit_settings
+from skellyforge.core.skeleton.fitting import settings as fit_settings
 from scripts.solver_axial_geometry import axial_points
 
 

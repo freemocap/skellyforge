@@ -14,30 +14,14 @@ from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 from scripts.recording_data import recording_path, read_recording
 from scripts.solver_recording_body import body_model, recording_body_catalog
 from scripts.solver_recording_context import add_context
-from skellyforge.core.skeleton.fitting.window_sequence import fit_windows
-from scripts.solver_shared_spine_length import RATIOS, FUNCTION_TOLERANCE, MAX_ITERATIONS
-from scripts.solver_spine_stability import BASE_REST_SCALE, TWIST_SCALE
+from skellyforge.core.skeleton.fitting.human import (
+    LANDMARKS, POSITION_SCALE_MM, KEYPOINT_HUBER_SCALE_MM,
+    human_fit_options, fit_prepared_human, position_priors,
+)
 from scripts.generate_recording_comparison import comparison_data, write_comparison
 
-LANDMARKS = ('pelvis_origin', 'chest_center', 'neck_center', 'craniocervical_junction')
-POSITION_SCALE_MM = 5.0
-KEYPOINT_HUBER_SCALE_MM = 30.0
 ACCEPTANCE_DISTANCE_MM = 50.0  # experimental maximum; not an anatomical claim
 OUTPUT = Path(__file__).resolve().parents[1] / 'build/spine_positions'
-
-
-def position_priors(model, records, scale=POSITION_SCALE_MM):
-    priors=[]
-    for name in LANDMARKS:
-        b=next(i for i,keys in enumerate(model['display_names']) if name in keys)
-        slot=model['display_names'][b].index(name)
-        prior=_native.LandmarkPositionPrior()
-        prior.segment=b;prior.local_point=model['display'][b][slot].tolist()
-        prior.scale=scale
-        # Do not silently substitute another landmark or a fabricated measurement.
-        prior.targets=[r['points'][name].tolist() for r in records]
-        priors.append(prior)
-    return priors
 
 
 def audit(candidate, records):
@@ -72,24 +56,16 @@ def main():
     page='recording_spine_positions.html' if args.recording=='sample' else 'recording_test_spine_positions.html'
     path=recording_path(args.recording);records,scale,meta=read_recording(path,include_model=True)
     skeleton=SkeletonSnapshot.from_dict(meta['skeleton']).restore()
-    model=body_model(skeleton,meta['model'],scale.segment_scales,'lower_closer_sc',flexible_cervical=True)
-    priors=position_priors(model,records)
+    model=body_model(skeleton,meta['model'],scale.segment_scales,human_fit_options()['shoulder_profile'],flexible_cervical=True)
     inspected={}
     def solve(**kwargs):
-        kwargs['landmark_position_priors']=priors
-        kwargs['landmark_huber_scale_mm']=KEYPOINT_HUBER_SCALE_MM
-        result=fit_windows(kwargs,active_frames=3,max_iterations=MAX_ITERATIONS,
-            function_tolerance=FUNCTION_TOLERANCE,
-            inspect_windows=args.inspect_windows,
+        result=fit_prepared_human(kwargs,model,records,inspect_windows=args.inspect_windows,
             progress=lambda w,n: print('Window',w['index']+1,'/',n,flush=True) if w['index']%200==0 else None)
         inspected.update(result.inspected_windows)
         return result
     started=perf_counter()
     candidate=recording_body_catalog(path,records[0]['number'],records[-1]['number'],
-        free_axial_lengths=True,free_length_rest_prior=True,length_prior_fraction=BASE_REST_SCALE,
-        chest_line_prior=True,shoulder_profile='lower_closer_sc',relaxed_shoulders=True,
-        proportional_spine_lengths=True,spine_proportion_ratios=RATIOS,
-        shoulder_axis_preference=True,spine_twist_scale=TWIST_SCALE,solve_sequence=solve)
+        **human_fit_options(),solve_sequence=solve)
     method=candidate['runs'][0]['methods']['full_body']
     method['settings']['landmark_position_priors']=dict(landmarks=LANDMARKS,scale_mm=POSITION_SCALE_MM,
         source='Saved post-hoc landmark positions; correlated geometric preferences, not independent measurements')

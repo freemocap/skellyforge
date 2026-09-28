@@ -15,7 +15,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from skellyforge import _native
-from scripts import solver_fit_settings as fit_settings
+from skellyforge.core.skeleton.fitting import settings as fit_settings
 from scripts.solver_shoulder_offsets import reference_positions, shoulder_diagnostics
 from scripts.solver_chest_line import (mapped_centerline, line_diagnostics, CHEST_LINE_DISTANCE_SCALE_MM, CHEST_LINE_ANTERIOR_SCALE_MM)
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
@@ -25,48 +25,16 @@ from scripts.solver_recording_context import add_context
 from scripts.generate_solver_viewer import render_experiments
 
 
-def body_model(skeleton, saved, scales, shoulder_profile=None, flexible_cervical=False):
-    positions, shoulder_geometry = reference_positions(skeleton, scales, shoulder_profile)
+from skellyforge.core.skeleton.fitting.body_model import body_model, frame_targets
+from skellyforge.core.skeleton.fitting.preparation import prepare_body_fit
+
+
+def display_bodies(skeleton, model):
+    names, parents = model["names"], model["parents"]
+    display, display_names = model["display"], model["display_names"]
+    attachments = model["attachments"]
     joints = {j.child.name: j for j in skeleton.joints.values()}
-    roots = set(skeleton.segments) - set(joints)
-    if len(roots) != 1:
-        raise ValueError('Full-body review requires one connected root')
-    names = [roots.pop()]
-    while len(names) < len(skeleton.segments):
-        children = [n for n in skeleton.segments if n not in names and joints[n].parent.name in names]
-        if not children:
-            raise ValueError('Disconnected or cyclic skeleton')
-        names.extend(children)
-    parents = [names.index(joints[n].parent.name) for n in names[1:]]
-    attachments = [positions[joints[n].connect_at.name].tolist() for n in names[1:]]
-    display_names = [[k for k, v in skeleton.landmarks.items() if v.segment == n] for n in names]
-    display = [np.array([positions[k] for k in keys]) for n, keys in zip(names, display_names)]
-    # A direct keypoint may also map to a child's origin. That is the same
-    # connected point, not an independent measurement to count twice.
-    candidates = {}
-    for mapping in saved['mappings']:
-        for name, entry in mapping['entries'].items():
-            if name in skeleton.landmarks and isinstance(entry, str):
-                source = (mapping['prefix'] or '') + entry
-                candidates.setdefault(source, []).append(name)
-    sources = {}
-    for source, keys in candidates.items():
-        key = max(keys, key=lambda k: (np.linalg.norm(skeleton.landmarks[k].local_position.array), k))
-        owner = skeleton.landmarks[key].segment
-        for other in keys:
-            if other == key:
-                continue
-            other_owner = skeleton.landmarks[other].segment
-            joint = joints.get(other_owner)
-            if not (joint and joint.parent.name == owner and joint.connect_at.name == key
-                    and np.allclose(skeleton.landmarks[other].local_position.array, 0)):
-                raise ValueError(f'Ambiguous repeated keypoint mapping: {source}: {keys}')
-        sources[key] = source
-    targets = [[k for k in keys if k in sources] for keys in display_names]
-    local = [[display[b][display_names[b].index(k)].tolist() for k in keys] for b, keys in enumerate(targets)]
-    rest = saved['rest_pose']['orientations']
-    relative = [[rest[n][c] for c in ('w', 'x', 'y', 'z')] for n in names[1:]]
-    # Explicit review grouping by existing tree roots, never name-pattern inference.
+
     region_roots = {'pelvis': 'Trunk', 'cervical_spine': 'Head and neck',
                     'left_clavicle': 'Left arm', 'right_clavicle': 'Right arm',
                     'left_carpals': 'Left hand', 'right_carpals': 'Right hand',
@@ -81,36 +49,7 @@ def body_model(skeleton, saved, scales, shoulder_profile=None, flexible_cervical
         links.extend(dict(position=attachments[c-1], label=joints[names[c]].connect_at.name)
                      for c, parent in enumerate(parents, 1) if parent == b)
         bodies.append(dict(id=name, label=name, region=regions[b], landmark_names=display_names[b], edges=[], attachments=links))
-    references = [0.] * len(names)
-    axial_endpoints=[('sacrolumbar', 'chest_center'), ('thoracic', 'neck_center')]
-    if flexible_cervical:axial_endpoints.append(('cervical_spine','craniocervical_junction'))
-    for segment, endpoint in axial_endpoints:
-        b = names.index(segment)
-        references[b] = float(display[b][display_names[b].index(endpoint), 2])
-        if references[b] <= 0:
-            raise ValueError('Axial reference extent must be positive')
-    return dict(names=names, parents=parents, attachments=attachments, display_names=display_names,
-                display=display, targets=targets, sources=sources, local=local, relative=relative,
-                references=references, bodies=bodies, shoulder_geometry=shoulder_geometry)
-
-
-def frame_targets(record, model):
-    observed, indices = [], []
-    for keys in model['targets']:
-        values, slots = [], []
-        for j, key in enumerate(keys):
-            source = model['sources'][key]
-            if source not in record['keypoints']:
-                continue
-            # A saved reconstruction can be absent even with a few valid
-            # keypoints. Direct mappings still define targets in that case.
-            if key in record['points'] and not np.allclose(record['points'][key], record['keypoints'][source], atol=fit_settings.DIRECT_MAPPING_TOLERANCE_MM, rtol=0):
-                raise ValueError(f'Frame {record["number"]}: direct mapping disagrees with keypoint {source} -> {key}')
-            values.append(record['keypoints'][source].tolist())
-            slots.append(j)
-        observed.append(values)
-        indices.append(slots)
-    return observed, indices
+    return bodies
 
 
 def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fit_settings.LENGTH_PRIOR_FRACTION,
@@ -119,94 +58,27 @@ def recording_body_catalog(path, start=180, end=213, *, length_prior_fraction=fi
     saved = provenance.pop('model')
     skeleton = SkeletonSnapshot.from_dict(provenance.pop('skeleton')).restore()
     m = body_model(skeleton, saved, scale.segment_scales, shoulder_profile, flexible_cervical=proportional_spine_lengths)
+    m['bodies'] = display_bodies(skeleton, m)
     selected = [r for r in records if start <= r['number'] <= end]
     if len(selected) != end-start+1 or len(selected) < 3:
         raise ValueError('Requested consecutive interval is not available')
-    observed, indices, initial, roots = [], [], [], []
-    seed_fallbacks = 0
-    root_name=m['names'][0]
-    root_seeds=[r for r in selected if r['rotations'].get(root_name) is not None and root_name in r['origins']]
-    if not root_seeds:
-        raise ValueError('No saved root pose available in the selected interval for initialization')
-    root_seed_fallbacks=0
-    for record in selected:
-        obs, slots = frame_targets(record, m)
-        observed.append(obs); indices.append(slots)
-        root_seed=record
-        if record['rotations'].get(root_name) is None or root_name not in record['origins']:
-            root_seed=min(root_seeds,key=lambda r:abs(r['time']-record['time']))
-            root_seed_fallbacks+=1
-        quaternions = []
-        for b, name in enumerate(m['names']):
-            q = root_seed['rotations'][name] if b==0 else record['rotations'].get(name)
-            if q is None:
-                q = (Rotation.from_quat(quaternions[m['parents'][b-1]], scalar_first=True)
-                     * Rotation.from_quat(m['relative'][b-1], scalar_first=True)).as_quat(scalar_first=True)
-                seed_fallbacks += 1
-            quaternions.append(np.asarray(q).tolist())
-        initial.append(quaternions)
-        roots.append(root_seed['origins'][root_name].tolist())
-    chest_body = next(b for b, keys in enumerate(m['display_names']) if 'chest_center' in keys)
-    chest_slot = m['display_names'][chest_body].index('chest_center')
-    line_frames = [mapped_centerline(r['keypoints'], m['sources']) for r in selected]
-    prior = None
-    if chest_line_prior:
-        prior = _native.LandmarkLinePrior()
-        prior.segment = chest_body
-        prior.local_point = m['display'][chest_body][chest_slot].tolist()
-        prior.frames = [None if f is None else [f['origin'],f['lateral'],f['anterior']] for f in line_frames]
-        prior.distance_scale = chest_line_distance_scale
-        prior.anterior_scale = CHEST_LINE_ANTERIOR_SCALE_MM
-    relaxed = [m['names'].index(side+'_upper_arm') for side in ('left','right')] if relaxed_shoulders else []
-    for child in relaxed:
-        if m['names'][m['parents'][child-1]] not in ('left_clavicle','right_clavicle'):
-            raise ValueError('Shoulder experiment requires authored clavicle-to-upper-arm linkages')
-    equality = None
-    if equal_spine_lengths:
-        equality = _native.LengthEqualityPrior()
-        equality.segment_a = m['names'].index('sacrolumbar')
-        equality.segment_b = m['names'].index('thoracic')
-        equality.scale = fit_settings.SPINE_LENGTH_EQUALITY_SCALE_MM
-    if shared_spine_length and not proportional_spine_lengths:
-        raise ValueError("Shared spine length requires explicit spine proportions")
-    proportion = None
-    if proportional_spine_lengths:
-        if equal_spine_lengths:raise ValueError('Choose equal lengths or proportional lengths, not both')
-        proportion=_native.LengthProportionPrior()
-        proportion.segments=[m['names'].index(n) for n in fit_settings.SPINE_PROPORTION_SEGMENTS]
-        proportion.ratios=list(fit_settings.SPINE_PROPORTION_RATIOS if spine_proportion_ratios is None else spine_proportion_ratios)
-        proportion.scale=fit_settings.SPINE_LENGTH_PROPORTION_SCALE_MM
-    if shared_total_bound_fractions is not None and not shared_spine_length:raise ValueError("Total bounds require shared spine length")
-    shared = None
-    if shared_spine_length:
-        shared = _native.SharedAxialLength()
-        shared.segments = proportion.segments
-        shared.ratios = proportion.ratios
-        if shared_total_bound_fractions is not None:
-            reference_total=sum(m['references'][b] for b in shared.segments)
-            shared.minimum_total=reference_total*shared_total_bound_fractions[0]
-            shared.maximum_total=reference_total*shared_total_bound_fractions[1]
-    times = [r['time']-selected[0]['time'] for r in selected]
-    print(f'Fitting {len(m["names"])} segments / {len(selected)} frames / {sum(len(v) for f in observed for v in f)} mapped keypoint targets', flush=True)
-    from scripts.solver_axial_axes import shoulder_axis_prior
-    axis_prior = shoulder_axis_prior(selected, m) if shoulder_axis_preference else None
-    from scripts.solver_spine_preferences import twist_priors
-    twist = twist_priors(m, spine_twist_scale) if spine_twist_scale is not None else []
-    from scripts.solver_sc_anterior import sc_prior, audit_cervical_attachment
-    audit_cervical_attachment(m)
-    sc = sc_prior(m, line_frames, sc_anterior_scale) if sc_anterior_scale is not None else None
-    result = (solve_sequence or _native.fit_chain_sequence)(
-        landmark_half_space_prior=sc, segment_axis_prior=axis_prior, relative_twist_priors=twist,
-        relaxed_linkage_children=relaxed, linkage_scale=fit_settings.SHOULDER_LINKAGE_SCALE_MM,
-        linkage_acceleration_scale=fit_settings.SHOULDER_LINKAGE_ACCELERATION_SCALE_MM_S2,
-        length_equality_prior=equality, length_proportion_prior=None if shared else proportion, shared_axial_length=shared, landmark_line_prior=prior, length_prior_fraction=length_prior_fraction,
-        lengthening_prior_fraction=lengthening_prior_fraction, free_axial_lengths=free_axial_lengths, free_length_rest_prior=free_length_rest_prior,
-        length_acceleration_scale=fit_settings.LENGTH_ACCELERATION_SCALE_MM_S2,
-        local=m['local'], observed=observed, observation_indices=indices,
-        parent_attachments=m['attachments'], child_attachments=[[0.,0.,0.]]*len(m['parents']), parent_indices=m['parents'],
-        times=times, position_scale=fit_settings.POSITION_RESIDUAL_SCALE_MM, linear_acceleration_scale=fit_settings.ROOT_ACCELERATION_SCALE_MM_S2, angular_acceleration_scale=fit_settings.ANGULAR_ACCELERATION_SCALE_RAD_S2,
-        initial_quaternions=initial, initial_roots=roots, rest_relative_quaternions=m['relative'], rest_pose_scale=fit_settings.REST_POSE_RESIDUAL_SCALE_RAD,
-        axial_reference_lengths=m['references'])
+    arguments, preparation = prepare_body_fit(m, selected,
+        length_prior_fraction=length_prior_fraction, lengthening_prior_fraction=lengthening_prior_fraction, free_axial_lengths=free_axial_lengths, chest_line_prior=chest_line_prior, chest_line_distance_scale=chest_line_distance_scale, shoulder_profile=shoulder_profile, relaxed_shoulders=relaxed_shoulders, equal_spine_lengths=equal_spine_lengths, proportional_spine_lengths=proportional_spine_lengths, spine_proportion_ratios=spine_proportion_ratios, free_length_rest_prior=free_length_rest_prior, shared_spine_length=shared_spine_length, shoulder_axis_preference=shoulder_axis_preference, shared_total_bound_fractions=shared_total_bound_fractions, spine_twist_scale=spine_twist_scale, sc_anterior_scale=sc_anterior_scale)
+    axis_prior = preparation["axis_prior"]
+    chest_body = preparation["chest_body"]
+    chest_slot = preparation["chest_slot"]
+    indices = preparation["indices"]
+    line_frames = preparation["line_frames"]
+    observed = preparation["observed"]
+    proportion = preparation["proportion"]
+    relaxed = preparation["relaxed"]
+    root_seed_fallbacks = preparation["root_seed_fallbacks"]
+    sc = preparation["sc"]
+    seed_fallbacks = preparation["seed_fallbacks"]
+    shared = preparation["shared"]
+    times = preparation["times"]
+    twist = preparation["twist"]
+    result = (solve_sequence or _native.fit_chain_sequence)(**arguments)
     # pybind vector properties copy the complete sequence on access. Read once,
     # before iterating over frames and segments; preserve native values exactly.
     poses = SimpleNamespace(**{name: getattr(result, name) for name in (

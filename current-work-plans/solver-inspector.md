@@ -264,3 +264,22 @@ Body-model preparation and the accepted human configuration remain in scripts.
 Their extraction, installed-wheel validation and fresh test/sample comparisons
 remain outstanding. Existing viewer traces remain available; this move alone
 does not require regenerating their unchanged numerical results.
+
+
+### Accepted human configuration and preparation extracted
+
+`fitting.fit_human` now composes numerical body-model preparation, existing
+reference geometry/priors, native argument construction and the packaged window
+controller. Recording reads and viewer diagnostics stay in scripts. The accepted
+viewer calls the same preparation and fit configuration. The old settings module
+was removed and callers use the package constants. No C++ or objective changes.
+
+Validation: 50 focused tests pass. Full saved comparisons for the 222-frame test
+and 1108-frame sample have exactly zero differences in world quaternions,
+translations, axial lengths and fitted landmarks. Timing in this run: test
+100.60 seconds native / 103.81 wall; sample 59.75 native / 75.98 wall. Timing is
+not a controlled benchmark. Reports: build/package_extraction/{test,sample}.json.
+Installed-wheel validation and packaging the inspector are still outstanding;
+FreeMoCap integration remains a separate stage.
+
+All 15 residual-family cost comparisons also match exactly on both recordings.
