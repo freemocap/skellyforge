@@ -17,7 +17,10 @@ RECORDING_FUNCTION_TOLERANCE = 1e-6
 def publish(candidates, *, comparison='processing'):
     pages={'processing':'recording_processing_comparison.html', 'ratios':'recording_spine_ratio_comparison.html',
            'shoulders':'recording_sc_offset_comparison.html', 'rest_lengths':'recording_rest_length_comparison.html',
-           'performance':'recording_sample_performance.html'}
+           'performance':'recording_sample_performance.html', 'shared_length':'recording_shared_spine_length.html', 'axial_axes':'recording_axial_axes.html', 'spine_stability':'recording_spine_stability.html', 'sc_anterior':'recording_sc_anterior.html'}
+    pages['centerline']='recording_centerline.html'
+    pages['length_coupling']='recording_length_coupling.html'
+    pages['fixed_neck']='recording_fixed_neck.html'
     if comparison not in pages:raise ValueError('Unknown comparison type')
     ratio_comparison=comparison=='ratios'
     shoulder_comparison=comparison in ('shoulders','rest_lengths')
@@ -39,7 +42,30 @@ def publish(candidates, *, comparison='processing'):
         reference=first['runs'][0]['methods']['full_body']
         if (ratio_comparison or shoulder_comparison) and method['settings']['processing']!=reference['settings']['processing']:
             raise ValueError('Ratio comparison changed processing settings')
+        if comparison in ('shared_length','axial_axes','spine_stability','sc_anterior') and method['settings']['processing']!=reference['settings']['processing']:
+            raise ValueError('Shared length comparison changed processing settings')
         for key,value in reference['settings'].items():
+            if comparison=='length_coupling' and key in ('length_prior_fraction','lengthening_prior_fraction','shared_axial_length'):
+                continue
+            if comparison=='length_coupling' and key=='length_proportion_prior':
+                if any(method['settings'][key].get(k)!=v for k,v in value.items() if k!='enabled'):
+                    raise ValueError('Length coupling comparison changed proportion definition')
+                continue
+            if comparison=='centerline' and key=='chest_line_prior':
+                if any(method['settings'][key].get(k)!=v for k,v in value.items() if k!='distance_scale_mm'):
+                    raise ValueError('Centerline comparison changed another line setting')
+                continue
+            if comparison=='sc_anterior' and key=='sc_anterior_prior':continue
+            if comparison=='spine_stability' and key in ('relative_twist_priors','length_prior_fraction','lengthening_prior_fraction'):continue
+            if comparison=='spine_stability' and key=='shared_axial_length':
+                if any(method['settings'][key].get(k)!=v for k,v in value.items() if k not in ('minimum_total_mm','maximum_total_mm','bound_fractions')):raise ValueError('Spine comparison changed shared ratios')
+                continue
+            if comparison=='axial_axes' and key=='segment_axis_prior':continue
+            if comparison=='shared_length' and key=='shared_axial_length':continue
+            if comparison=='shared_length' and key=='length_proportion_prior':
+                if any(method['settings'][key].get(k)!=v for k,v in value.items() if k!='enabled'):
+                    raise ValueError('Shared length comparison changed proportions')
+                continue
             if comparison=='rest_lengths' and key in ('free_length_rest_prior','length_prior_fraction','lengthening_prior_fraction'):continue
             if shoulder_comparison and key=='shoulder_geometry':
                 actual=method['settings'][key]
@@ -57,6 +83,11 @@ def publish(candidates, *, comparison='processing'):
             if key not in ('processing','initialization','costs_by_family') and method['settings'].get(key)!=value:
                 raise ValueError('Processing comparison changed model setting: '+key)
         label=f'{p["active_frames"]} active frames'+(' + full refinement' if p['refined'] else ' / sequential')
+        if comparison in ('spine_stability','sc_anterior','centerline','length_coupling','fixed_neck'):label=method['comparison_label']
+        if comparison=='shared_length':
+            label='One shared spine length' if method['settings'].get('shared_axial_length') else 'Three independent spine lengths'
+        if comparison=='axial_axes':
+            label='Shared length + SC/shoulder axis preference' if method['settings'].get('segment_axis_prior') else 'Shared length baseline'
         if comparison=='performance':
             label+=f' / tolerance {p["function_tolerance"]:g}'
             if p.get('initial_function_tolerance') is not None:

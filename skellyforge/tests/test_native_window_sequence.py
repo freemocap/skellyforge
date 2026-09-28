@@ -20,6 +20,17 @@ def options_from(result):
     return options
 
 
+def test_fixed_length_survives_windows_and_global_refinement():
+    args, _ = seeded()
+    segment = next(i for i, value in enumerate(args['axial_reference_lengths']) if value > 0)
+    expected = args['axial_reference_lengths'][segment]
+    result = fit_windows(args, fixed_length_segments=[segment])
+    assert result.processing['fixed_length_segments'] == [segment]
+    np.testing.assert_array_equal(np.asarray(result.lengths)[:, segment], expected)
+    refined = refine_window_result(args, result)
+    np.testing.assert_array_equal(np.asarray(refined.lengths)[:, segment], expected)
+
+
 def test_strict_initial_window_preserves_its_committed_pose():
     args,_=seeded()
     baseline=fit_windows(args,function_tolerance=1e-6)

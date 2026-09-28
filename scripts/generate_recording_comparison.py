@@ -1,5 +1,6 @@
 """Build a lightweight overlay viewer from saved solver-lab results; never fit."""
 import json
+import hashlib
 import re
 from pathlib import Path
 
@@ -54,12 +55,12 @@ def comparison_data(bank):
             id=choice['id'], label=choice['label'], group=group,
             color={'proportional_spine':'#d0a4ff','equal_spine_lengths':'#ffd273','lower_sc':'#77b5ff', 'lower_sc_relaxed':'#82e39c', 'lower_closer_sc':'#e8ae71', 'lower_closer_sc_relaxed':'#ff7899'}.get(choice['id'], PALETTE[index % len(PALETTE)]),
             definitions=definitions, settings=method['settings'], objective=method['objective'],
-            processing=method.get('processing'),
+            processing=method.get('processing'), benchmark_timing=method.get('benchmark_timing'),
             provenance=method.get('metadata', experiment['metadata']), summary=method['summary'],
             converged=frames[0]['converged'], seconds=frames[0]['seconds'], report=frames[0]['report'],
             frames=[dict(bodies=[dict(quaternion=b['quaternion'], translation=b['translation'],
                                       fitted=b['fitted'], axial_scale=b.get('axial_scale', 1)) for b in f['bodies']],
-                         linkages=f.get('linkages', []), diagnostics=f['diagnostics']) for f in frames]))
+                         axis_geometry=f.get('axis_geometry', []), linkages=f.get('linkages', []), diagnostics=f['diagnostics']) for f in frames]))
     views = next((e.get('annotated_views') for e, _, _, _ in reversed(choices) if e.get('annotated_views')), [])
     mappings = choices[0][3]['settings']['direct_mapping_sources']
     hand_landmarks = {name for body in reference['bodies'] if body['region'] in ('Left hand', 'Right hand') for name in body['landmark_names']}
@@ -68,10 +69,20 @@ def comparison_data(bank):
                 hand_landmarks=sorted(hand_landmarks), hand_keypoints=sorted({mappings[n] for n in hand_landmarks if n in mappings}))
 
 
+def version_viewer_assets(page):
+    """Invalidate browser caches when the shared viewer code or styles change."""
+    def version(match):
+        attribute, name = match.groups()
+        digest = hashlib.sha256((FOLDER / name).read_bytes()).hexdigest()[:16]
+        return f'{attribute}="{name}?v={digest}"'
+    return re.sub(r'(src|href)="(recording_comparison[^"?]*\.(?:js|css))(?:\?[^" ]*)?"', version, page)
+
+
 def write_comparison(data,filename='recording_comparison.html',alternate=''):
     page = (FOLDER / 'recording_comparison.html.template').read_text(encoding='utf-8')
     page = page.replace('__ALTERNATE_VIEW__',alternate)
     page = page.replace('__DATA__', json.dumps(data, allow_nan=False).replace('<', '\\u003c'))
+    page = version_viewer_assets(page)
     target = FOLDER / filename
     target.write_text(page, encoding='utf-8')
     print(f'{target.resolve()} — {len(data["solutions"])} saved fits / {len(data["times"])} frames / {target.stat().st_size / 1e6:.1f} MB')

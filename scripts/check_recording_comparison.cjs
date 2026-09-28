@@ -76,10 +76,14 @@ if(data.solutions.some(s=>s.id==='lower_sc_relaxed'))assert(run('describeCompari
 if(data.solutions.some(s=>s.id==='lower_sc'))assert(run('describeComparisonFit(reviewData.solutions.find(s=>s.id==="lower_sc")).shoulders')==='Exact');
 if(data.frame_ids.at(-1)===221){
  run('seekReview(reviewData.times.length-1)');
- assert(nodes['support-status'].textContent.includes('No mapped keypoint targets'));
+ assert.strictEqual(nodes['support-status'].textContent,data.solutions[0].frames.at(-1).diagnostics['Pose support warning']||'');
  assert(nodes['frame-label'].textContent.includes('221'));
+ // Exercise warning rendering without assuming the prepared recording has gaps.
+ run('globalThis.savedSupportWarning=reviewData.solutions[0].frames.at(-1).diagnostics["Pose support warning"];reviewData.solutions[0].frames.at(-1).diagnostics["Pose support warning"]="No mapped keypoint targets";seekReview(reviewData.times.length-1)');
+ assert(nodes['support-status'].textContent.includes('No mapped keypoint targets'));
+ run('reviewData.solutions[0].frames.at(-1).diagnostics["Pose support warning"]=savedSupportWarning');
  run('seekReview(0)');
- assert(!nodes['support-status'].textContent);
+ assert.strictEqual(nodes['support-status'].textContent,data.solutions[0].frames[0].diagnostics['Pose support warning']||'');
 }
 nodes['region'].value='Left arm';nodes['region'].onchange();assert(run('viewer.solutions[0].bodies.every((b,i)=>b.g.visible===(reviewData.solutions[0].definitions[i].region==="Left arm"))'));
 nodes['region'].value='all';nodes['region'].onchange();
@@ -90,6 +94,32 @@ nodes.loop.checked=false;run('advanceReview(100000)');assert(!run('reviewPlaying
 nodes.loop.checked=true;run('seekReview(0);toggleReview();advanceReview(100000)');assert(run('reviewPlaying'));assert(run('reviewIndex')>=0&&run('reviewIndex')<data.times.length);
 run('pauseReview();seekReview(0)');
 const initial=run('desiredVideo');run('seekReview(1)');const latest=run('desiredVideo');
+if(data.solutions.some(s=>s.frames.some(f=>f.axis_geometry?.length))){
+ assert(run('viewer.solutions.every(v=>v.bodies.every(b=>b.label.hidden)&&v.axial.every(a=>a.label.hidden))'));
+ const layers=['hip-axis','shoulder-axis','pelvis-axis','sc-axis','skull-axis','skull-forward','torso-line','upper-line'];
+ for(const id of layers){nodes['show-'+id].checked=true;nodes['show-'+id].onchange();}
+ for(const frame of [0,Math.floor(data.times.length/2),data.times.length-1]){
+  run(`seekReview(${frame})`);
+  assert(run(`viewer.solutions.every((v,s)=>v.axial.every(a=>{
+   const g=reviewData.solutions[s].frames[reviewIndex].axis_geometry.find(g=>g.label===a.name);
+   if(!g)return !a.origin.visible;
+   const midpoint=g.start.map((x,k)=>(x+g.end[k])/2);
+   return a.origin.visible&&a.origin.position.distanceTo(new THREE.Vector3(...midpoint))<1e-8&&!!a.origin.userData.label;
+  }))`));
+ }
+ for(const id of layers){nodes['show-'+id].checked=false;nodes['show-'+id].onchange();}
+ assert(run('viewer.solutions.every(v=>v.axial.every(a=>!a.origin.visible&&!a.mesh.visible))'));
+ nodes['show-sc-axis'].checked=true;nodes['show-sc-axis'].onchange();
+ assert(run("viewer.solutions.every(v=>v.axial.filter(a=>a.name!=='Fitted thoracic lateral axis').every(a=>!a.mesh.visible))"));
+ nodes['show-axial-labels'].checked=true;nodes['show-axial-labels'].onchange();
+ assert(run("viewer.solutions.some(v=>v.group.visible&&v.axial.some(a=>!a.label.hidden))"));
+ nodes['show-axial-labels'].checked=false;nodes['show-axial-labels'].onchange();
+ assert(run('viewer.solutions.every(v=>v.axial.every(a=>a.label.hidden))'));
+ assert(run('viewer.solutions.some(v=>v.axial.some(a=>a.mesh.visible))'));
+ nodes['show-axes'].checked=true;nodes['show-axes'].onchange();
+ assert(run('viewer.solutions.every(v=>v.bodies.every(b=>b.axes.visible&&b.label.hidden))'));
+ run('seekReview(1)');
+}
 async function verifyImages(){
  const old=images.find(i=>i.src===initial),next=images.find(i=>i.src===latest);
  next.onload();await new Promise(resolve=>setImmediate(resolve));assert(nodes['video-image'].dataset.frame===String(data.frame_ids[1]));

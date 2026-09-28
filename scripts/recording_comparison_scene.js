@@ -14,17 +14,26 @@ function createComparisonScene(data, host, tooltip) {
   const solutions=data.solutions.map(solution=>{
     const group=new THREE.Group();scene.add(group);
     const solid=material(solution.color),wire=material(solution.color,true);
-    const bodies=solution.definitions.map(def=>{
+    const bodies=solution.definitions.map((def,bodyIndex)=>{
       const g=new THREE.Group();group.add(g);const hand=['Left hand','Right hand'].includes(def.region);
       const points=def.landmark_names.map(name=>dot(g,wire,hand?2.5:5,`${solution.label}\nLandmark: ${name}`));
-      const bones=(def.attachments||[]).map(a=>stick(g,solid,`${solution.label}\nSegment: ${def.id}\nDistal attachment: ${a.label}`));
+      const fixedLength=solution.processing?.fixed_length_segments?.includes(bodyIndex);
+      const bones=(def.attachments||[]).map(a=>stick(g,solid,`${solution.label}\nSegment: ${def.id}\nDistal attachment: ${a.label}${fixedLength?'\nLength fixed at recording reference':''}`));
       const axes=new THREE.AxesHelper(30);g.add(axes);
       const origin=dot(g,solid,hand?2:4,`${solution.label}\nSegment: ${def.id} / local XYZ origin`);
       const label=document.createElement('span');label.textContent=def.id;label.style.cssText='position:absolute;pointer-events:none;font:10px system-ui;padding:1px 3px;background:#101824bb;color:'+solution.color;host.appendChild(label);
       return {g,points,bones,axes,origin,label};
     });
     const links=(solution.frames[0].linkages||[]).map(link=>({child:link.child,mesh:stick(group,solid,`${solution.label}\nRelaxed linkage to ${solution.definitions[link.child].id}`),a:dot(group,wire,6,'Clavicle-side linkage attachment'),b:dot(group,solid,3,'Upper-arm-side linkage attachment')}));
-    return {group,solid,wire,bodies,links};
+    const axisNames=[...new Set(solution.frames.flatMap(f=>(f.axis_geometry||[]).map(a=>a.label)))];
+    const axial=axisNames.map(name=>{
+      const mat=material('#ffffff'),mesh=stick(group,mat,solution.label+'\n'+name);
+      const origin=dot(group,mat,5,solution.label+'\n'+name+' / midpoint');
+      const label=document.createElement('span');label.textContent=({'Keypoint-derived hip axis':'Hip pair','Keypoint-derived shoulder axis':'Shoulder pair','Fitted pelvis lateral axis':'Pelvis','Fitted thoracic lateral axis':'Thorax / SC','Fitted skull lateral axis':'Skull','Fitted rigid skull: head center to nose':'Skull forward','Keypoint-derived hip center to shoulder center':'Torso centerline','Shoulder center to fitted rigid skull center':'Upper centerline'})[name]||name;
+      label.style.cssText='position:absolute;pointer-events:none;font:10px system-ui;padding:1px 3px;background:#101824cc';host.appendChild(label);
+      return {name,mat,mesh,origin,label};
+    });
+    return {group,solid,wire,bodies,links,axial};
   });
   const reference=new THREE.Group();scene.add(reference);
   const keyMat=material('#56cedb'),savedMat=material('#acb7c2',true),savedBoneMat=material('#8596a5');savedBoneMat.opacity=.3;
@@ -50,8 +59,15 @@ function createComparisonScene(data, host, tooltip) {
         body.points.forEach((point,j)=>{point.visible=state.landmarks;point.position.copy(vec(pose.fitted[j]));});
         body.bones.forEach((bone,j)=>{const local=[...def.attachments[j].position];local[2]*=pose.axial_scale;const endpoint=vec(local).applyQuaternion(q).add(vec(t)).toArray();setRod(bone,t,endpoint,def.region.includes('hand')?1:2);bone.visible&&=state.segments;});
         body.axes.quaternion.copy(q);body.axes.position.copy(vec(t));body.axes.visible=state.axes;
-        body.origin.position.copy(vec(t));body.origin.visible=state.axes;
-        body.label.hidden=!(state.axes&&body.g.visible&&view.group.visible);body.label.style.color=setting.color;
+        body.origin.position.copy(vec(t));body.origin.visible=state.localOrigins;
+        body.label.hidden=!(state.localLabels&&body.g.visible&&view.group.visible);body.label.style.color=setting.color;
+      });
+      view.axial.forEach(axis=>{
+        const value=(frame.axis_geometry||[]).find(a=>a.label===axis.name);
+        const layer={'Keypoint-derived hip axis':'hipAxis','Keypoint-derived shoulder axis':'shoulderAxis','Fitted pelvis lateral axis':'pelvisAxis','Fitted thoracic lateral axis':'scAxis','Fitted skull lateral axis':'skullAxis','Fitted rigid skull: head center to nose':'skullForward','Keypoint-derived hip center to shoulder center':'torsoLine','Shoulder center to fitted rigid skull center':'upperLine'}[axis.name];
+        const visible=!!value&&!!state[layer]&&['all','Trunk','Head and neck'].includes(state.region);
+        axis.mesh.visible=visible;axis.origin.visible=visible&&state.axialOrigins;axis.label.hidden=!(visible&&state.axialLabels&&view.group.visible);
+        if(value){setRod(axis.mesh,value.start,value.end,1.7);axis.mesh.visible&&=visible;axis.origin.position.copy(vec(value.start).add(vec(value.end)).multiplyScalar(.5));axis.mat.color.set(value.color);axis.mat.opacity=setting.opacity;axis.label.style.color=value.color;}
       });
       view.links.forEach((link,j)=>{const value=frame.linkages[j],visible=state.linkages&&inRegion(solution.definitions[value.child].region);setRod(link.mesh,value.parent_point,value.child_point,1.4);link.mesh.visible&&=visible;link.a.visible=link.b.visible=visible;link.a.position.copy(vec(value.parent_point));link.b.position.copy(vec(value.child_point));const label=`${solution.label}\nRelaxed linkage: ${solution.definitions[value.child].id}\nSeparation: ${Math.hypot(...value.local_displacement).toFixed(2)} mm`;link.mesh.userData.label=label;link.a.userData.label=label+'\nClavicle-side attachment';link.b.userData.label=label+'\nUpper-arm-side attachment';});
     });
@@ -61,7 +77,17 @@ function createComparisonScene(data, host, tooltip) {
     savedSegments.forEach((p,i)=>{const value=context.segments[segmentNames[i]];p.visible=false;if(value){setRod(p,value.origin,value.end,1);p.visible&&=state.savedSegments&&inRegion(definitionByName.get(segmentNames[i])?.region);}});
     render();
   }
-  function render(){orbit.update();const width=host.clientWidth,height=host.clientHeight;solutions.forEach(view=>view.bodies.forEach(body=>{if(body.label.hidden)return;const p=body.origin.position.clone().project(camera);body.label.style.left=(p.x+1)*width/2+6+'px';body.label.style.top=(1-p.y)*height/2+'px';body.label.style.visibility=p.z>=-1&&p.z<=1?'visible':'hidden';}));renderer.render(scene,camera);}
+  function render(){
+    orbit.update();const width=host.clientWidth,height=host.clientHeight,labels=[];
+    solutions.forEach(view=>[...view.bodies,...view.axial].forEach(body=>{
+      if(body.label.hidden)return;const p=body.origin.position.clone().project(camera);
+      body.label.style.left=(p.x+1)*width/2+6+'px';body.label.style.visibility=p.z>=-1&&p.z<=1?'visible':'hidden';
+      if(p.z>=-1&&p.z<=1)labels.push({element:body.label,x:(p.x+1)*width/2,y:(1-p.y)*height/2});
+    }));
+    labels.sort((a,b)=>a.y-b.y);const placed=[];
+    for(const label of labels){for(const previous of placed)if(Math.abs(label.x-previous.x)<140&&label.y<previous.y+14)label.y=previous.y+14;label.element.style.top=label.y+'px';placed.push(label);}
+    renderer.render(scene,camera);
+  }
   function reset(){const points=data.contexts.flatMap(f=>Object.values(f.keypoints)).map(vec),bounds=new THREE.Box3().setFromPoints(points),center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3()),distance=Math.max(size.x,size.y,size.z,250)*.85;orbit.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(distance,-distance,distance*.6));grid.position.set(center.x,center.y,0);render();}
   new ResizeObserver(()=>{camera.aspect=host.clientWidth/Math.max(host.clientHeight,1);camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight);render();}).observe(host);
   const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();

@@ -1,5 +1,12 @@
 # Recording comparison viewer
 
+For the current experiment and next steps, read the
+[solver restart checkpoint](../current-work-plans/solver-restart.md).
+The early experiment commands and missing-keypoint discussion below describe
+historical inputs. Both September 27 rebuilt recordings now have complete processed
+keypoint trajectories. Existing generated pages must be rerun against those inputs;
+regenerating presentation HTML alone does not rerun a fit.
+
 From the SkellyForge root, run `uv run --no-sync poe recording-comparison`.
 With the existing scripts server on port 8773, open
 <http://127.0.0.1:8773/recording_comparison.html>.

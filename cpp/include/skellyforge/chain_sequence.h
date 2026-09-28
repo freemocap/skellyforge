@@ -4,6 +4,12 @@
 #include <optional>
 namespace skellyforge {
 using ChainQuaternions = std::vector<std::array<double,4>>;
+// One total axial length per frame; each selected segment gets an exact share.
+struct SharedAxialLength {
+  std::optional<double> minimum_total, maximum_total; // mm; optional experiment bounds
+  std::array<int,3> segments{-1,-1,-1};
+  std::array<double,3> ratios{1.,1.,1.};
+};
 struct LengthEqualityPrior {
   int segment_a=-1, segment_b=-1;
   double scale=kDefaultLengthEqualityScale;
@@ -21,7 +27,37 @@ struct LandmarkLinePrior {
   std::vector<std::optional<std::array<Vec3,3>>> frames;
   double distance_scale = 1., anterior_scale = 1.;
 };
+// World-space lateral axis evidence, compared in the segment transverse plane.
+struct SegmentAxisPrior {
+  int segment=-1;
+  Vec3 local_lateral{1.,0.,0.}, local_anterior{0.,1.,0.};
+  std::vector<std::optional<Vec3>> frames;
+  double scale=1.; // chord residual scale; not an anatomical limit
+};
+struct RelativeTwistPrior {
+  int parent=-1,child=-1;
+  std::array<double,4> reference{1.,0.,0.,0.};
+  Vec3 axis{0.,0.,1.}; // twist axis in rest-aligned child coordinates
+  double scale=1.;
+};
+// Prefer a fitted landmark on the positive side of a fixed world-space plane.
+struct LandmarkHalfSpacePrior {
+  int segment=-1;
+  Vec3 local_point{};
+  std::vector<std::optional<std::array<Vec3,2>>> frames; // origin, unit normal
+  double scale=1.; // mm
+};
+// Geometric position preferences, separate from independent keypoint evidence.
+struct LandmarkPositionPrior {
+  int segment=-1;
+  Vec3 local_point{};
+  std::vector<Vec3> targets;
+  double scale=1.; // mm; soft residual, not a hard positional bound
+};
 struct ChainSolveOptions {
+  double landmark_huber_scale_mm=0.; // zero disables robust loss; threshold in physical mm
+  std::vector<LandmarkPositionPrior> landmark_position_priors;
+  std::vector<int> fixed_length_segments; // independent axial blocks held at reference length
   std::vector<std::vector<double>> initial_lengths;
   std::vector<std::vector<Vec3>> initial_linkage_displacements;
   std::vector<double> frame_weights; // full-recording quadrature weights sliced with a window
@@ -31,10 +67,14 @@ struct ChainSolveOptions {
   bool evaluate_only=false; // score supplied state without optimizing
 };
 struct ChainSequenceFit {
+  double position_prior_cost=0.;
   bool usable=false;
   int iterations=0;
   std::string full_report;
 
+  double twist_prior_cost=0.;
+  double half_space_cost=0.;
+  double axis_prior_cost=0.;
   double length_proportion_cost=0.;
   double length_equality_cost=0.;
   std::vector<std::vector<Vec3>> linkage_displacements;
@@ -72,5 +112,9 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<int>& relaxed_linkage_children={}, double linkage_scale=kDefaultLinkageScale, double linkage_acceleration_scale=kDefaultLinkageAccelerationScale,
   const std::optional<LengthEqualityPrior>& length_equality_prior=std::nullopt,
   const std::optional<LengthProportionPrior>& length_proportion_prior=std::nullopt,
-  const ChainSolveOptions& solve_options=ChainSolveOptions{}, bool free_length_rest_prior=false);
+  const ChainSolveOptions& solve_options=ChainSolveOptions{}, bool free_length_rest_prior=false,
+  const std::optional<SharedAxialLength>& shared_axial_length=std::nullopt,
+  const std::optional<SegmentAxisPrior>& segment_axis_prior=std::nullopt,
+  const std::vector<RelativeTwistPrior>& relative_twist_priors={},
+  const std::optional<LandmarkHalfSpacePrior>& landmark_half_space_prior=std::nullopt);
 }

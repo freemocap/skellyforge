@@ -182,3 +182,15 @@ scripts/recording_sc_offset_comparison.html
 scripts/recording_rest_length_comparison.html
 scripts/recording_sample_performance.html
 scripts/recording_test_sample_metrics.html
+
+scripts/recording_shared_spine_length.html
+scripts/recording_axial_axes.html
+
+scripts/recording_spine_stability.html
+
+/scripts/recording_sc_anterior.html
+/scripts/recording_centerline.html
+/scripts/recording_length_coupling.html
+/scripts/recording_fixed_neck.html
+/scripts/recording_spine_positions.html
+/scripts/recording_test_spine_positions.html

@@ -1,5 +1,79 @@
 # Solver lab
 
+Current recording work: [solver restart checkpoint](../current-work-plans/solver-restart.md).
+Accepted-fit validation: [test/sample report](../current-work-plans/spine-fit-validation.md).
+Use `poe solver-viewer-spine-positions --recording test` for the test-data viewer;
+`poe solver-validate-spine-positions` compares saved test/sample fits without reprocessing.
+The experiment notes below are chronological. Existing generated recording pages
+predate the September 27 clean rebuild until explicitly regenerated.
+
+## Spine length coupling comparison
+
+Current tail-failure experiment: `poe solver-viewer-spine-positions`, page
+`http://127.0.0.1:8773/recording_spine_positions.html`. It adds explicit XYZ
+position preferences at saved pelvis/chest/neck/head-attachment landmarks and
+a robust Huber loss on direct keypoint residuals. See the restart checkpoint
+for the diagnosed bad ankle target and incompatible fixed-neck endpoint spacing.
+Details lists the 5 mm position scale and 30 mm robust transition. Per-frame
+diagnostics show each fitted axial landmark's displacement from its saved
+position. A 50 mm acceptance check is independent of Ceres convergence;
+failed fits remain visible for diagnosis and are labeled as failures.
+
+Fixed-neck follow-up: `poe solver-viewer-fixed-neck` fits a fresh independent-length
+control and a fixed-cervical case using the same native binary. The cervical
+reference length comes from the prepared recording's model scale and authored
+segment geometry. `ChainSolveOptions.fixed_length_segments` applies
+`SetParameterBlockConstant` to the selected independent length blocks in every
+frame. Initial values must equal their reference lengths; shared total-length
+parameterization is rejected for this option. Quaternion blocks remain free.
+Window evaluation and optional global refinement preserve the fixed-length policy.
+
+Both cases retain the soft three-length proportion residual, rest-length
+preferences and existing chest-centerline residual. No neck-to-shoulder-midpoint
+residual is added. Thus this tests length rigidity separately from the user's
+still-undecided neck-base attachment. `recording_fixed_neck.html` shows both full
+recording fits; `build/fixed_neck/metrics.json` records timing, length variation,
+and the neck/midpoint discrepancy around frame 960. Fixed cervical geometry is
+marked rigid in the lab output; the comparison label and segment hover identify it.
+
+Follow-up: `poe solver-viewer-length-coupling` compares the current bounded shared
+length fit, an unbounded shared length fit, three independent lengths with the
+existing soft ratio preference, and independent lengths with a stronger rest
+preference (fraction 0.25 instead of 0.5). The latter quadruples rest-length cost
+for a given deviation. It does not make the cervical segment rigid.
+Results: `recording_length_coupling.html`, `build/length_coupling/metrics.json`.
+`--resume` reuses completed cases only with matching input/native hashes and case
+settings. Same full sample, three-frame windows, chest distance scale 50 mm,
+shoulder-axis and twist preferences; no SC-anterior residual. This isolates length
+policy while retaining the newer axis/twist machinery, rather than reproducing
+every historical setting at once. The 50 mm soft proportion residual is retained
+when lengths are independent; the exact-ratio cases use one total-length parameter.
+The report includes neck-center distance to the mapped shoulder midpoint at every
+frame and RMS over frames 930-990. This is geometric agreement, not ground truth.
+Per-segment length ranges and frame-to-frame changes expose where flexibility goes.
+
+## Chest centerline strength comparison
+
+`poe solver-viewer-centerline` compares the current full-sample baseline with
+10 mm and 5 mm chest-center distance scales (baseline: 50 mm). Output:
+`recording_centerline.html`, with caches and metrics in `build/centerline/`.
+It requires the current `build/sc_anterior/baseline.json` and checks its recording
+and native binary hashes before reuse. It changes no production definitions.
+
+This experiment changes only the existing `LandmarkLinePrior.distance_scale`.
+The Ceres residual uses fitted `chest_center` perpendicular displacement from the
+hip-midpoint to shoulder-midpoint line, divided by that scale and multiplied by
+the existing square-root frame weight. The separate anterior-only penalty stays
+at 20 mm. Motion along the line remains free. The 10/5 mm choices give 25/100 times
+the baseline distance cost for the same displacement, not hard distance bounds.
+They are experiment settings, not anthropometric measurements.
+
+The neck and SC landmarks receive no new direct midpoint/centerline residual in
+this comparison. Their changes arise through the existing linked skeleton. A
+neck attachment is a separate next experiment if chest attachment is insufficient.
+The viewer draws actual fitted geometry. Reported whole-recording displacement
+variation includes body motion and must not be labeled static jitter.
+
 Run from SkellyForge:
 
 ```powershell
@@ -718,3 +792,257 @@ equivariance, residual strength, temporal cost reconstruction, invalid linkage
 selection, rendered connectors, Plotly traces, and Ceres map block counts.
 Viewer checks exercise Three geometry with mocked DOM/WebGL/Plotly; they are not
 a screenshot-based assessment of the animation.
+
+## Shared spine length experiment (2026-09-27)
+
+Run `poe solver-viewer-shared-spine`, then `poe solver-viewer-serve` and open
+http://127.0.0.1:8773/recording_shared_spine_length.html.
+`--publish-only` rebuilds this comparison from the saved fit. Prepared recordings
+are read only; generated results overwrite `build/shared_spine_length/`.
+The comparison requires the existing independent-length baseline for the same
+prepared sample SHA, and checks unchanged geometry, ratios and solver settings.
+
+`SharedAxialLength` defines three segment indices and positive ratios. Ceres gets
+one scalar total length T per frame. For sacrolumbar, thoracic and cervical:
+`L = T * [20, 20, 12] / 52`. This is exact parameterization, not a stronger residual.
+Each segment still has its world WXYZ quaternion on QuaternionManifold. Local Z
+coordinates of landmarks and attachments use the resulting segment length;
+local X/Y offsets are unchanged. The spine segments remain straight.
+
+The original per-segment rest-length residuals remain, evaluated against these
+lengths. The soft proportion residual is removed. Quaternion/rest-pose,
+keypoint-target, chest-line and shoulder residuals remain unchanged. Processing
+still uses three active frames plus up to two fixed history frames, tolerance
+1e-6 and 200 iterations. No temporal regularization was added or retuned.
+
+The native FK path shares one scalar block across all three segments and does
+not repeat that parameter pointer in a residual's block list. Initial lengths
+are projected by retaining their sum. Fixed history and evaluation-only inputs
+must already satisfy the ratios; inconsistent states are rejected. Returned
+segment lengths retain the existing result format. No display correction occurs.
+
+Aligned sample, 1108 frames / 30 Hz, source SHA256
+`dcbd3d5e5d5ee2497303fe1e3fc89d5963f4fd75cf40f7041133f5b23f70b737`:
+
+| Metric | Independent lengths | Shared total length |
+| --- | ---: | ---: |
+| Ceres solve seconds | 37.34 | 38.76 |
+| Window-processing wall seconds | 46.60 | 47.86 |
+| Keypoint-target RMS, mm | 25.048 | 24.985 |
+| Converged windows | 1106/1106 | 1105/1106 |
+| Shoulder linkage separation RMS, mm | 25.07 | 27.71 |
+| Total spine length maximum, mm | 1478.12 | 1975.58 |
+| Total length standard deviation, mm | 70.76 | 87.29 |
+| Sacrolumbar / thoracic step p95, mm | 8.66 / 7.99 | 4.07 / 4.07 |
+| Cervical step p95, mm | 8.79 | 2.44 |
+
+The shared fit removes independent length variation and reduces typical length
+steps, but does not establish stability: all three lengths stretch together at
+frame 953 (also inspect 1073-1080). The first window, frames 0-2, hit the iteration
+limit; cost fell from 148.39 to 6.67. The remaining windows converged. Convergence
+is not evidence of anatomical correctness. Length variation is descriptive, not
+error against ground truth. Full metrics are in `build/shared_spine_length/metrics.json`.
+
+This is an experiment, not a production replacement. Review total-length control
+before adding curved segments. Curved segments would require new within-segment
+geometry, distinct from rotation of the existing straight segments.
+
+Validation: 111 native Python tests, focused recording adapter tests, three
+CTest checks, and two-fit viewer geometry/playback checks across all 1108 frames.
+Six new tests cover parameter reduction, synthetic recovery, exact ratios,
+attachment FK, rest costs, immutable moving-window history, invalid groups and
+rejection of inconsistent evaluation states. A headless screenshot confirmed
+that the comparison table, recording video and 3D scene render.
+
+## Thoracic axis comparison (2026-09-27)
+
+`poe solver-viewer-axial-axes` compares the shared-length baseline with one
+additional Ceres residual family, on all 1108 aligned sample frames.
+Open http://127.0.0.1:8773/recording_axial_axes.html. `--publish-only` uses saved
+fit data. The axial-relationships layer shows labeled midpoint spheres and
+axes: keypoint-derived hip/shoulder geometry (gold), fitted pelvis (green),
+SC axis (orange), rigid skull lateral axis and nose geometry (purple).
+Details show per-frame SC/shoulder axial angle and pelvis/thorax/skull 3D axis
+angles. Four points are not forced into a common plane.
+
+Only the thoracic SC/shoulder transverse relationship is added in this step.
+Pelvis/thorax and thorax/skull angles are diagnostics, not new anatomical limits.
+The existing skull remains rigid, using authored geometry and its quaternion;
+nose, eyes and ears remain its direct keypoint targets. No independent head
+orientation is reconstructed from the ears for this experiment.
+
+Native `SegmentAxisPrior` addresses a segment quaternion parameter block. The
+local lateral vector is derived from the authored left/right SC positions;
+the anterior vector is perpendicular to it and the thoracic local Z axis.
+Let a and b be the observed unit shoulder axis dotted with the fitted lateral
+and anterior unit vectors. The two residual components are:
+
+    sqrt(frame_weight) / scale * [b, sqrt(a*a + b*b + epsilon*epsilon) - a]
+
+This is a signed-axis chord preference in the transverse plane. It distinguishes
+parallel from antiparallel axes and does not insist on matching shoulder slope.
+The residual weakens as the shoulder axis becomes parallel to the thoracic long
+axis (twist becomes undefined there); it is not a tilt constraint. Epsilon is a
+named 1e-12 numerical regularizer. Scale 0.5 is an experimental setting, roughly
+29 degrees near aligned perpendicular axes, not a published anatomical bound.
+Unsupported keypoint pairs produce no axis residual. Existing model landmarks
+remain defined. All temporal settings and other residuals are unchanged.
+
+| Full sample metric | Shared baseline | With axis preference |
+| --- | ---: | ---: |
+| Ceres seconds | 38.76 | 36.47 |
+| Keypoint-target RMS, mm | 24.985 | 25.019 |
+| SC/shoulder axial angle RMS, degrees | 38.26 | 20.37 |
+| Absolute SC/shoulder axial angle p95, degrees | 71.53 | 39.59 |
+| Total spine length maximum, mm | 1975.58 | 1908.94 |
+| Shoulder linkage separation RMS, mm | 27.71 | 28.81 |
+| Converged windows | 1105/1106 | 1105/1106 |
+
+Agreement with a deliberately preferred axis is not anatomical accuracy. This
+reduces axis disagreement but does not fix total-length excursions. Parameter
+count is unchanged, and 1077 supported frames add 1077 two-component residual
+blocks. No new pose parameter blocks or viewer corrections are introduced.
+
+Validation: 114 native Python tests, focused recording adapter tests, three
+CTest checks, and two-fit viewer tests over 1108 frames, including axis layer
+visibility and labeled midpoint geometry. Native tests check signed chord cost,
+bending, missing evidence, fixed-window slicing and invalid bases.
+
+### Scapula follow-up, not implemented
+
+Seth et al. (2016), *A Biomechanical Model of the Scapulothoracic Joint to
+Accurately Capture Scapular Kinematics during Shoulder Movements*:
+https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0141028
+
+Their four-DOF scapulothoracic model locates a rigid scapula on an ellipsoidal
+thorax, with surface elevation/abduction, upward rotation and internal rotation.
+It is a concrete starting point for a scapula segment linked to the clavicle
+and upper arm, rather than unconstrained shoulder translation. Its validation
+used bone-pin measurements; that accuracy cannot be claimed for our keypoints.
+OpenSim reference implementation:
+https://opensim-org.github.io/opensim-moco-site/docs/1.2.0/html_user/classOpenSim_1_1ScapulothoracicJoint.html
+
+Before implementation: map the authored AC/glenoid/SC landmarks, define subject
+scaled thoracic surface geometry, decide how that surface follows the flexible
+thorax, retain quaternion pose storage, and represent closed-loop attachment
+and surface relationships explicitly in Ceres. This should replace the current
+relaxed shoulder connection in a separate comparison, not silently add a second
+shoulder mechanism. Sparse COCO keypoints do not independently identify all
+scapular degrees of freedom, so model assumptions must remain explicit.
+
+## Spine stability comparisons (2026-09-27)
+
+`poe solver-viewer-spine-stability` runs six full-sample fits sequentially:
+base, stronger length preference, bounded total length, relative twist preference,
+stronger length plus twist, and bounded length plus twist. `--resume` validates
+cached case settings, prepared-recording SHA and native binary SHA before reuse.
+`--publish-only` regenerates the viewer from the same saved cases.
+Outputs overwrite fixed names in `build/spine_stability/`; prepared data is read
+only. Viewer: http://127.0.0.1:8773/recording_spine_stability.html.
+
+All cases keep shared 20:20:12 lengths, SC-forward 75%, the SC/shoulder axis
+preference, posterior chest-line preference, relaxed shoulders, three active
+frames/two fixed history frames, function tolerance 1e-6 and 200 iterations.
+The stronger rest-length residual scale is 0.25 instead of 0.5. Bounded cases
+retain scale 0.5 and impose total length between 0.60 and 1.25 times the sum of
+saved person-scaled axial reference lengths. Bounds are on the Ceres scalar,
+not post-fit clipping. New-frame initialization is projected into the range;
+committed/evaluation states outside it are rejected. Length smoothing stays off.
+These bounds and strengths are experiment settings, not published anatomical
+limits. Person scale is not optimized with motion.
+
+The twist cases add four `RelativeTwistPrior` residual blocks per frame, for
+pelvis/sacrolumbar, sacrolumbar/thoracic, thoracic/cervical and cervical/skull.
+They reuse existing quaternion parameter blocks. With rest-relative error
+quaternion e = conjugate(q_rest) * conjugate(q_parent) * q_child, let a be its
+vector part dotted with the authored local Z twist axis. The scalar residual is:
+
+    sqrt(frame_weight) / 0.5 * 2*a / sqrt(e.w*e.w + a*a + epsilon*epsilon)
+
+This is 2*sin(twist/2) scaled by the residual scale. Its squared cost is unchanged
+by quaternion sign, and pure swing about a perpendicular axis has zero cost.
+It does not impose an angular bound or introduce Euler orientation parameters.
+The numerical regularizer is 1e-12. Twist decomposition is undefined at a pure
+180-degree swing; diagnostics count such cases rather than reporting a measured
+angle there. Existing full relative-pose residuals remain unchanged.
+
+`metrics.json` records unweighted target RMS, segment/total length variation,
+relative twist, shoulder separation, boundary contact, convergence and iteration
+counts, all residual-family costs, and the evaluated objective. Objective costs
+are checked against the sum of families; moving-window costs are not added
+because overlapping observations would be counted repeatedly. Different
+residual scales/objectives cannot be ranked by total weighted cost alone.
+
+Timing separates Ceres solve time, window-controller wall time, read/fit/diagnostic
+wall time, and viewer-context generation. Build, serialization and final viewer
+publication are excluded from these timings. These are sequential single runs,
+not a repeated timing benchmark with confidence intervals. The viewer table
+shows Ceres and window wall time; Details exposes the other durations and costs.
+
+Completed full-sample comparison: 1108 frames at 30 Hz. Baseline target RMS was
+25.019 mm, relative twist RMS 53.49 degrees, and maximum total spine length
+1908.94 mm. Bounded length plus twist gave 25.289 mm, 23.96 degrees, and
+948.21 mm respectively. Ceres time was 39.12 s versus baseline 38.25 s;
+window wall time was 48.28 s versus 46.95 s. Stronger length preference alone
+did not prevent large excursions; twist preference alone did not prevent
+elongation. These are experimental comparisons, not changed production defaults.
+Bounded plus twist still had one unconverged window and maximum shoulder
+separation of 180.36 mm, so shoulder behavior remains unresolved.
+
+The generated `build/spine_stability/report.md` contains all six results and
+residual-family costs; `metrics.json` retains detailed diagnostics. Validation:
+127 native/recording-body Python tests passed, three CTest checks passed, and
+the Node comparison check passed for all six fits across all 1108 frames.
+
+## SC anterior half-space experiment (2026-09-27)
+
+`poe solver-viewer-sc-anterior` compares bounded length plus twist against the
+same fit with an SC anterior preference, on the full prepared sample recording.
+It writes fixed caches under `build/sc_anterior/` and
+`scripts/recording_sc_anterior.html`; `--publish-only` rebuilds that viewer from
+matching caches. No production defaults or prepared recording data change.
+
+For each supported frame, S is the midpoint of the two shoulder keypoints,
+A is the existing unit anterior vector from the hip/shoulder keypoint geometry,
+and P is the fitted midpoint of the thoracic segment's two SC landmarks.
+The new Ceres residual is:
+
+    r = sqrt(frame_weight) * max(0, -dot(P - S, A)) / SC_ANTERIOR_SCALE_MM
+
+The experimental scale is 20 mm. There is no positive margin, attraction to the
+plane, or reward for moving farther anterior. It reuses the current quaternion,
+root and shared-length parameter blocks through the existing forward kinematics.
+Frames without the required keypoints contribute no half-space residual; model
+landmarks remain fully defined. This is a modeling preference, not a measured
+SC position or a claim that shoulder protraction cannot place shoulders forward.
+Report its cost separately as `sc_anterior`.
+
+The proposed cervical-base positional residual was not added: cervical origin
+already attaches exactly to the thoracic `neck_center` landmark, which is on
+the thoracic local Z axis. That linkage is not relaxed. A redundant positional
+residual would always be zero. Each comparison audits the authored attachment
+and reports its maximum fitted separation. A preference for the cervical axis
+to continue the thoracic axis would instead constrain bending and needs a
+separate, explicit decision.
+
+The viewer reports per-frame SC/neck anterior distances, posterior violation
+RMS/maximum/frame count, distance variability, keypoint RMS, all cost families,
+and Ceres/window/read-fit/context durations. Standard deviation describes the
+whole movement, not jitter alone; real motion contributes to it. Whole-recording
+costs are evaluated once, not summed from overlapping windows.
+
+Full-sample result: posterior SC RMS decreased from 14.56 to 10.85 mm, while
+maximum violation remained 211 mm at frame 953. Frames more than 20 mm posterior
+decreased from 66 to 36, but total posterior frames increased from 129 to 182
+(1076 supported frames). Neck anterior-distance standard deviation increased
+from 45.29 to 52.34 mm. Keypoint RMS was 25.29 versus 25.26 mm; shoulder-linkage
+separation RMS increased from 29.15 to 32.07 mm. This is a mixed result, not a
+new preferred default. Ceres took 42.62 versus 42.28 s, window wall time 51.66
+versus 51.27 s; each retained one unconverged window. Cervical attachment error
+was below 1e-12 mm in both fits.
+
+Validation: focused native/recording-body suite 131 passed; five half-space
+tests passed after adding an optimizer-response check (four overlap that suite).
+All three CTest checks passed. The Node viewer check passed for two fits across
+all 1108 frames. Report and detailed residual-family costs are retained in
+`build/sc_anterior/report.md` and `metrics.json`.

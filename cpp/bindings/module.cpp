@@ -9,6 +9,12 @@
 namespace py = pybind11;
 PYBIND11_MODULE(_native, m) {
   m.attr("DEFAULT_LENGTH_PROPORTION_SCALE") = skellyforge::kDefaultLengthProportionScale;
+  py::class_<skellyforge::SharedAxialLength>(m,"SharedAxialLength")
+    .def(py::init<>())
+    .def_readwrite("minimum_total",&skellyforge::SharedAxialLength::minimum_total)
+    .def_readwrite("maximum_total",&skellyforge::SharedAxialLength::maximum_total)
+    .def_readwrite("segments",&skellyforge::SharedAxialLength::segments)
+    .def_readwrite("ratios",&skellyforge::SharedAxialLength::ratios);
   py::class_<skellyforge::LengthProportionPrior>(m,"LengthProportionPrior")
     .def(py::init<>())
     .def_readwrite("segments",&skellyforge::LengthProportionPrior::segments)
@@ -33,9 +39,38 @@ PYBIND11_MODULE(_native, m) {
     .def_readwrite("frames",&skellyforge::LandmarkLinePrior::frames)
     .def_readwrite("distance_scale",&skellyforge::LandmarkLinePrior::distance_scale)
     .def_readwrite("anterior_scale",&skellyforge::LandmarkLinePrior::anterior_scale);
+  py::class_<skellyforge::SegmentAxisPrior>(m,"SegmentAxisPrior")
+    .def(py::init<>())
+    .def_readwrite("segment",&skellyforge::SegmentAxisPrior::segment)
+    .def_readwrite("local_lateral",&skellyforge::SegmentAxisPrior::local_lateral)
+    .def_readwrite("local_anterior",&skellyforge::SegmentAxisPrior::local_anterior)
+    .def_readwrite("frames",&skellyforge::SegmentAxisPrior::frames)
+    .def_readwrite("scale",&skellyforge::SegmentAxisPrior::scale);
+  py::class_<skellyforge::LandmarkHalfSpacePrior>(m,"LandmarkHalfSpacePrior")
+    .def(py::init<>())
+    .def_readwrite("segment",&skellyforge::LandmarkHalfSpacePrior::segment)
+    .def_readwrite("local_point",&skellyforge::LandmarkHalfSpacePrior::local_point)
+    .def_readwrite("frames",&skellyforge::LandmarkHalfSpacePrior::frames)
+    .def_readwrite("scale",&skellyforge::LandmarkHalfSpacePrior::scale);
+  py::class_<skellyforge::RelativeTwistPrior>(m,"RelativeTwistPrior")
+    .def(py::init<>())
+    .def_readwrite("parent",&skellyforge::RelativeTwistPrior::parent)
+    .def_readwrite("child",&skellyforge::RelativeTwistPrior::child)
+    .def_readwrite("reference",&skellyforge::RelativeTwistPrior::reference)
+    .def_readwrite("axis",&skellyforge::RelativeTwistPrior::axis)
+    .def_readwrite("scale",&skellyforge::RelativeTwistPrior::scale);
+  py::class_<skellyforge::LandmarkPositionPrior>(m,"LandmarkPositionPrior")
+    .def(py::init<>())
+    .def_readwrite("segment",&skellyforge::LandmarkPositionPrior::segment)
+    .def_readwrite("local_point",&skellyforge::LandmarkPositionPrior::local_point)
+    .def_readwrite("targets",&skellyforge::LandmarkPositionPrior::targets)
+    .def_readwrite("scale",&skellyforge::LandmarkPositionPrior::scale);
   py::class_<skellyforge::ChainSolveOptions>(m,"ChainSolveOptions")
     .def(py::init<>())
     .def_readwrite("initial_lengths",&skellyforge::ChainSolveOptions::initial_lengths)
+    .def_readwrite("landmark_position_priors",&skellyforge::ChainSolveOptions::landmark_position_priors)
+    .def_readwrite("landmark_huber_scale_mm",&skellyforge::ChainSolveOptions::landmark_huber_scale_mm)
+    .def_readwrite("fixed_length_segments",&skellyforge::ChainSolveOptions::fixed_length_segments)
     .def_readwrite("initial_linkage_displacements",&skellyforge::ChainSolveOptions::initial_linkage_displacements)
     .def_readwrite("frame_weights",&skellyforge::ChainSolveOptions::frame_weights)
     .def_readwrite("fixed_prefix_frames",&skellyforge::ChainSolveOptions::fixed_prefix_frames)
@@ -46,6 +81,9 @@ PYBIND11_MODULE(_native, m) {
     .def_readonly("usable",&skellyforge::ChainSequenceFit::usable)
     .def_readonly("iterations",&skellyforge::ChainSequenceFit::iterations)
     .def_readonly("full_report",&skellyforge::ChainSequenceFit::full_report)
+    .def_readonly("half_space_cost",&skellyforge::ChainSequenceFit::half_space_cost)
+    .def_readonly("twist_prior_cost",&skellyforge::ChainSequenceFit::twist_prior_cost)
+    .def_readonly("axis_prior_cost",&skellyforge::ChainSequenceFit::axis_prior_cost)
     .def_readonly("length_proportion_cost",&skellyforge::ChainSequenceFit::length_proportion_cost)
     .def_readonly("length_equality_cost",&skellyforge::ChainSequenceFit::length_equality_cost)
     .def_readonly("linkage_displacements",&skellyforge::ChainSequenceFit::linkage_displacements)
@@ -67,6 +105,7 @@ PYBIND11_MODULE(_native, m) {
     .def_readonly("costs",&skellyforge::ChainSequenceFit::costs)
     .def_readonly("angular_acceleration_costs",&skellyforge::ChainSequenceFit::angular_acceleration_costs)
     .def_readonly("landmark_cost",&skellyforge::ChainSequenceFit::landmark_cost)
+    .def_readonly("position_prior_cost",&skellyforge::ChainSequenceFit::position_prior_cost)
     .def_readonly("root_acceleration_cost",&skellyforge::ChainSequenceFit::root_acceleration_cost)
     .def_readonly("seconds",&skellyforge::ChainSequenceFit::seconds)
     .def_readonly("converged",&skellyforge::ChainSequenceFit::converged)
@@ -76,7 +115,7 @@ PYBIND11_MODULE(_native, m) {
     ;
   m.def("fit_chain_sequence",&skellyforge::fit_chain_sequence,py::kw_only(),
     py::arg("local"),py::arg("observed"),py::arg("parent_attachments"),py::arg("child_attachments"),py::arg("times"),
-    py::arg("position_scale"),py::arg("linear_acceleration_scale"),py::arg("angular_acceleration_scale"),py::arg("allow_displacement")=false,py::arg("displacement_scale")=skellyforge::kDefaultDisplacementScale,py::arg("displacement_acceleration_scale")=skellyforge::kDefaultDisplacementAccelerationScale,py::arg("displacement_bound")=skellyforge::kDefaultDisplacementBound,py::arg("parent_indices")=std::vector<int>{0,1},py::arg("initial_quaternions")=std::vector<skellyforge::ChainQuaternions>{},py::arg("initial_roots")=std::vector<skellyforge::Vec3>{},py::arg("rest_relative_quaternions")=skellyforge::ChainQuaternions{},py::arg("rest_pose_scale")=skellyforge::kDefaultRestPoseScale,py::arg("axial_reference_lengths")=std::vector<double>{},py::arg("length_prior_fraction")=skellyforge::kDefaultLengthPriorFraction,py::arg("length_acceleration_scale")=skellyforge::kDefaultLengthAccelerationScale,py::arg("observation_indices")=std::vector<std::vector<std::vector<int>>>{},py::arg("lengthening_prior_fraction")=py::none(),py::arg("free_axial_lengths")=false,py::arg("landmark_line_prior")=py::none(),py::arg("relaxed_linkage_children")=std::vector<int>{},py::arg("linkage_scale")=skellyforge::kDefaultLinkageScale,py::arg("linkage_acceleration_scale")=skellyforge::kDefaultLinkageAccelerationScale,py::arg("length_equality_prior")=py::none(),py::arg("length_proportion_prior")=py::none(),py::arg("solve_options")=skellyforge::ChainSolveOptions{},py::arg("free_length_rest_prior")=false,py::call_guard<py::gil_scoped_release>());
+    py::arg("position_scale"),py::arg("linear_acceleration_scale"),py::arg("angular_acceleration_scale"),py::arg("allow_displacement")=false,py::arg("displacement_scale")=skellyforge::kDefaultDisplacementScale,py::arg("displacement_acceleration_scale")=skellyforge::kDefaultDisplacementAccelerationScale,py::arg("displacement_bound")=skellyforge::kDefaultDisplacementBound,py::arg("parent_indices")=std::vector<int>{0,1},py::arg("initial_quaternions")=std::vector<skellyforge::ChainQuaternions>{},py::arg("initial_roots")=std::vector<skellyforge::Vec3>{},py::arg("rest_relative_quaternions")=skellyforge::ChainQuaternions{},py::arg("rest_pose_scale")=skellyforge::kDefaultRestPoseScale,py::arg("axial_reference_lengths")=std::vector<double>{},py::arg("length_prior_fraction")=skellyforge::kDefaultLengthPriorFraction,py::arg("length_acceleration_scale")=skellyforge::kDefaultLengthAccelerationScale,py::arg("observation_indices")=std::vector<std::vector<std::vector<int>>>{},py::arg("lengthening_prior_fraction")=py::none(),py::arg("free_axial_lengths")=false,py::arg("landmark_line_prior")=py::none(),py::arg("relaxed_linkage_children")=std::vector<int>{},py::arg("linkage_scale")=skellyforge::kDefaultLinkageScale,py::arg("linkage_acceleration_scale")=skellyforge::kDefaultLinkageAccelerationScale,py::arg("length_equality_prior")=py::none(),py::arg("length_proportion_prior")=py::none(),py::arg("solve_options")=skellyforge::ChainSolveOptions{},py::arg("free_length_rest_prior")=false,py::arg("shared_axial_length")=py::none(),py::arg("segment_axis_prior")=py::none(),py::arg("relative_twist_priors")=std::vector<skellyforge::RelativeTwistPrior>{},py::arg("landmark_half_space_prior")=py::none(),py::call_guard<py::gil_scoped_release>());
 
   py::class_<skellyforge::LinkedSequenceFit>(m,"LinkedSequenceFit")
     .def_readonly("quaternions",&skellyforge::LinkedSequenceFit::quaternions)

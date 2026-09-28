@@ -36,14 +36,27 @@ class WindowSequenceFit:
         return getattr(self.final,name)
 
 
-def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, initial_function_tolerance=None, progress=None):
+def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERATIONS, function_tolerance=DEFAULT_FUNCTION_TOLERANCE, initial_function_tolerance=None, progress=None, fixed_length_segments=()):
     if active_frames<3 or not isinstance(active_frames,int):
         raise ValueError('Active window must contain at least three frames')
     if arguments.get('allow_displacement'):
         raise ValueError('Window experiment uses general shoulder linkages, not legacy axial displacement')
     if 'solve_options' in arguments:
         raise ValueError('Window controller owns solve_options')
-    args=dict(arguments);times=np.asarray(args['times'],dtype=float);n=len(times)
+    args=dict(arguments)
+    position_priors=args.pop('landmark_position_priors', [])
+    huber_scale=args.pop('landmark_huber_scale_mm',0.)
+    prior_targets=[p.targets for p in position_priors]
+    def sliced_position_priors(lo,hi):
+        result=[]
+        for source,targets in zip(position_priors,prior_targets):
+            p=_native.LandmarkPositionPrior()
+            p.segment=source.segment;p.local_point=source.local_point;p.scale=source.scale
+            p.targets=targets[lo:hi];result.append(p)
+        return result
+    times=np.asarray(args['times'],dtype=float);n=len(times)
+    if any(len(targets)!=n for targets in prior_targets):
+        raise ValueError('Position prior targets must match the full recording timestamps')
     if active_frames>n:raise ValueError('Window exceeds recording length')
     if not args.get('initial_quaternions') or not args.get('initial_roots'):
         raise ValueError('Window fitting requires explicit segment/root initialization')
@@ -52,6 +65,10 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     bodies=len(args['local']);references=args.get('axial_reference_lengths') or [0.]*bodies
     lengths=[list(references) for _ in times]
     displacements=[[[0.,0.,0.] for _ in range(bodies)] for _ in times]
+    axis_prior=args.get('segment_axis_prior')
+    axis_frames=axis_prior.frames if axis_prior is not None else None
+    half_space=args.get('landmark_half_space_prior')
+    half_frames=half_space.frames if half_space is not None else None
     prior=args.get('landmark_line_prior')
     # This native vector also copies on access; slice a single Python snapshot.
     line_frames=prior.frames if prior is not None else None
@@ -71,7 +88,18 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             sliced=_native.LandmarkLinePrior()
             for name in ('segment','local_point','distance_scale','anterior_scale'):setattr(sliced,name,getattr(prior,name))
             sliced.frames=line_frames[lo:hi];window['landmark_line_prior']=sliced
+        if half_space is not None:
+            sliced_half=_native.LandmarkHalfSpacePrior()
+            for name in ('segment','local_point','scale'):setattr(sliced_half,name,getattr(half_space,name))
+            sliced_half.frames=half_frames[lo:hi];window['landmark_half_space_prior']=sliced_half
+        if axis_prior is not None:
+            sliced_axis=_native.SegmentAxisPrior()
+            for name in ('segment','local_lateral','local_anterior','scale'):setattr(sliced_axis,name,getattr(axis_prior,name))
+            sliced_axis.frames=axis_frames[lo:hi];window['segment_axis_prior']=sliced_axis
         options=_native.ChainSolveOptions()
+        options.landmark_position_priors=sliced_position_priors(lo,hi)
+        options.landmark_huber_scale_mm=huber_scale
+        options.fixed_length_segments=list(fixed_length_segments)
         options.initial_lengths=lengths[lo:hi];options.initial_linkage_displacements=displacements[lo:hi]
         options.frame_weights=weights[lo:hi].tolist();options.fixed_prefix_frames=first-lo
         options.function_tolerance=initial_function_tolerance if first==0 and initial_function_tolerance is not None else function_tolerance
@@ -95,6 +123,9 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             report=result.report,full_report=result.full_report))
         if progress:progress(trace[-1],n-active_frames+1)
     options=_native.ChainSolveOptions()
+    options.landmark_position_priors=sliced_position_priors(0,n)
+    options.landmark_huber_scale_mm=huber_scale
+    options.fixed_length_segments=list(fixed_length_segments)
     options.initial_lengths=lengths;options.initial_linkage_displacements=displacements
     options.frame_weights=weights.tolist();options.max_iterations=max_iterations
     options.function_tolerance=function_tolerance
@@ -112,6 +143,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         initialization='Saved segment/root poses for first window; overlapping states retained; new frames copy the preceding fitted root, quaternions, lengths and shoulder displacements.',
         boundary='Two preceding committed frames fixed with SetParameterBlockConstant; active frames remain adjustable. No marginalization or averaging.',
         latency='At least active_frames minus one intervals of pose lookahead. This offline prototype uses full-recording timestamp weights, prepared scale and initialization; it is not an end-to-end live pipeline.')
+    if fixed_length_segments:processing['fixed_length_segments']=list(fixed_length_segments)
     converged=all(w['converged'] for w in trace)
     report=f'{len(trace)} sequential windows; {sum(w["converged"] for w in trace)} converged. '+'Final full-sequence evaluation only; no global optimization.'
     return WindowSequenceFit(final,processing,window_seconds+final.seconds,converged,report,
@@ -122,6 +154,10 @@ def refine_window_result(arguments, window_result, *, max_iterations=DEFAULT_MAX
     """One post-hoc solve initialized by every windowed parameter; no repeated windows."""
     source=window_result.final
     options=_native.ChainSolveOptions()
+    arguments=dict(arguments)
+    options.landmark_position_priors=arguments.pop('landmark_position_priors', [])
+    options.landmark_huber_scale_mm=arguments.pop('landmark_huber_scale_mm',0.)
+    options.fixed_length_segments=window_result.processing.get('fixed_length_segments',[])
     options.initial_lengths=source.lengths;options.initial_linkage_displacements=source.linkage_displacements
     options.frame_weights=frame_weights(arguments['times']).tolist();options.max_iterations=max_iterations
     options.function_tolerance=function_tolerance

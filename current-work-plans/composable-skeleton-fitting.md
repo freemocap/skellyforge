@@ -1,5 +1,9 @@
 # Composable skeleton fitting and non-rigid linkages
 
+Historical architecture proposal. For current implementation status and execution
+order, start at [the solver restart checkpoint](solver-restart.md). The scaffold-only
+status below describes September 25, not the current native solver capabilities.
+
 Status: implementation design, 2026-09-25. The C++ build scaffold and scalar smoke
 solve are implemented; skeleton mathematics and saved recordings are unchanged.
 See `../cpp/README.md` for native dependencies and build commands.

@@ -3,6 +3,7 @@
 #include <ceres/ceres.h>
 #include <Eigen/Geometry>
 #include <cmath>
+#include <algorithm>
 #include <stdexcept>
 namespace skellyforge {
 namespace {
@@ -27,6 +28,38 @@ template <typename T> void chain_translation(T const* const* blocks,size_t targe
     for(int k=0;k<3;++k) translation[k]+=ra[k]-rb[k];
   }
 }
+// Swing-twist decomposition of the rest-relative quaternion. Penalize the
+// twist quaternion's vector part (2*sin(twist/2)); squared cost is sign invariant.
+struct RelativeTwistResidual {
+  std::array<double,4> reference;
+  Vec3 axis;
+  double weight;
+  template<typename T> bool operator()(const T* parent,const T* child,T* residual)const {
+    T inverse[4]={parent[0],-parent[1],-parent[2],-parent[3]},relative[4],error[4];
+    T rest_inverse[4]={T(reference[0]),T(-reference[1]),T(-reference[2]),T(-reference[3])};
+    ceres::QuaternionProduct(inverse,child,relative);
+    ceres::QuaternionProduct(rest_inverse,relative,error);
+    T axial=T(0);for(int k=0;k<3;++k)axial+=error[k+1]*T(axis[k]);
+    residual[0]=T(2*weight)*axial/sqrt(error[0]*error[0]+axial*axial+T(kAxisProjectionRegularizer*kAxisProjectionRegularizer));
+    return true;
+  }
+};
+// Chord distance in the transverse plane, weighted by projection magnitude.
+// Near axial evidence carries little twist information; do not normalize it.
+struct SegmentAxisResidual {
+  Vec3 lateral,anterior,observed;
+  double weight;
+  template<typename T> bool operator()(const T* q,T* r)const {
+    T x[3],y[3],lx[3],ly[3];
+    for(int k=0;k<3;++k){lx[k]=T(lateral[k]);ly[k]=T(anterior[k]);}
+    ceres::QuaternionRotatePoint(q,lx,x);ceres::QuaternionRotatePoint(q,ly,y);
+    T a=T(0),b=T(0);
+    for(int k=0;k<3;++k){a+=x[k]*T(observed[k]);b+=y[k]*T(observed[k]);}
+    const T norm=sqrt(a*a+b*b+T(kAxisProjectionRegularizer*kAxisProjectionRegularizer));
+    r[0]=b*T(weight);r[1]=(norm-a)*T(weight);
+    return true;
+  }
+};
 struct ChainLandmarkResidual {
   size_t target;
   Vec3 local,observed;
@@ -43,6 +76,18 @@ struct ChainLandmarkResidual {
     if(!references.empty() && references[target]>0)point[2]*=blocks[slots[target]][0]/T(references[target]);
     ceres::QuaternionRotatePoint(blocks[target+1],point,rotated);
     for(int k=0;k<3;++k)residual[k]=(translation[k]+rotated[k]-T(observed[k]))*T(scale);
+    return true;
+  }
+};
+struct ChainLandmarkHalfSpaceResidual {
+  ChainLandmarkResidual point_from_origin;
+  Vec3 normal;
+  double weight;
+  template <typename T> bool operator()(T const* const* blocks,T* residual)const {
+    T delta[3];point_from_origin(blocks,delta);
+    T signed_distance=T(0);
+    for(int k=0;k<3;++k)signed_distance+=delta[k]*T(normal[k]);
+    residual[0]=(signed_distance<T(0)?-signed_distance:T(0))*T(weight);
     return true;
   }
 };
@@ -66,8 +111,17 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   const std::vector<Vec3>& parent_attachments,const std::vector<Vec3>& child_attachments,
   const std::vector<double>& times,double position_scale,
   double linear_acceleration_scale,double angular_acceleration_scale,
-  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior,const std::optional<LengthProportionPrior>& length_proportion_prior,const ChainSolveOptions& solve_options,bool free_length_rest_prior){
+  bool allow_displacement,double displacement_scale,double displacement_acceleration_scale,double displacement_bound,const std::vector<int>& parent_indices,const std::vector<ChainQuaternions>& initial_quaternions,const std::vector<Vec3>& initial_roots,const ChainQuaternions& rest_relative_quaternions,double rest_pose_scale,const std::vector<double>& axial_reference_lengths,double length_prior_fraction,double length_acceleration_scale,const std::vector<std::vector<std::vector<int>>>& observation_indices,std::optional<double> lengthening_prior_fraction,bool free_axial_lengths,const std::optional<LandmarkLinePrior>& landmark_line_prior,const std::vector<int>& relaxed_linkage_children,double linkage_scale,double linkage_acceleration_scale,const std::optional<LengthEqualityPrior>& length_equality_prior,const std::optional<LengthProportionPrior>& length_proportion_prior,const ChainSolveOptions& solve_options,bool free_length_rest_prior,const std::optional<SharedAxialLength>& shared_axial_length,const std::optional<SegmentAxisPrior>& segment_axis_prior,const std::vector<RelativeTwistPrior>& relative_twist_priors,const std::optional<LandmarkHalfSpacePrior>& landmark_half_space_prior){
   const size_t n=times.size(),bodies=local.size();
+  if(!std::isfinite(solve_options.landmark_huber_scale_mm) || solve_options.landmark_huber_scale_mm<0)
+    throw std::invalid_argument("Landmark Huber scale must be finite and nonnegative");
+  for(const auto& p:solve_options.landmark_position_priors){
+    if(p.segment<0 || static_cast<size_t>(p.segment)>=bodies || p.targets.size()!=n || !std::isfinite(p.scale) || p.scale<=0)
+      throw std::invalid_argument("Invalid landmark position prior segment, targets or scale");
+    for(double v:p.local_point)if(!std::isfinite(v))throw std::invalid_argument("Position prior local point must be finite");
+    for(const auto& target:p.targets)for(double v:target)if(!std::isfinite(v))throw std::invalid_argument("Position prior targets must be finite");
+  }
+  std::vector<ceres::ResidualBlockId> position_prior_blocks;
   std::vector<bool> relaxed(bodies,false);
   for(int child:relaxed_linkage_children){
     if(child<=0 || static_cast<size_t>(child)>=bodies || relaxed[child])throw std::invalid_argument("Relaxed linkage children must be unique non-root segments");
@@ -92,6 +146,33 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     for(double reference:axial_reference_lengths)if(!std::isfinite(reference)||reference<0)throw std::invalid_argument("Axial reference lengths must be finite and nonnegative; zero means rigid");
   }
   const std::vector<double> references=axial_reference_lengths.empty()?std::vector<double>(bodies,0.):axial_reference_lengths;
+  for(int b:solve_options.fixed_length_segments){
+    if(b<0 || static_cast<size_t>(b)>=bodies || references[b]<=0)
+      throw std::invalid_argument("Fixed length requires a valid axial segment");
+    if(shared_axial_length)
+      throw std::invalid_argument("Fixed independent lengths cannot be combined with shared lengths");
+    for(const auto& frame:solve_options.initial_lengths)
+      if(frame.size()!=bodies || frame[b]!=references[b])
+        throw std::invalid_argument("Fixed length initialization must equal reference length");
+  }
+  std::vector<double> shares(bodies,0.);
+  if(shared_axial_length){
+    for(const auto& bound:{shared_axial_length->minimum_total,shared_axial_length->maximum_total})
+      if(bound && (!std::isfinite(*bound)||*bound<0))throw std::invalid_argument("Shared length bounds must be finite and nonnegative");
+    if(shared_axial_length->minimum_total && shared_axial_length->maximum_total && *shared_axial_length->minimum_total>*shared_axial_length->maximum_total)
+      throw std::invalid_argument("Shared length minimum exceeds maximum");
+    if(length_proportion_prior || length_equality_prior)
+      throw std::invalid_argument("Shared axial length replaces soft length proportion/equality priors");
+    double total=0.;
+    for(int k=0;k<3;++k){
+      int b=shared_axial_length->segments[k];double ratio=shared_axial_length->ratios[k];
+      if(b<0 || static_cast<size_t>(b)>=bodies || references[b]<=0 || shares[b]!=0. || !std::isfinite(ratio) || ratio<=0)
+        throw std::invalid_argument("Shared axial length requires distinct variable segments and positive finite ratios");
+      shares[b]=ratio;total+=ratio;
+    }
+    if(!std::isfinite(total))throw std::invalid_argument("Shared axial length ratio sum must be finite");
+    for(double& share:shares)share/=total;
+  }
   if(length_equality_prior){
     const auto& prior=*length_equality_prior;
     if(prior.segment_a<0 || prior.segment_b<0 || static_cast<size_t>(prior.segment_a)>=bodies || static_cast<size_t>(prior.segment_b)>=bodies || prior.segment_a==prior.segment_b)
@@ -119,6 +200,32 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     for(int k=0;k<3;++k)proportion_fractions[k]=prior.ratios[k]/total;
   }
   if(n<3||observed.size()!=n)throw std::invalid_argument("At least three matching frames and timestamps are required");
+  if(segment_axis_prior){
+    const auto& p=*segment_axis_prior;
+    auto dot=[](const Vec3& a,const Vec3& b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];};
+    auto unit=[&](const Vec3& v){return std::isfinite(dot(v,v)) && std::abs(dot(v,v)-1.)<kLineBasisTolerance;};
+    if(p.segment<0 || static_cast<size_t>(p.segment)>=bodies || p.frames.size()!=n || !std::isfinite(p.scale) || p.scale<=0 ||
+       !unit(p.local_lateral) || !unit(p.local_anterior) || std::abs(dot(p.local_lateral,p.local_anterior))>kLineBasisTolerance)
+      throw std::invalid_argument("Invalid segment axis prior basis, segment, frames or scale");
+    for(const auto& frame:p.frames)if(frame && !unit(*frame))throw std::invalid_argument("Segment axis evidence must be a finite unit vector");
+  }
+  for(const auto& p:relative_twist_priors){
+    double qnorm=0.,anorm=0.;for(double v:p.reference)qnorm+=v*v;for(double v:p.axis)anorm+=v*v;
+    if(p.parent<0||p.child<0||static_cast<size_t>(p.parent)>=bodies||static_cast<size_t>(p.child)>=bodies||p.parent==p.child||
+       !std::isfinite(p.scale)||p.scale<=0||!std::isfinite(qnorm)||!std::isfinite(anorm)||std::abs(qnorm-1)>kQuaternionSquaredNormTolerance||std::abs(anorm-1)>kLineBasisTolerance)
+      throw std::invalid_argument("Invalid relative twist prior");
+  }
+  if(landmark_half_space_prior){
+    const auto& p=*landmark_half_space_prior;
+    if(p.segment<0||static_cast<size_t>(p.segment)>=bodies||p.frames.size()!=n||!std::isfinite(p.scale)||p.scale<=0)
+      throw std::invalid_argument("Invalid half-space prior segment, frames or scale");
+    for(double v:p.local_point)if(!std::isfinite(v))throw std::invalid_argument("Half-space point must be finite");
+    for(const auto& f:p.frames)if(f){
+      double norm=0.;for(const auto& v:*f)for(double x:v)if(!std::isfinite(x))throw std::invalid_argument("Half-space frame must be finite");
+      for(double x:(*f)[1])norm+=x*x;
+      if(std::abs(norm-1)>kLineBasisTolerance)throw std::invalid_argument("Half-space normal must be unit length");
+    }
+  }
   if(landmark_line_prior){
     const auto& prior=*landmark_line_prior;
     if(prior.segment<0 || static_cast<size_t>(prior.segment)>=bodies || prior.frames.size()!=n)
@@ -212,6 +319,29 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   result.linkage_displacements.resize(n,std::vector<Vec3>(bodies,Vec3{0.,0.,0.}));
   result.lengths.resize(n,references);
   if(!solve_options.initial_lengths.empty())result.lengths=solve_options.initial_lengths;
+  std::vector<double> total_lengths(n,0.);
+  if(shared_axial_length)for(size_t i=0;i<n;++i){
+    const int first=shared_axial_length->segments[0];
+    // Fixed history and evaluation must already satisfy the parameterization.
+    const bool preserve=i<static_cast<size_t>(solve_options.fixed_prefix_frames)||solve_options.evaluate_only;
+    if(preserve){
+      total_lengths[i]=result.lengths[i][first]/shares[first];
+      if((shared_axial_length->minimum_total && total_lengths[i]<*shared_axial_length->minimum_total-kSharedLengthRelativeTolerance)||
+         (shared_axial_length->maximum_total && total_lengths[i]>*shared_axial_length->maximum_total+kSharedLengthRelativeTolerance))
+        throw std::invalid_argument("Fixed/evaluated shared length violates bounds");
+      for(int b:shared_axial_length->segments)
+        if(std::abs(result.lengths[i][b]-shares[b]*total_lengths[i])>kSharedLengthRelativeTolerance*std::max(1.,total_lengths[i]))
+          throw std::invalid_argument("Fixed/evaluated shared lengths must satisfy their ratios");
+    }else{
+      for(int b:shared_axial_length->segments)total_lengths[i]+=result.lengths[i][b];
+      if(shared_axial_length->minimum_total)total_lengths[i]=std::max(total_lengths[i],*shared_axial_length->minimum_total);
+      if(shared_axial_length->maximum_total)total_lengths[i]=std::min(total_lengths[i],*shared_axial_length->maximum_total);
+      for(int b:shared_axial_length->segments)result.lengths[i][b]=shares[b]*total_lengths[i];
+    }
+  }
+  auto length_pointer=[&](size_t i,size_t b){return shares[b]>0?&total_lengths[i]:&result.lengths[i][b];};
+  // FK uses length/reference: total/(reference/share) equals the physical segment scale.
+  auto parameter_reference=[&](size_t b){return shares[b]>0?references[b]/shares[b]:references[b];};
   if(!solve_options.initial_linkage_displacements.empty())result.linkage_displacements=solve_options.initial_linkage_displacements;
   result.quaternions.resize(n,ChainQuaternions(bodies));result.roots.resize(n);
   result.translations.resize(n,std::vector<Vec3>(bodies));
@@ -243,8 +373,13 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         if(node){pa.push_back(parent_attachments[node-1]);ca.push_back(child_attachments[node-1]);}
       }
       for(auto node:paths[b]){
-        path_references.push_back(references[node]);slots.push_back(-1);
-        if(references[node]>0){slots.back()=static_cast<int>(blocks.size());blocks.push_back(&result.lengths[i][node]);}
+        path_references.push_back(parameter_reference(node));slots.push_back(-1);
+        if(references[node]>0){
+          auto* pointer=length_pointer(i,node);
+          auto found=std::find(blocks.begin(),blocks.end(),pointer);
+          slots.back()=static_cast<int>(found-blocks.begin());
+          if(found==blocks.end())blocks.push_back(pointer);
+        }
       }
       std::vector<int> linkage_slots;
       for(auto node:paths[b]){
@@ -256,22 +391,35 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
   }};
   translations();result.initial_quaternions=result.quaternions;result.initial_translations=result.translations;
   ceres::Problem problem;
-  std::vector<ceres::ResidualBlockId> landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities,length_proportions;
+  std::vector<ceres::ResidualBlockId> half_space_blocks,twist_blocks,axis_blocks,landmark_blocks,line_blocks,root_blocks,linkage_priors,linkage_motion,displacement_priors,displacement_motion,relative_pose_blocks,length_priors,length_motion,length_equalities,length_proportions;
   std::vector<std::vector<ceres::ResidualBlockId>> angular_blocks(bodies);
   for(size_t i=0;i<n;++i){
     problem.AddParameterBlock(result.roots[i].data(),3);
     for(size_t b=0;b<bodies;++b)if(references[b]>0){
-      problem.AddParameterBlock(&result.lengths[i][b],1);
+      auto* length=length_pointer(i,b);
+      const double reference=parameter_reference(b);
+      problem.AddParameterBlock(length,1);
       // Free-length diagnostic: retain only the nonnegative length domain.
-      if(free_axial_lengths)problem.SetParameterLowerBound(&result.lengths[i][b],0,0.);
+      if(free_axial_lengths)problem.SetParameterLowerBound(length,0,0.);
       else {
-        problem.SetParameterLowerBound(&result.lengths[i][b],0,kAxialLengthMinimumFraction*references[b]);
-        problem.SetParameterUpperBound(&result.lengths[i][b],0,kAxialLengthMaximumFraction*references[b]);
+        double lower=kAxialLengthMinimumFraction*reference,upper=kAxialLengthMaximumFraction*reference;
+        if(shares[b]>0)for(int member:shared_axial_length->segments){
+          lower=std::max(lower,kAxialLengthMinimumFraction*parameter_reference(member));
+          upper=std::min(upper,kAxialLengthMaximumFraction*parameter_reference(member));
+        }
+        if(lower>upper)throw std::invalid_argument("Shared axial length bounds have no common interval");
+        problem.SetParameterLowerBound(length,0,lower);
+        problem.SetParameterUpperBound(length,0,upper);
+      }
+      if(shares[b]>0){
+        if(shared_axial_length->minimum_total)problem.SetParameterLowerBound(length,0,std::max(problem.GetParameterLowerBound(length,0),*shared_axial_length->minimum_total));
+        if(shared_axial_length->maximum_total)problem.SetParameterUpperBound(length,0,std::min(problem.GetParameterUpperBound(length,0),*shared_axial_length->maximum_total));
+        if(problem.GetParameterLowerBound(length,0)>problem.GetParameterUpperBound(length,0))throw std::invalid_argument("Shared length bounds conflict with segment bounds");
       }
       if(!free_axial_lengths || free_length_rest_prior){
         length_priors.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<LengthPriorResidual,1,1>(
-          new LengthPriorResidual{references[b],std::sqrt(weights[i])/(length_prior_fraction*references[b]),
-            std::sqrt(weights[i])/(extension_fraction*references[b])}),nullptr,&result.lengths[i][b]));
+          new LengthPriorResidual{reference,std::sqrt(weights[i])/(length_prior_fraction*reference),
+            std::sqrt(weights[i])/(extension_fraction*reference)}),nullptr,length));
       }
     }
     if(length_proportion_prior){
@@ -300,6 +448,15 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         new DisplacementPriorResidual{std::sqrt(weights[i])/displacement_scale}),nullptr,&result.displacements[i]));
     }
     for(size_t b=0;b<bodies;++b)problem.AddParameterBlock(result.quaternions[i][b].data(),4,new ceres::QuaternionManifold());
+    if(segment_axis_prior && segment_axis_prior->frames[i]){
+      const auto& p=*segment_axis_prior;
+      axis_blocks.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<SegmentAxisResidual,2,4>(
+        new SegmentAxisResidual{p.local_lateral,p.local_anterior,*p.frames[i],std::sqrt(weights[i])/p.scale}),nullptr,result.quaternions[i][p.segment].data()));
+    }
+    for(const auto& p:relative_twist_priors)
+      twist_blocks.push_back(problem.AddResidualBlock(new ceres::AutoDiffCostFunction<RelativeTwistResidual,1,4,4>(
+        new RelativeTwistResidual{p.reference,p.axis,std::sqrt(weights[i])/p.scale}),nullptr,
+        result.quaternions[i][p.parent].data(),result.quaternions[i][p.child].data()));
     if(!rest_relative_quaternions.empty())for(size_t b=1;b<bodies;++b)
       relative_pose_blocks.push_back(problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<RelativePoseResidual,3,4,4>(new RelativePoseResidual{rest_relative_quaternions[b-1],std::sqrt(weights[i])/rest_pose_scale}),nullptr,
@@ -313,10 +470,17 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         if(node){pa.push_back(parent_attachments[node-1]);ca.push_back(child_attachments[node-1]);}
       }
       if(allow_displacement && b==2)blocks.push_back(&result.displacements[i]);
+      const size_t length_blocks_start=blocks.size();
       for(auto node:paths[b]){
-        path_references.push_back(references[node]);slots.push_back(-1);
-        if(references[node]>0){slots.back()=static_cast<int>(blocks.size());blocks.push_back(&result.lengths[i][node]);}
+        path_references.push_back(parameter_reference(node));slots.push_back(-1);
+        if(references[node]>0){
+          auto* pointer=length_pointer(i,node);
+          auto found=std::find(blocks.begin(),blocks.end(),pointer);
+          slots.back()=static_cast<int>(found-blocks.begin());
+          if(found==blocks.end())blocks.push_back(pointer);
+        }
       }
+      const size_t length_block_count=blocks.size()-length_blocks_start;
       std::vector<int> linkage_slots;
       for(auto node:paths[b]){
         linkage_slots.push_back(-1);
@@ -327,10 +491,38 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
           paths[b].size()-1,local[b][indexed?observation_indices[i][b][j]:j],observed[i][b][j],pa,ca,std::sqrt(weights[i])/position_scale,allow_displacement&&b==2,path_references,slots,linkage_slots});
         cost->AddParameterBlock(3);for(size_t k=0;k<paths[b].size();++k)cost->AddParameterBlock(4);
         if(allow_displacement && b==2)cost->AddParameterBlock(1);
-        for(double reference:path_references)if(reference>0)cost->AddParameterBlock(1);
+        for(size_t slot=0;slot<length_block_count;++slot)cost->AddParameterBlock(1);
         for(auto node:paths[b])if(relaxed[node])cost->AddParameterBlock(3);
         cost->SetNumResiduals(3);
-        landmark_blocks.push_back(problem.AddResidualBlock(cost,nullptr,blocks));
+        // Residuals already contain quadrature weights. Scale the transition by
+        // the same factor so the outlier threshold remains in mm at every FPS.
+        ceres::LossFunction* loss=solve_options.landmark_huber_scale_mm>0
+          ? new ceres::HuberLoss(std::sqrt(weights[i])*solve_options.landmark_huber_scale_mm/position_scale)
+          : nullptr;
+        landmark_blocks.push_back(problem.AddResidualBlock(cost,loss,blocks));
+      }
+      for(const auto& prior:solve_options.landmark_position_priors){
+        if(prior.segment!=static_cast<int>(b))continue;
+        auto* cost=new ceres::DynamicAutoDiffCostFunction<ChainLandmarkResidual>(new ChainLandmarkResidual{
+          paths[b].size()-1,prior.local_point,prior.targets[i],pa,ca,std::sqrt(weights[i])/prior.scale,allow_displacement&&b==2,path_references,slots,linkage_slots});
+        cost->AddParameterBlock(3);for(size_t k=0;k<paths[b].size();++k)cost->AddParameterBlock(4);
+        if(allow_displacement && b==2)cost->AddParameterBlock(1);
+        for(size_t slot=0;slot<length_block_count;++slot)cost->AddParameterBlock(1);
+        for(auto node:paths[b])if(relaxed[node])cost->AddParameterBlock(3);
+        cost->SetNumResiduals(3);
+        position_prior_blocks.push_back(problem.AddResidualBlock(cost,nullptr,blocks));
+      }
+      if(landmark_half_space_prior && landmark_half_space_prior->segment==static_cast<int>(b) && landmark_half_space_prior->frames[i]){
+        const auto& prior=*landmark_half_space_prior;const auto& frame=*prior.frames[i];
+        auto* cost=new ceres::DynamicAutoDiffCostFunction<ChainLandmarkHalfSpaceResidual>(new ChainLandmarkHalfSpaceResidual{
+          {paths[b].size()-1,prior.local_point,frame[0],pa,ca,1.,allow_displacement&&b==2,path_references,slots,linkage_slots},
+          frame[1],std::sqrt(weights[i])/prior.scale});
+        cost->AddParameterBlock(3);for(size_t k=0;k<paths[b].size();++k)cost->AddParameterBlock(4);
+        if(allow_displacement && b==2)cost->AddParameterBlock(1);
+        for(size_t slot=0;slot<length_block_count;++slot)cost->AddParameterBlock(1);
+        for(auto node:paths[b])if(relaxed[node])cost->AddParameterBlock(3);
+        cost->SetNumResiduals(1);
+        half_space_blocks.push_back(problem.AddResidualBlock(cost,nullptr,blocks));
       }
       if(landmark_line_prior && landmark_line_prior->segment==static_cast<int>(b) && landmark_line_prior->frames[i]){
         const auto& prior=*landmark_line_prior;const auto& frame=*prior.frames[i];
@@ -339,7 +531,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
           frame[1],frame[2],std::sqrt(weights[i])/prior.distance_scale,std::sqrt(weights[i])/prior.anterior_scale});
         cost->AddParameterBlock(3);for(size_t k=0;k<paths[b].size();++k)cost->AddParameterBlock(4);
         if(allow_displacement && b==2)cost->AddParameterBlock(1);
-        for(double reference:path_references)if(reference>0)cost->AddParameterBlock(1);
+        for(size_t slot=0;slot<length_block_count;++slot)cost->AddParameterBlock(1);
         for(auto node:paths[b])if(relaxed[node])cost->AddParameterBlock(3);
         cost->SetNumResiduals(3);
         line_blocks.push_back(problem.AddResidualBlock(cost,nullptr,blocks));
@@ -350,8 +542,8 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     const double before=times[i]-times[i-1],after=times[i+1]-times[i],midpoint_dt=(before+after)/2;
     for(size_t b=0;b<bodies;++b)if(references[b]>0 && !free_axial_lengths)length_motion.push_back(problem.AddResidualBlock(
       new ceres::AutoDiffCostFunction<DisplacementAccelerationResidual,1,1,1,1>(
-        new DisplacementAccelerationResidual{before,after,1/(length_acceleration_scale*std::sqrt(midpoint_dt))}),nullptr,
-        &result.lengths[i-1][b],&result.lengths[i][b],&result.lengths[i+1][b]));
+        new DisplacementAccelerationResidual{before,after,(shares[b]>0?shares[b]:1.)/(length_acceleration_scale*std::sqrt(midpoint_dt))}),nullptr,
+        length_pointer(i-1,b),length_pointer(i,b),length_pointer(i+1,b)));
     for(int child:relaxed_linkage_children)linkage_motion.push_back(problem.AddResidualBlock(
       new ceres::AutoDiffCostFunction<TranslationAccelerationResidual,3,3,3,3>(
         new TranslationAccelerationResidual{before,after,1/(linkage_acceleration_scale*std::sqrt(midpoint_dt))}),nullptr,
@@ -372,26 +564,36 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     problem.SetParameterBlockConstant(result.roots[i].data());
     for(size_t b=0;b<bodies;++b){
       problem.SetParameterBlockConstant(result.quaternions[i][b].data());
-      if(references[b]>0)problem.SetParameterBlockConstant(&result.lengths[i][b]);
+      if(references[b]>0)problem.SetParameterBlockConstant(length_pointer(i,b));
       if(relaxed[b])problem.SetParameterBlockConstant(result.linkage_displacements[i][b].data());
     }
     if(allow_displacement)problem.SetParameterBlockConstant(&result.displacements[i]);
   }
+  for(size_t i=0;i<n;++i)
+    for(int b:solve_options.fixed_length_segments)
+      problem.SetParameterBlockConstant(length_pointer(i,b));
   ceres::Solver::Options options;options.linear_solver_type=ceres::SPARSE_NORMAL_CHOLESKY;options.logging_type=ceres::SILENT;
   options.max_num_iterations=solve_options.max_iterations;options.function_tolerance=solve_options.function_tolerance;options.gradient_tolerance=kChainGradientTolerance;options.parameter_tolerance=kChainParameterTolerance;
   ceres::Solver::Summary summary;
   if(!solve_options.evaluate_only)ceres::Solve(options,&problem,&summary);
+  if(shared_axial_length && !solve_options.evaluate_only)
+    for(size_t i=solve_options.fixed_prefix_frames;i<n;++i)
+      for(int b:shared_axial_length->segments)result.lengths[i][b]=shares[b]*total_lengths[i];
   translations();for(const auto& step:summary.iterations)result.costs.push_back(step.cost);
   auto cost=[&](const std::vector<ceres::ResidualBlockId>& blocks){ceres::Problem::EvaluateOptions e;e.residual_blocks=blocks;double value;
     if(blocks.empty())return 0.;
     if(!problem.Evaluate(e,&value,nullptr,nullptr,nullptr))throw std::runtime_error("Cost evaluation failed");return value;};
   if(allow_displacement){result.displacement_prior_cost=cost(displacement_priors);result.displacement_acceleration_cost=cost(displacement_motion);}
   result.linkage_prior_cost=cost(linkage_priors);result.linkage_acceleration_cost=cost(linkage_motion);
+  result.half_space_cost=cost(half_space_blocks);
+  result.twist_prior_cost=cost(twist_blocks);
+  result.axis_prior_cost=cost(axis_blocks);
   result.length_proportion_cost=cost(length_proportions);
   result.length_equality_cost=cost(length_equalities);
   result.line_prior_cost=cost(line_blocks);
   result.length_prior_cost=cost(length_priors);result.length_acceleration_cost=cost(length_motion);
   result.relative_pose_cost=cost(relative_pose_blocks);
+  result.position_prior_cost=cost(position_prior_blocks);
   result.landmark_cost=cost(landmark_blocks);result.root_acceleration_cost=cost(root_blocks);
   for(const auto& blocks:angular_blocks)result.angular_acceleration_costs.push_back(cost(blocks));
   result.parameter_blocks=problem.NumParameterBlocks();result.residual_blocks=problem.NumResidualBlocks();

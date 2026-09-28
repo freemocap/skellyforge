@@ -1,6 +1,7 @@
 #pragma once
 
 namespace skellyforge {
+inline constexpr double kAxisProjectionRegularizer = 1e-12; // differentiable at zero transverse projection
 inline constexpr double kDefaultLengthProportionScale = 50.; // mm; deviation from target share of total axial length
 inline constexpr double kDefaultLengthEqualityScale = 50.; // mm; soft length-difference residual scale
 inline constexpr double kDefaultLinkageScale = 10.; // mm, experimental residual scale, not an anatomical bound
@@ -14,6 +15,7 @@ inline constexpr double kDefaultDisplacementScale = 20.; // mm
 inline constexpr double kDefaultDisplacementAccelerationScale = 500.; // mm/s^2
 inline constexpr double kDefaultDisplacementBound = 40.; // mm
 inline constexpr double kDefaultRestPoseScale = 1.; // radians
+inline constexpr double kSharedLengthRelativeTolerance = 1e-9; // fixed/evaluated state ratio roundoff
 inline constexpr double kLineBasisTolerance=1e-6;
 inline constexpr double kQuaternionSquaredNormTolerance = 1e-6;
 inline constexpr int kChainMaximumIterations = 200;

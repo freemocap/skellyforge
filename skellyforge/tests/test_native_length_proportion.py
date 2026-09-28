@@ -25,6 +25,28 @@ def prior(ratios=(18.,20.,6.3),segments=(0,1,2),scale=50.):
     return p
 
 
+def test_fixed_axial_block_stays_at_reference_while_neighbors_fit():
+    args, _ = inputs()
+    options = _native.ChainSolveOptions()
+    options.fixed_length_segments = [2]
+    result = _native.fit_chain_sequence(**args, solve_options=options, length_proportion_prior=prior())
+    np.testing.assert_array_equal(np.asarray(result.lengths)[:, 2], [80.]*3)
+    assert np.max(np.asarray(result.lengths)[:, :2]) > 160
+    assert result.usable
+    options.initial_lengths = [[80., 80., 81.]]*3
+    with pytest.raises(ValueError, match='Fixed length initialization'):
+        _native.fit_chain_sequence(**args, solve_options=options)
+
+
+@pytest.mark.parametrize('segment', [-1, 3])
+def test_fixed_length_rejects_invalid_segment(segment):
+    args, _ = inputs()
+    options = _native.ChainSolveOptions()
+    options.fixed_length_segments = [segment]
+    with pytest.raises(ValueError, match='Fixed length requires'):
+        _native.fit_chain_sequence(**args, solve_options=options)
+
+
 def test_rest_prior_can_be_enabled_without_bounds_or_length_smoothing():
     args, _ = inputs()
     baseline = _native.fit_chain_sequence(**args)

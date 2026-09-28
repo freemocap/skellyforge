@@ -23,15 +23,17 @@ def test_native_sequence_arrays_are_read_once(inputs):
 
     def evaluate(**kwargs):
         assert kwargs['length_proportion_prior'].ratios == [20., 20., 13.]
+        assert kwargs['landmark_line_prior'].distance_scale == 10.
         options = _native.ChainSolveOptions()
         options.evaluate_only = True
         return CountedResult(_native.fit_chain_sequence(**kwargs, solve_options=options))
 
     catalog = recording_body_catalog(recording_path(), 200, 202, free_axial_lengths=True,
-                           chest_line_prior=True, shoulder_profile='lower_sc',
+                           chest_line_prior=True, chest_line_distance_scale=10., shoulder_profile='lower_sc',
                            relaxed_shoulders=True, proportional_spine_lengths=True,
                            spine_proportion_ratios=(20., 20., 13.), solve_sequence=evaluate)
     prior = catalog['runs'][0]['methods']['full_body']['settings']['length_proportion_prior']
+    assert catalog['runs'][0]['methods']['full_body']['settings']['chest_line_prior']['distance_scale_mm'] == 10.
     assert prior['ratios'] == [20., 20., 13.]
     assert prior['fractions'] == pytest.approx([20/53, 20/53, 13/53])
     for name in ('quaternions', 'translations', 'initial_quaternions',
@@ -89,7 +91,20 @@ def test_direct_keypoint_targets_do_not_require_saved_reconstruction(inputs):
     assert frame_targets({**record,'points':{}},model)==before
 
 
-def test_missing_tail_keypoints_only_changes_initialization(monkeypatch,inputs):
+@pytest.fixture
+def missing_tail(monkeypatch):
+    """Exercise absent input explicitly; prepared recordings now fill their gaps."""
+    from scripts import solver_recording_body as adapter
+    original = adapter.read_recording
+    def read_with_missing_tail(*args, **kwargs):
+        records, scale, provenance = original(*args, **kwargs)
+        records = [{**r, 'keypoints': {}, 'points': {}, 'origins': {}, 'rotations': {}}
+                   if r['number'] >= 216 else r for r in records]
+        return records, scale, provenance
+    monkeypatch.setattr(adapter, 'read_recording', read_with_missing_tail)
+
+
+def test_missing_tail_keypoints_only_changes_initialization(monkeypatch,inputs,missing_tail):
     import numpy as np
     from scripts import solver_recording_body as adapter
     captured={}
@@ -112,7 +127,7 @@ def test_missing_tail_keypoints_only_changes_initialization(monkeypatch,inputs):
         assert len(captured['initial_quaternions'][i])==61
 
 
-def test_interval_without_any_saved_root_seed_is_explicit_error(inputs):
+def test_interval_without_any_saved_root_seed_is_explicit_error(inputs,missing_tail):
     from scripts.solver_recording_body import recording_body_catalog
     with pytest.raises(ValueError,match='No saved root pose available'):
         recording_body_catalog(recording_path(),216,221)
