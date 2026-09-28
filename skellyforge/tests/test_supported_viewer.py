@@ -34,6 +34,9 @@ def test_server_reports_missing_fits_and_restricts_file_roots(tmp_path):
         status = json.loads(urlopen(base+'/status').read())
         assert not status['test']['available']
         assert b'Pipeline viewer' in urlopen(base+'/').read()
+        assert b'Motion review' in urlopen(base+'/simple').read()
+        assert b'fittedEndpoint' in urlopen(base+'/simple.js').read()
+        assert b'--video-width' in urlopen(base+'/simple.css').read()
         assert b'createComparisonScene' in urlopen(base+'/recording_comparison_scene.js').read()
         with pytest.raises(HTTPError) as error:
             urlopen(base+'/test')

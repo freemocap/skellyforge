@@ -27,6 +27,7 @@ class Viewer:
     def __init__(self, results, captures, media):
         self.results, self.captures, self.media = map(Path, (results, captures, media))
         self.pages = {}
+        self.review_data = {}
         self.status = {}
         try:
             from .synthetic_fit import source_hashes
@@ -50,6 +51,7 @@ class Viewer:
                 if digest != source['sha256']:
                     raise ValueError('Saved fit uses a different Parquet revision; regenerate it')
                 data = comparison_data([candidate])
+                self.review_data[name] = json.dumps(data, allow_nan=False).encode("utf-8")
                 page = (asset_directory() / 'recording_comparison.html.template').read_text(encoding='utf-8')
                 page = page.replace('__ALTERNATE_VIEW__', '')
                 page = page.replace('__DATA__', json.dumps(data, allow_nan=False).replace('<', '\\u003c'))
@@ -84,6 +86,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == '/':
                 return self.send(Path(__file__).with_name('index.html').read_bytes())
+            if path in ('/simple', '/simple.js', '/simple.css'):
+                name = 'index.html' if path == '/simple' else path[1:]
+                target = Path(__file__).with_name('simple') / name
+                return self.send(target.read_bytes(), mimetypes.guess_type(target.name)[0] + '; charset=utf-8')
+            if path.startswith('/review-data/'):
+                name = path.removeprefix('/review-data/')
+                if name == 'synthetic' and self.viewer.synthetic_fit is not None:
+                    return self.send(json.dumps(self.viewer.synthetic_fit, allow_nan=False).encode('utf-8'), 'application/json')
+                if name in self.viewer.review_data:
+                    return self.send(self.viewer.review_data[name], 'application/json')
+                raise FileNotFoundError('Saved fit unavailable; see the original viewer Source & status panel')
             if path == '/status':
                 return self.send(json.dumps(self.viewer.status).encode('utf-8'), 'application/json')
             if path == '/synthetic-fit':
@@ -152,9 +165,9 @@ class Handler(BaseHTTPRequestHandler):
         logger.debug(format, *args)
 
 
-def serve(viewer, port):
+def serve(viewer, port, *, landing='/'):
     with ThreadingHTTPServer(('127.0.0.1', port), partial(Handler, viewer=viewer)) as server:
-        logger.info('SkellyForge viewer: http://127.0.0.1:%d', server.server_port)
+        logger.info('SkellyForge viewer: http://127.0.0.1:%d%s', server.server_port, landing)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

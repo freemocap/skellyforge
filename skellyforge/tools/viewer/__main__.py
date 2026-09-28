@@ -6,6 +6,7 @@ from skellyforge.tools.logging_setup import configure_standalone_logging
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--simple', action='store_true', help='Print the streamlined motion-review URL')
     parser.add_argument('--port', type=int, default=8774)
     parser.add_argument('--results', type=Path, default=Path('build/spine_positions'))
     parser.add_argument('--captures', type=Path, default=Path('scripts/.solver_inspections'))
@@ -17,7 +18,7 @@ def main():
         from .synthetic_fit import prepare
         prepare(args.results)
     from .server import Viewer, serve
-    serve(Viewer(args.results, args.captures, args.media), args.port)
+    serve(Viewer(args.results, args.captures, args.media), args.port, landing='/simple' if args.simple else '/')
 
 
 if __name__ == '__main__':

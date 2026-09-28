@@ -78,3 +78,37 @@ only viewer assets, designated captures and designated JPEG previews.
 
 FreeMoCap stage/UI/Parquet integration and exporters remain separate repository
 stages after Forge sign-off.
+
+
+## Simple motion review
+
+`uv run --no-sync poe motion-viewer` starts the new streamlined viewer at
+http://127.0.0.1:8775/simple. The detailed viewer at port 8774 remains unchanged.
+Both use the same accepted saved results; no fit is recomputed by switching
+views. The new HTML/CSS/JS are under `tools/viewer/simple/`.
+
+Choose Synthetic, Test or Sample. Fitted sticks use red for the left side, blue
+for the right, and pale gray for central segments. Reference segments are a
+bright amber overlay (hydrated segments for synthetic data, saved post-hoc segments
+for recordings). Keypoints are solid teal dots; mapped landmarks are gold wire
+spheres. Hover identifies each object. Synthetic keypoint display is disabled
+because that saved visualization provides landmark inputs rather than a separate
+tracker point set. Synthetic playback is the existing all-motion Ceres fixture.
+
+Annotated video sits to the left with a draggable divider. Bottom controls offer
+scrubbing, previous/next frame, play/pause, loop and playback speed. No solver
+settings, tables, charts, axis annotations or residual graphs are added here;
+the Detailed viewer link retains access to those diagnostics. This is a
+presentation-only change, with unchanged fitted geometry and source data.
+
+With the server running, `poe test-motion-viewer` checks all three datasets,
+rendered stick endpoints, layer toggles, playback and stale video-image rejection.
+
+
+Simple-view axes: **Skeleton axes** and **Reference axes** are independent
+visibility toggles, separate from the sticks. X/Y/Z use red/green/blue. Each
+helper has an origin sphere with a hover identity (solid pale fitted origins,
+wire amber reference origins). Reference recording bases come from saved segment
+rotations; fitted bases come from the saved Ceres wxyz quaternions. Synthetic
+bases use their saved hydration/Ceres basis vectors. Roll is never reconstructed
+from endpoints. Hand helpers are smaller to keep the fingers readable.

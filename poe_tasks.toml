@@ -2,6 +2,8 @@
 PYTHONUTF8 = "1"
 
 [tool.poe.tasks]
+test-motion-viewer = "node scripts/check_simple_viewer.cjs"
+motion-viewer = "python -m skellyforge.tools.viewer --simple --port 8775"
 viewer = "python -m skellyforge.tools.viewer"
 solver-viewer-context = "python -m scripts.solver_recording_context"
 solver-viewer-recording = "python -m scripts.solver_recording_torso"
