@@ -362,7 +362,9 @@ and accepted fit artifacts are unchanged.
 Validation: 55 focused Python tests; existing Node recording control/geometry
 and native graph checks pass. HTTP checks loaded all three saved fit views.
 Browser visual review is pending because no browser connection was available.
-Clean installed-wheel validation is blocked by SkellyLogs package discovery;
-see cpp/WHEEL_VALIDATION.md. Recording-fit preparation still lives in scripts
+The SkellyLogs packaging blocker is now resolved. Installed Windows validation
+passes on 222 test frames and 1108 sample frames with exact agreement against
+accepted saved quaternions, translations and axial lengths; see
+cpp/WHEEL_VALIDATION.md. Recording-fit preparation still lives in scripts
 and must be packaged before complete Forge sign-off. See tools/viewer/README.md
 for the supported commands and explicit remaining scope.

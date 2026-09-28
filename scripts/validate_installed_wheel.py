@@ -1,6 +1,6 @@
 """Validate a wheel from an isolated interpreter, using prepared reference inputs.
 
-prepare reads the local test recording. run imports only installed packages;
+prepare reads the selected local recording. run imports only installed packages;
 invoke it with Python -I and a working directory outside the repository.
 """
 import argparse
@@ -11,15 +11,18 @@ import sys
 from time import perf_counter
 
 
-def prepare(target):
+def prepare(target, recording='test'):
     import numpy as np
     from scripts.recording_data import read_recording, recording_path
     from skellyforge.tests.test_native_window_sequence import seeded
     from skellyforge.core.skeleton.fitting import fit_windows
-    records,scale,meta=read_recording(recording_path('test'),include_model=True)
+    records,scale,meta=read_recording(recording_path(recording),include_model=True)
     synthetic,_=seeded()
     reference=fit_windows(synthetic)
-    candidate=json.loads(Path('build/spine_positions/test/candidate.json').read_text())
+    folder = Path('build/spine_positions')
+    if recording == 'test':
+        folder /= 'test'
+    candidate=json.loads((folder/'candidate.json').read_text(encoding='utf-8'))
     assert candidate['metadata']['recording']['sha256']==meta['sha256']
     method=candidate['runs'][0]['methods']['full_body']
     payload=dict(skeleton=meta['skeleton'],saved_model=meta['model'],scales=scale.segment_scales,
@@ -80,8 +83,9 @@ def main():
     parser.add_argument('action',choices=('prepare','run'))
     parser.add_argument('--inputs',type=Path,required=True)
     parser.add_argument('--report',type=Path)
+    parser.add_argument('--recording', choices=('test', 'sample'), default='test')
     args=parser.parse_args()
-    if args.action=='prepare':prepare(args.inputs)
+    if args.action=='prepare':prepare(args.inputs, args.recording)
     else:
         if args.report is None:parser.error('run requires --report')
         run(args.inputs,args.report)

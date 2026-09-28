@@ -42,11 +42,12 @@ first post-hoc integration.
 
 ## Integration order
 
-1. Finish the distribution handoff. Clean-install validation currently fails on
-   the published SkellyLogs archive's automatic package discovery (`notes` and
-   `skellylogs`). Fix that in its repository with its own human commit/push, then
-   repeat installed Forge validation with the dependency retained. Recheck this
-   blocker against current code before editing; the human may have fixed it.
+1. Local Windows distribution check complete (2026-09-28). The published
+   SkellyLogs package-discovery fix installs with the required dependency retained.
+   Rebuilt Forge passes installed test/sample comparisons with zero differences
+   in quaternions, translations and axial lengths. Packaged viewer routes and
+   synthetic generation pass. See `cpp/WHEEL_VALIDATION.md` for reproduction,
+   timings and platform limitations.
 2. Confirm the packaged `fit_human` input/output contract and installed native
    extension on prepared test/sample data. Recording preparation still has script
    adapters; reuse their existing contract rather than inventing another solver.
