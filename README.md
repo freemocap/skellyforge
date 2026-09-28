@@ -121,3 +121,13 @@ gitignored; regenerate it rather than committing it.
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE).
+
+
+## Pipeline viewer
+
+Run `uv run --no-sync poe viewer --prepare-synthetic-fit` from this checkout,
+then open **http://127.0.0.1:8774/**. Subsequent starts can omit the preparation
+flag. The viewer brings synthetic motion, accepted test/sample fits and actual
+Ceres parameter/residual inspection together. See
+[viewer instructions](skellyforge/tools/viewer/README.md) for inputs, layers,
+installed usage and current limitations.

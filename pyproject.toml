@@ -84,4 +84,5 @@ push            = true
 "skellyforge/__init__.py" = ["{version}"]
 
 [project.scripts]
+skellyforge-viewer = "skellyforge.tools.viewer.__main__:main"
 skellyforge = "skellyforge.__main__:run"

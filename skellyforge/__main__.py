@@ -23,8 +23,8 @@ FACE_YAML_PATH: Path = DEFINITIONS_DIRECTORY / "components" / "face.yaml"
 
 def run() -> None:
     """Load the shipped standard human and print a one-screen summary of it."""
-    from skellylogs import LogLevels, configure_logging
-    configure_logging(LogLevels.INFO, use_websocket=False)
+    from skellyforge.tools.logging_setup import configure_standalone_logging
+    configure_standalone_logging()
     skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
     rest_pose = RestPose.from_yaml(path=REST_POSE_YAML_PATH, skeleton=skeleton)
     face = FaceBlendShapes.from_yaml(path=FACE_YAML_PATH)

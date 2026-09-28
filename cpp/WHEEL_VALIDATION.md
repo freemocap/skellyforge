@@ -94,3 +94,19 @@ Both Python and extension import paths were inside the isolated site-packages.
 The disposable environment was removed after validation; the wheel, compressed
 inputs, report and artifact SHA are retained in ignored build/dist directories.
 Six focused extension/inspection tests also passed in the development environment.
+
+
+## Supported-viewer wheel checkpoint (2026-09-28)
+
+Built the Windows CPython 3.12 wheel with the required SkellyLogs dependency
+retained. It contains the supported viewer Python modules, HTML, shared JS/CSS
+and offline vendor assets (23 entries under tools/viewer). Packaged Python/HTML
+were byte-compared with the source checkout. Source runtime checks pass.
+
+A fresh isolated environment could not install the current published SkellyLogs
+archive at commit `8a11690f11ca88e54adf8da12a88e3e7aeddb5c8`: setuptools reports
+multiple top-level packages `notes` and `skellylogs`. No dependency was removed
+or replaced by a sibling checkout. This requires explicit package discovery in
+SkellyLogs, human commit/push, then a repeat clean install and numerical check.
+Therefore installed-wheel acceptance remains OPEN. The generated wheel is not
+claimed to be validated in a clean runtime environment.

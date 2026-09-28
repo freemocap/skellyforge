@@ -1,4 +1,8 @@
+[tool.poe.env]
+PYTHONUTF8 = "1"
+
 [tool.poe.tasks]
+viewer = "python -m skellyforge.tools.viewer"
 solver-viewer-context = "python -m scripts.solver_recording_context"
 solver-viewer-recording = "python -m scripts.solver_recording_torso"
 test-solver-viewer = "node scripts/check_solver_viewer.cjs"

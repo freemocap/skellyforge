@@ -1,3 +1,5 @@
+const captureDataset = typeof location === 'undefined' ? 'test' : (new URLSearchParams(location.search).get('dataset') || 'test');
+if(captureDataset==='synthetic'){el('recording').src='/synthetic-fit';}
 // Native properties are rendered directly. Only layout, filtering and text
 // formatting live here; no residual equations or connectivity reconstruction.
 Object.assign(mapKinds,{
@@ -70,7 +72,7 @@ function drawNativeProblem(){
 async function loadNativeWindow(){
   const version=++loadVersion;
   try{
-    const response=await fetch('.solver_inspections/test/'+el('window').value,{cache:'no-store'});
+    const response=await fetch('.solver_inspections/'+captureDataset+'/'+el('window').value,{cache:'no-store'});
     if(!response.ok)throw Error(`Window load failed: ${response.status}`);
     const data=await response.json();if(version!==loadVersion)return;nativeWindow=data;
     const previousSegment=el('segment').value;
@@ -85,7 +87,7 @@ async function loadNativeWindow(){
 }
 for(const id of ['state','family','limit','grouped','segment'])el(id).onchange=()=>{ceresMap.autoFit=true;drawNativeProblem();};
 el('window').onchange=loadNativeWindow;
-fetch('.solver_inspections/test/manifest.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Generate inspection windows first');return r.json();}).then(manifest=>{
+fetch('.solver_inspections/'+captureDataset+'/manifest.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Generate inspection windows first');return r.json();}).then(manifest=>{
   for(const w of manifest.windows)el('window').add(new Option(`${w.index}: frames ${w.frame_start}–${w.frame_end}`,w.file));
   return loadNativeWindow();
 }).catch(error=>{el('summary').textContent=error.message;el('summary').className='error';});

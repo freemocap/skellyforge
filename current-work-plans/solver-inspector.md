@@ -340,3 +340,29 @@ Remaining order of work:
    lengths and relaxed shoulder connections require explicit representation or
    projection decisions for a fixed-offset BVH armature; do not silently discard
    those differences or claim exact equivalence to the fitted geometry.
+
+
+### Supported viewer entry point (2026-09-28)
+
+`poe viewer` / `skellyforge-viewer` now presents the synthetic hydration tool,
+accepted test/sample recording fits, and native Ceres captures together on port
+8774. Synthetic and comparison Python code live in tools/viewer; historical
+script entry points delegate to those modules. Existing browser assets are
+installed unchanged by CMake. Standalone streams and Poe Python tasks use UTF-8.
+
+The new optional preparation command `poe viewer --prepare-synthetic-fit` runs a
+60-frame all-motion, ideal full-landmark fixture through `fit_human`. Synthetic
+keypoints have explicit identity mappings; this is NOT a sparse COCO simulation.
+58/58 windows converged (2.556 native seconds, 3.029 sequence wall seconds in this
+run). Its rendered connected bases use the returned Ceres quaternions. Synthetic
+captures are invalidated by fixture/fitting/native source changes. Recording
+views verify the saved source Parquet hash. All existing recording mathematics
+and accepted fit artifacts are unchanged.
+
+Validation: 55 focused Python tests; existing Node recording control/geometry
+and native graph checks pass. HTTP checks loaded all three saved fit views.
+Browser visual review is pending because no browser connection was available.
+Clean installed-wheel validation is blocked by SkellyLogs package discovery;
+see cpp/WHEEL_VALIDATION.md. Recording-fit preparation still lives in scripts
+and must be packaged before complete Forge sign-off. See tools/viewer/README.md
+for the supported commands and explicit remaining scope.
