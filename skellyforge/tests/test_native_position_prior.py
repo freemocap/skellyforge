@@ -8,6 +8,32 @@ from skellyforge.core.skeleton.fitting.window_sequence import fit_windows, frame
 from test_support.geometry import axial_points
 
 
+def test_missing_position_evidence_is_absent_from_the_objective():
+    args, start = seeded()
+    prior = _native.LandmarkPositionPrior()
+    prior.segment = 1
+    prior.local_point = [0., 0., 20.]
+    prior.scale = 2.
+    targets = (np.asarray(start.translations)[:, 1] + [5., 3., 20.]).tolist()
+    active = np.arange(len(targets)) % 3 == 0
+    prior.targets = [target if available else None for target, available in zip(targets, active)]
+    args['landmark_position_priors'] = [prior]
+    fit = fit_windows(args)
+    for result in (fit, refine_window_result(args, fit)):
+        rotations = Rotation.from_quat(np.asarray(result.quaternions)[:, 1], scalar_first=True)
+        local = np.tile(prior.local_point, (len(targets), 1))
+        local[:, 2] *= np.asarray(result.lengths)[:, 1] / args['axial_reference_lengths'][1]
+        modeled = rotations.apply(local) + np.asarray(result.translations)[:, 1]
+        expected = .5 * np.sum(frame_weights(args['times'])[active] *
+            np.sum(((modeled[active] - np.asarray(targets)[active]) / prior.scale) ** 2, axis=1))
+        assert result.position_prior_cost == pytest.approx(expected, rel=1e-8, abs=1e-8)
+    prior.targets = [None] * len(targets)
+    empty = fit_windows(args)
+    baseline = fit_windows({key: value for key, value in args.items() if key != 'landmark_position_priors'})
+    assert empty.position_prior_cost == 0.
+    np.testing.assert_array_equal(empty.quaternions, baseline.quaternions)
+
+
 def test_position_prior_survives_window_slicing_and_refinement():
     args,start=seeded()
     p=_native.LandmarkPositionPrior();p.segment=1;p.local_point=[0.,0.,20.];p.scale=2.

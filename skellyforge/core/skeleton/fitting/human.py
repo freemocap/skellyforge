@@ -4,6 +4,8 @@ Input trajectories and person scale are prepared by the caller. No recording I/O
 viewer imports, tracker dependency, or scale estimation occurs here.
 """
 from dataclasses import dataclass
+import numpy as np
+from scipy.spatial.transform import Rotation
 from skellyforge import _native
 from .body_model import body_model
 from .preparation import prepare_body_fit
@@ -39,7 +41,7 @@ def position_priors(model, records, scale=POSITION_SCALE_MM):
         prior.segment=b;prior.local_point=model['display'][b][slot].tolist()
         prior.scale=scale
         # Do not silently substitute another landmark or a fabricated measurement.
-        prior.targets=[r['points'][name].tolist() for r in records]
+        prior.targets=[r['points'][name].tolist() if name in r['points'] else None for r in records]
         priors.append(prior)
     return priors
 
@@ -60,6 +62,27 @@ class HumanFit:
     preparation: dict
     sequence: object
 
+    def landmark_positions(self):
+        """Every modeled landmark at every frame, derived from fitted segment state.
+
+        These are model predictions, not observed targets. Flexible segment lengths
+        scale local Z using the same axial geometry as the native objective.
+        """
+        quaternions = np.asarray(self.sequence.quaternions)
+        translations = np.asarray(self.sequence.translations)
+        lengths = np.asarray(self.sequence.lengths)
+        count = len(quaternions)
+        positions = {}
+        for b, names in enumerate(self.model['display_names']):
+            rotation = Rotation.from_quat(quaternions[:, b], scalar_first=True)
+            reference = self.model['references'][b]
+            for name, point in zip(names, self.model['display'][b], strict=True):
+                local = np.broadcast_to(point, (count, 3)).copy()
+                if reference > 0:
+                    local[:, 2] *= lengths[:, b] / reference
+                positions[name] = rotation.apply(local) + translations[:, b]
+        return positions
+
 
 def fit_human(skeleton, saved_model, segment_scales, records, *, inspect_windows=(), progress=None):
     """Fit in-memory prepared trajectories to the supplied connected human skeleton.
@@ -75,4 +98,10 @@ def fit_human(skeleton, saved_model, segment_scales, records, *, inspect_windows
     arguments, preparation = prepare_body_fit(model, records, **options)
     sequence = fit_prepared_human(arguments, model, records,
         inspect_windows=inspect_windows, progress=progress)
+    sequence.processing['input_support'] = dict(
+        segment_names=model['names'],
+        keypoint_counts=[[len(targets) for targets in frame] for frame in preparation['observed']],
+        position_prior_landmarks=list(LANDMARKS),
+        position_prior_available=[[name in record['points'] for name in LANDMARKS] for record in records],
+    )
     return HumanFit(model, preparation, sequence)

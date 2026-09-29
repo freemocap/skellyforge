@@ -17,6 +17,7 @@ sequence = fitted.sequence
 quaternions = sequence.quaternions
 translations = sequence.translations
 segment_names = fitted.model["names"]
+landmarks = fitted.landmark_positions()  # name -> (frames, 3), millimeters
 ```
 
 Inputs use the existing recording adapter contract:
@@ -41,6 +42,45 @@ the existing initialization fallbacks; it does not manufacture measured targets.
 The caller supplies gap-filled, filtered (where appropriate), aligned trajectories.
 This extraction preserves existing missing-keypoint handling for compatibility;
 it does not add a second gap-filling algorithm inside the solver.
+
+### Partial observations and complete geometry
+
+An absent observation is omitted from `keypoints` or `points`; do not insert a
+zero, NaN, or an inferred landmark as a measurement. Axial position preferences
+are optional per frame. The native `LandmarkPositionPrior.targets` accepts
+`None` for unavailable frames and contributes no residual in those frames.
+
+`HumanFit.landmark_positions()` generates every model landmark from the fitted
+segment transform and axial length. All landmarks belonging to a segment share
+that transform; their existence does not depend on which keypoints were detected.
+These positions are predictions, not evidence. `sequence.processing['input_support']`
+records per-frame keypoint counts by segment and availability of the four axial
+position preferences. Counts indicate supplied inputs, not pose observability.
+
+For closed-form pose reconstruction, `skellyforge.core.skeleton.pose.complete_pose`
+converts a partial hydrated pose into connected geometry using supplied dimensions.
+It retains observed orientations and assigns each missing child its authored rest
+orientation relative to its completed parent. It emits every landmark and marks
+unobserved segments in `inferred_segments`. Its separate `CompletedPose` type must
+not be fed back into hydration or dimension estimation as measurements.
+Missing root placement requires an explicit root seed; an entirely unobserved pose
+without a seed returns `None`.
+
+Interior keypoint gaps are handled upstream by
+`skellyforge.core.trajectories.fill_trajectory_gaps`, before smoothing and fitting.
+Fit each returned `active_spans` interval separately; keep `blank_spans` absent
+from output. Never concatenate separate appearances into one temporal solve.
+The sequence fitter keeps its existing soft rest/temporal priors; no special
+snap-to-rest rule is applied when a keypoint disappears briefly. A trajectory
+never observed in an interval remains unavailable; complete geometry is still
+predicted by the model. Exact parent-relative rest completion is provided by
+`complete_pose`, not guaranteed by the optimizer's soft prior.
+
+`fit_human` and `fit_windows` remain low-level **prepared-input** APIs. They do
+not silently gap-fill again, smooth trajectories, or split recordings. The
+FreeMoCap adapter must call the SkellyForge trajectory preparation first and
+preserve its provenance. That consumer migration requires a separate repository
+handoff; it is not included in this change.
 
 ### Numerical code ownership
 

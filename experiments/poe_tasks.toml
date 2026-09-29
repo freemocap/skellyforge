@@ -1,4 +1,5 @@
 [tool.poe.tasks]
+experiment-partial-observations = "python -m experiments.generators.partial_observations"
 experiment-hand-fit = "python -m experiments.generators.hand_fit_audit"
 experiment-solver-viewer-context = "python -m experiments.generators.solver_recording_context"
 experiment-solver-viewer-recording = "python -m experiments.generators.solver_recording_torso"

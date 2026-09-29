@@ -30,6 +30,9 @@ rest pose `human`
 See [TESTING.md](TESTING.md) for core tests, full test_data/sample_data fits,
 diagnostics, experiments, and the remaining cleanup work.
 
+For keypoint gap filling, whole-person absence and the partial-observation viewer,
+see the [trajectory preparation contract](skellyforge/core/trajectories/README.md).
+
 ## What is in here
 
 ```

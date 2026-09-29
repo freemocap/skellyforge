@@ -119,7 +119,7 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
     if(p.segment<0 || static_cast<size_t>(p.segment)>=bodies || p.targets.size()!=n || !std::isfinite(p.scale) || p.scale<=0)
       throw std::invalid_argument("Invalid landmark position prior segment, targets or scale");
     for(double v:p.local_point)if(!std::isfinite(v))throw std::invalid_argument("Position prior local point must be finite");
-    for(const auto& target:p.targets)for(double v:target)if(!std::isfinite(v))throw std::invalid_argument("Position prior targets must be finite");
+    for(const auto& target:p.targets)if(target)for(double v:*target)if(!std::isfinite(v))throw std::invalid_argument("Position prior targets must be finite");
   }
   std::vector<ceres::ResidualBlockId> position_prior_blocks;
   std::vector<bool> relaxed(bodies,false);
@@ -511,9 +511,9 @@ ChainSequenceFit fit_chain_sequence(const std::vector<std::vector<Vec3>>& local,
         landmark_blocks.push_back(problem.AddResidualBlock(cost,loss,blocks));
       }
       for(const auto& prior:solve_options.landmark_position_priors){
-        if(prior.segment!=static_cast<int>(b))continue;
+        if(prior.segment!=static_cast<int>(b) || !prior.targets[i])continue;
         auto* cost=new ceres::DynamicAutoDiffCostFunction<ChainLandmarkResidual>(new ChainLandmarkResidual{
-          paths[b].size()-1,prior.local_point,prior.targets[i],pa,ca,std::sqrt(weights[i])/prior.scale,allow_displacement&&b==2,path_references,slots,linkage_slots});
+          paths[b].size()-1,prior.local_point,*prior.targets[i],pa,ca,std::sqrt(weights[i])/prior.scale,allow_displacement&&b==2,path_references,slots,linkage_slots});
         cost->AddParameterBlock(3);for(size_t k=0;k<paths[b].size();++k)cost->AddParameterBlock(4);
         if(allow_displacement && b==2)cost->AddParameterBlock(1);
         for(size_t slot=0;slot<length_block_count;++slot)cost->AddParameterBlock(1);

@@ -22,6 +22,9 @@ def test_standard_fit(request):
     skeleton = SkeletonSnapshot.from_dict(metadata['skeleton']).restore()
     print(f'Fitting {dataset}: {path} ({len(records)} frames, SHA256 {before})', flush=True)
     fitted = fit_human(skeleton, metadata['model'], scale.segment_scales, records)
+    landmarks = fitted.landmark_positions()
+    assert set(landmarks) == set(skeleton.landmarks)
+    assert all(values.shape == (expected, 3) and np.isfinite(values).all() for values in landmarks.values())
     segments = len(fitted.model['names'])
     for name, width in (('translations', 3), ('quaternions', 4), ('linkage_displacements', 3)):
         values = np.asarray(getattr(fitted.sequence, name))

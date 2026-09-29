@@ -52,7 +52,7 @@ struct LandmarkHalfSpacePrior {
 struct LandmarkPositionPrior {
   int segment=-1;
   Vec3 local_point{};
-  std::vector<Vec3> targets;
+  std::vector<std::optional<Vec3>> targets; // null means no position evidence at this frame
   double scale=1.; // mm; soft residual, not a hard positional bound
 };
 struct ChainSolveOptions {
