@@ -1,3 +1,6 @@
+> Workflow entry points have been reorganized. Start with [TESTING.md](../TESTING.md).
+> Exploratory implementations and historical results remain here; task names now distinguish diagnostics from experiments.
+
 # Skeleton viewer
 
 From the SkellyForge repository root, using its installed environment:
@@ -248,8 +251,8 @@ sequence solve, as labeled. Native tests check timing/unit consistency, cost
 accounting, static noise reduction, and retention of moving trajectories.
 
 From the Forge repository, run `uv run --no-sync poe native-install`, then
-`uv run --no-sync poe solver-viewer`. Open `scripts/solver_viewer.html` directly
-or run `uv run --no-sync poe solver-viewer-serve` and visit
+`uv run --no-sync poe experiment-solver-viewer`. Open `scripts/solver_viewer.html` directly
+or run `uv run --no-sync poe diagnostic-solver-viewer-serve` and visit
 http://127.0.0.1:8773/solver_viewer.html . All JavaScript assets are local.
 
 The static experiment fits a 200 mm cube with Ceres AutoDiff and a wxyz
@@ -338,7 +341,7 @@ runs remain visible and labeled; no production fitting or FreeMoCap code changes
 
 
 Experiment 12 reviews the prepared real recording with the native rigid torso solver.
-From the SkellyForge root run `uv run --no-sync poe solver-viewer-recording`, then
+From the SkellyForge root run `uv run --no-sync poe experiment-solver-viewer-recording`, then
 refresh the viewer on port 8773. An explicit path can be supplied with
 `python -m scripts.solver_recording_torso --parquet <path>`.
 Generate the synthetic viewer first if the HTML is missing. Regenerating the
@@ -355,7 +358,7 @@ accuracy scores are absent. Fit errors compare against observed targets only.
 
 
 To add full-body context and annotated camera previews to experiment 12, run
-`uv run --no-sync poe solver-viewer-context` after generating the recording fit.
+`uv run --no-sync poe experiment-solver-viewer-context` after generating the recording fit.
 This reads saved full-body segments, landmarks and tracker keypoints as separate
 context layers. They are not additional Ceres results or targets.
 

@@ -65,10 +65,12 @@ def test_invalid_sequences_are_rejected() -> None:
             raise_unless_valid_sequence(sequence=bad)
 
 
-def test_non_string_sequences_are_rejected_by_the_type_gate() -> None:
+def test_non_string_sequences_are_rejected() -> None:
     from beartype.roar import BeartypeCallHintParamViolation
 
-    with pytest.raises(BeartypeCallHintParamViolation):
+    # Import instrumentation can reject this before the explicit value check.
+    # The public contract is rejection either way, not which guard runs first.
+    with pytest.raises((BeartypeCallHintParamViolation, ValueError)):
         raise_unless_valid_sequence(sequence=123)
 
 

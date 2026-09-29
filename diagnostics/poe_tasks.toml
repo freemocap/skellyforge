@@ -1,0 +1,10 @@
+[tool.poe.tasks]
+diagnostic-test-motion-viewer = "node scripts/check_simple_viewer.cjs"
+diagnostic-motion-viewer = "python -m skellyforge.tools.viewer --simple --port 8775"
+diagnostic-viewer = "python -m skellyforge.tools.viewer"
+diagnostic-test-solver-viewer = "node scripts/check_solver_viewer.cjs"
+diagnostic-solver-viewer-serve = "python -m http.server 8773 --bind 127.0.0.1 --directory scripts"
+diagnostic-recording-comparison = "python -m scripts.generate_recording_comparison"
+diagnostic-solver-validate-spine-positions = "python -m scripts.solver_spine_validation"
+diagnostic-solver-inspector-capture = "python -m scripts.solver_spine_positions --recording test --inspect-windows 0 193 219"
+diagnostic-test-problem-inspector = "node scripts/check_problem_inspector.cjs"

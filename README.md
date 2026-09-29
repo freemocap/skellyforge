@@ -10,7 +10,7 @@ skellytracker or freemocap: it stands alone, and freemocap consumes it.
 ```bash
 uv sync
 uv run python -m skellyforge          # load the standard human and describe it
-uv run --with pytest pytest skellyforge/tests/ -q -o addopts=""
+uv run --no-sync poe test
 ```
 
 `python -m skellyforge` prints:
@@ -26,6 +26,9 @@ rest pose `human`
   root segment        pelvis
   resolved landmarks  124
 ```
+
+See [TESTING.md](TESTING.md) for core tests, full test_data/sample_data fits,
+diagnostics, experiments, and the remaining cleanup work.
 
 ## What is in here
 
@@ -125,7 +128,7 @@ AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 ## Pipeline viewer
 
-Run `uv run --no-sync poe viewer --prepare-synthetic-fit` from this checkout,
+Run `uv run --no-sync poe diagnostic-viewer --prepare-synthetic-fit` from this checkout,
 then open **http://127.0.0.1:8774/**. Subsequent starts can omit the preparation
 flag. The viewer brings synthetic motion, accepted test/sample fits and actual
 Ceres parameter/residual inspection together. See

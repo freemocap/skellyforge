@@ -3,9 +3,9 @@
 From the SkellyForge checkout:
 
 ```powershell
-uv run --no-sync poe viewer
+uv run --no-sync poe diagnostic-viewer
 # First time, or after changing synthetic/fitting code:
-uv run --no-sync poe viewer --prepare-synthetic-fit
+uv run --no-sync poe diagnostic-viewer --prepare-synthetic-fit
 ```
 
 Open http://127.0.0.1:8774/. Equivalent entry points are
@@ -57,7 +57,7 @@ folder. Saved candidates contain the exact prepared Parquet path/hash. Default
 prepared recordings remain under `~/freemocap_data/testing/prepared/...`, with
 source recordings under `~/freemocap_data/recordings/...`; the viewer does not
 copy or move them. Regenerating a recording fit remains a separate preparation
-operation, currently `poe solver-viewer-spine-positions --recording test` or
+operation, currently `poe experiment-solver-viewer-spine-positions --recording test` or
 `--recording sample`. Packaging that preparation command is still pending.
 
 The synthetic and comparison Python implementations now live in this package;
@@ -82,7 +82,7 @@ stages after Forge sign-off.
 
 ## Simple motion review
 
-`uv run --no-sync poe motion-viewer` starts the new streamlined viewer at
+`uv run --no-sync poe diagnostic-motion-viewer` starts the new streamlined viewer at
 http://127.0.0.1:8775/simple. The detailed viewer at port 8774 remains unchanged.
 Both use the same accepted saved results; no fit is recomputed by switching
 views. The new HTML/CSS/JS are under `tools/viewer/simple/`.
@@ -101,7 +101,7 @@ settings, tables, charts, axis annotations or residual graphs are added here;
 the Detailed viewer link retains access to those diagnostics. This is a
 presentation-only change, with unchanged fitted geometry and source data.
 
-With the server running, `poe test-motion-viewer` checks all three datasets,
+With the server running, `poe diagnostic-test-motion-viewer` checks all three datasets,
 rendered stick endpoints, layer toggles, playback and stale video-image rejection.
 
 

@@ -794,6 +794,7 @@ dev = [
     { name = "coverage" },
     { name = "isort" },
     { name = "pip-tools" },
+    { name = "poethepoet" },
     { name = "pytest" },
     { name = "skellytracker" },
 ]
@@ -823,6 +824,7 @@ dev = [
     { name = "coverage" },
     { name = "isort" },
     { name = "pip-tools" },
+    { name = "poethepoet" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "skellytracker", git = "https://github.com/freemocap/skellytracker?branch=development-streaming" },
 ]

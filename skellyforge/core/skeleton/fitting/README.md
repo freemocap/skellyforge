@@ -146,7 +146,7 @@ From the repository, with the native tooling already installed:
 uv run --no-sync poe native-check
 uv run --no-sync poe native-install
 uv run --no-sync poe test-native
-uv run --no-sync poe test-fitting
+uv run --no-sync poe test-native-python
 ```
 
 `native-install` configures and incrementally builds Release, then installs the

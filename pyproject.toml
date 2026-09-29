@@ -13,7 +13,7 @@ provider = "scikit_build_core.metadata.regex"
 input = "skellyforge/__init__.py"
 
 [tool.poe]
-include = "poe_tasks.toml"
+include = ["poe_tasks.toml", "diagnostics/poe_tasks.toml", "experiments/poe_tasks.toml"]
 executor.type = "simple"
 
 [project]
@@ -51,7 +51,7 @@ recording-viewer = ["pyarrow>=18"]
 # skellytracker) is preserved by construction.
 [dependency-groups]
 native = ["scikit-build-core>=0.11,<0.12", "pybind11>=3,<4", "cmake>=3.28,<4", "ninja", "poethepoet"]
-dev = ["pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools", "skellytracker"]
+dev = ["poethepoet", "pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "pip-tools", "skellytracker"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -65,7 +65,7 @@ skellytracker = { git = "https://github.com/freemocap/skellytracker", branch = "
 # tests that read Parquet additionally use the recording-viewer extra.
 testpaths = ["skellyforge/tests"]
 python_files = ["test_*.py"]
-addopts = "-q --strict-markers"
+addopts = "-q --strict-markers -p no:cacheprovider"
 
 [tool.coverage.run]
 source = ["skellyforge"]
