@@ -112,7 +112,7 @@ Every `SegmentPose` records which of the two produced it, because "measured" and
 ## Viewer
 
 ```bash
-python scripts/generate_skeleton_viewer.py   # writes scripts/skeleton_viewer.html
+python scripts/generate_skeleton_viewer.py   # writes .test-artifacts/viewers/skeleton_viewer.html
 ```
 
 Synthesizes a looped upper-limb motion, projects it to landmarks, adds noise, hydrates it

@@ -22,11 +22,8 @@ def source_hashes():
     return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(output):
-    output = Path(output)
-    captured = {}
-    data = _build_data(root_motion=True, shoulders=True, elbows=True, head=True, capture=captured)
-    fit = fit_human(**captured, inspect_windows=(0,))
+def apply_fit(data, captured, fit):
+    """Populate the synthetic overlay from a fit, without writing or solving."""
     model, sequence = fit.model, fit.sequence
     for frame, translations, quaternions, lengths in zip(data['frames'], sequence.translations, sequence.quaternions, sequence.lengths, strict=True):
         displacements = []
@@ -52,9 +49,18 @@ def prepare(output):
     data['fit_source_hashes'] = source_hashes()
     data['fit_report'] = sequence.report
     data['fit_processing'] = sequence.processing
+    return data
+
+
+def prepare(output):
+    output = Path(output)
+    captured = {}
+    data = _build_data(root_motion=True, shoulders=True, elbows=True, head=True, torso=True, legs=True, wrists=True, fingers=True, feet=True, capture=captured)
+    fit = fit_human(**captured, inspect_windows=(0,))
+    apply_fit(data, captured, fit)
     output.mkdir(parents=True, exist_ok=True)
     (output/'synthetic.json').write_text(json.dumps(data, allow_nan=False), encoding='utf-8')
-    snapshot = sequence.inspected_windows[0]
-    snapshot['segment_names'] = model['names']
+    snapshot = fit.sequence.inspected_windows[0]
+    snapshot['segment_names'] = fit.model['names']
     (output/'synthetic_window_0.json').write_text(json.dumps(inspection_data(snapshot), allow_nan=False), encoding='utf-8')
     return data

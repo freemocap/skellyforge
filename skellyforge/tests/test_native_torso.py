@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 from skellyforge import _native
-from scripts.solver_torso_experiment import model, inputs, initialization, torso_experiment
+from test_support.torso import model, inputs, initialization
 
 
 def arguments():
@@ -25,21 +25,6 @@ def test_sparse_prior_cost_accounting_and_quaternion_sign_invariance():
     assert a.costs[-1]==pytest.approx(b.costs[-1],abs=1e-10)
 
 
-def test_four_landmarks_same_initialization_and_exact_rigid_connections():
-    run=torso_experiment(noise=1,motion=0)
-    a,b=(run['methods'][n] for n in ['no_prior','rest_prior'])
-    assert b['frames'][0]['converged']
-    assert a['summary']['Ceres residual blocks']==198
-    assert b['summary']['Ceres residual blocks']==282
-    for fa,fb in zip(a['frames'],b['frames']):
-        assert sum(p is not None for body in fb['bodies'] for p in body['observed'])==4
-        assert max(v for k,v in fb['diagnostics'].items() if 'attachment error' in k)<1e-9
-        for ba,bb in zip(fa['bodies'],fb['bodies']):
-            assert ba['observed']==bb['observed']
-            assert ba['initial_quaternion']==bb['initial_quaternion']
-            assert ba['initial_translation']==bb['initial_translation']
-            local=np.array(bb['local']);fitted=np.array(bb['fitted'])
-            np.testing.assert_allclose(np.linalg.norm(local[:,None]-local,axis=-1),np.linalg.norm(fitted[:,None]-fitted,axis=-1),atol=1e-9)
 
 
 @pytest.mark.parametrize('field,value', [('initial_roots',[]),('rest_pose_scale',0.),('rest_relative_quaternions',[[1,0,0,0]]),('initial_quaternions',[[[2,0,0,0]]*5]*3)])

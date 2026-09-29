@@ -146,13 +146,7 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 2048:
                 raise ValueError('Invalid request size')
             values = json.loads(self.rfile.read(length))
-            switches = {'root_motion', 'shoulders', 'elbows', 'head', 'spread_hands'}
-            if not isinstance(values, dict) or set(values) != switches | {'noise_mm'}:
-                raise ValueError('Expected synthetic motion switches and noise_mm')
-            if any(type(values[key]) is not bool for key in switches):
-                raise ValueError('Motion switches must be booleans')
-            if type(values['noise_mm']) not in (float, int) or not 0 <= values['noise_mm'] <= 20:
-                raise ValueError('Noise must be between 0 and 20 mm')
+            synthetic.validate_inputs(values)
             data = synthetic._build_data(**values)
             self.send(json.dumps(data, allow_nan=False).encode('utf-8'), 'application/json')
         except (ValueError, TypeError) as error:

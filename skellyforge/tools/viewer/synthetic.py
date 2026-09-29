@@ -48,6 +48,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import numpy as np
 
 from .assets import vendored_scripts, geometry_script
+from .workspace import OUTPUT_FOLDER, prepare_output
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
@@ -68,7 +69,7 @@ from skellyforge.core.biomechanics.center_of_mass import (
 from skellyforge.core.biomechanics.composite_inertia import whole_body_center_of_mass
 
 DEFINITIONS = Path(__file__).resolve().parents[2] / "definitions" / "human_skeleton"
-OUTPUT_PATH = Path.cwd() / "scripts" / "skeleton_viewer.html"
+OUTPUT_PATH = OUTPUT_FOLDER / "skeleton_viewer.html"
 
 FRAME_COUNT = 60
 FPS = 30.0
@@ -135,9 +136,29 @@ def _descendants(parents: dict[str, str | None], root: str) -> list[str]:
     return result
 
 
+REGIONS = ('head', 'torso', 'left_arm', 'right_arm', 'left_hand', 'right_hand',
+           'left_leg', 'right_leg', 'left_foot', 'right_foot')
+MOTION_SWITCHES = ('root_motion', 'shoulders', 'elbows', 'head', 'torso', 'legs', 'wrists', 'fingers', 'feet')
+
+
+def validate_inputs(values):
+    switches = {*MOTION_SWITCHES, 'spread_hands'}
+    if not isinstance(values, dict) or set(values) != switches | {'noise_mm', 'regions'}:
+        raise ValueError('Expected synthetic motion switches, regions and noise_mm')
+    if any(type(values[key]) is not bool for key in switches):
+        raise ValueError('Motion switches must be booleans')
+    regions = values['regions']
+    if not isinstance(regions, dict) or set(regions) != set(REGIONS) or any(type(v) is not bool for v in regions.values()):
+        raise ValueError('Expected a boolean for each body region')
+    noise = values['noise_mm']
+    if type(noise) not in (float, int) or not np.isfinite(noise) or not 0 <= noise <= 20:
+        raise ValueError('Noise must be between 0 and 20 mm')
+
+
 def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
                 root_motion: bool = False, shoulders: bool = False,
-                elbows: bool = False, head: bool = False, spread_hands: bool = True, capture: dict | None = None) -> dict:
+                elbows: bool = False, head: bool = False, torso: bool = False, legs: bool = False, wrists: bool = False, fingers: bool = False, feet: bool = False, regions: dict | None = None, spread_hands: bool = True, capture: dict | None = None) -> dict:
+    regions = {name: True for name in REGIONS} if regions is None else dict(regions)
     skeleton = SkeletonDefinition.from_yaml(path=DEFINITIONS / "human_skeleton.yaml")
     # The tree comes from the skeleton's joints; RestPose layers per-segment rest
     # orientations on top of it.
@@ -166,6 +187,10 @@ def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
     right_arm = set(_descendants(parents, "right_upper_arm"))
     left_forearm = set(_descendants(parents, "left_lower_arm"))
     right_forearm = set(_descendants(parents, "right_lower_arm"))
+
+    trunk = set(_descendants(parents, "sacrolumbar"))
+    leg_chains = {side: set(_descendants(parents, side + "_upper_leg")) for side in ("left", "right")}
+    shins = {side: set(_descendants(parents, side + "_lower_leg")) for side in ("left", "right")}
 
     segment_scales = {
         name: SUBJECT_HEIGHT_MM * (1.0 + 0.08 * np.sin(index) if unequal_scales else 1.0)
@@ -261,6 +286,16 @@ def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
             head_nod = head_turn = 0.0
         head_rotation = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([-head_nod, 0.0, head_turn]))
 
+        phase = 2.0 * np.pi * t / FRAME_COUNT
+        trunk_rotation = RotationQuaternion.from_rotation_vector(
+            rotation_vector=np.deg2rad(np.array([10 * np.sin(phase), 6 * np.sin(2 * phase), 12 * np.sin(phase)])))
+        leg_rotations = {}
+        for side, offset in (("left", 0.), ("right", np.pi)):
+            swing = phase + offset
+            leg_rotations[side] = (
+                RotationQuaternion.from_rotation_vector(rotation_vector=np.array([np.deg2rad(20) * np.sin(swing), np.deg2rad(12) * np.sin(2 * swing), 0.])),
+                RotationQuaternion.from_rotation_vector(rotation_vector=np.array([np.deg2rad(30) * (1 - np.cos(swing)) / 2, 0., 0.])),
+            )
         world = {}
         for name in segment_order:
             orientation = rest_world[name]
@@ -274,6 +309,15 @@ def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
                 orientation = shoulder_right * orientation
             if name == "skull":
                 orientation = head_rotation * orientation
+            if torso and name in trunk:
+                orientation = trunk_rotation * orientation
+            if legs:
+                for side in ("left", "right"):
+                    hip, knee = leg_rotations[side]
+                    if name in shins[side]:
+                        orientation = knee * orientation
+                    if name in leg_chains[side]:
+                        orientation = hip * orientation
             world[name] = orientation
 
         relative = {}
@@ -289,6 +333,36 @@ def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
                     name = f"{side}_{finger}_metacarpal"
                     relative[name] = RotationQuaternion.from_rotation_vector(
                         rotation_vector=np.array([0., sign * np.deg2rad(degrees), 0.])) * relative[name]
+
+        # Joint motion is authored in the parent frame, then propagated by FK.
+        baseline = dict(rest_pose.relative_orientations)
+        for side, sign in (("left", 1), ("right", -1)):
+            for finger, degrees in {"thumb": -35, "index": -12, "middle": 0, "ring": 10, "pinky": 22}.items():
+                name = f"{side}_{finger}_metacarpal"
+                if spread_hands:
+                    baseline[name] = RotationQuaternion.from_rotation_vector(rotation_vector=np.array([0., sign * np.deg2rad(degrees), 0.])) * baseline[name]
+            for name in segment_order:
+                if not name.startswith(side + '_'):
+                    continue
+                if name == side + '_carpals' and wrists:
+                    relative[name] = RotationQuaternion.from_rotation_vector(rotation_vector=np.deg2rad([25*np.sin(phase), 15*np.sin(2*phase), 10*np.sin(phase)])) * relative[name]
+                if 'phalanx' in name and fingers:
+                    curl = 35 * (1 - np.cos(phase + (0 if side == 'left' else np.pi))) / 2
+                    relative[name] = RotationQuaternion.from_rotation_vector(rotation_vector=np.deg2rad([curl, 0., 0.])) * relative[name]
+                if name in (side + '_foot', side + '_heel') and feet:
+                    # X flexion plus Z rotation about the parent shin's long axis.
+                    relative[name] = RotationQuaternion.from_rotation_vector(rotation_vector=np.deg2rad([20*np.sin(phase), 0., 15*np.sin(2*phase)])) * relative[name]
+                if name == side + '_toes' and feet:
+                    relative[name] = RotationQuaternion.from_rotation_vector(rotation_vector=np.deg2rad([15*np.sin(phase), 0., 0.])) * relative[name]
+                region = (side + '_hand' if ('carpal' in name or 'phalanx' in name) else
+                          side + '_arm' if name.endswith(('upper_arm', 'lower_arm', 'clavicle')) else
+                          side + '_foot' if name.endswith(('_foot', '_heel', '_toes')) else
+                          side + '_leg' if name.endswith(('upper_leg', 'lower_leg')) else None)
+                if region and not regions[region]:
+                    relative[name] = baseline[name]
+        for name in ('sacrolumbar', 'thoracic', 'cervical_spine', 'skull'):
+            if not regions['head' if name == 'skull' else 'torso']:
+                relative[name] = baseline[name]
 
         root_translation = np.array([120 * np.sin(2 * np.pi * t / FRAME_COUNT) if root_motion else 0.0, 0.0, 50.0])
         world_orientations, template_origins, template_landmarks = build_rest_pose(
@@ -510,7 +584,8 @@ def _build_data(*, noise_mm: float = 0.0, unequal_scales: bool = False,
     return {
         "spread_hands": spread_hands,
         "runtime": RUNTIME,
-        "motion": {"root_motion": root_motion, "shoulders": shoulders, "elbows": elbows, "head": head},
+        "motion": {"root_motion": root_motion, "shoulders": shoulders, "elbows": elbows, "head": head, "torso": torso, "legs": legs, "wrists": wrists, "fingers": fingers, "feet": feet},
+        "regions": regions,
         "noise_mm": noise_mm,
         "unequal_scales": unequal_scales,
         "center": _vec(center),
@@ -586,6 +661,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     padding: 3px 12px; margin-right: 8px; cursor: pointer; font-size: 13px;
   }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  #bodyControls { position:absolute; bottom:12px; left:12px; z-index:10; width:270px;
+    background:#101022ee; color:#eee; border:1px solid #62627c; border-radius:12px;
+    padding:12px; font:12px system-ui; max-height:45%; overflow:auto; }
+  #bodyControls button { min-height:36px; border:1px solid #63637b; border-radius:8px;
+    background:#303047; color:white; cursor:pointer; font:12px system-ui; }
+  #bodyControls button[aria-pressed="true"] { background:#086b78; border-color:#43dfed; }
+  #bodyControls button:disabled { opacity:.45; cursor:default; }
+  #bodyMap { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin:8px 0; }
+  #bodyActions { display:flex; flex-wrap:wrap; gap:4px; }
+  #bodyActions button { flex:1 0 29%; }
   #tooltip {
     position: absolute; display: none; z-index: 11;
     background: rgba(0, 0, 0, 0.85); color: #fff;
@@ -626,6 +711,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <span class="dot" style="background:#ffffff"></span> ground truth (faded)
     </p>
   </div>
+  <div id="bodyControls">
+    <b>Motion switches · front view</b>
+    <div>Lit = moving. Click to freeze joints at rest.<br>Frozen joints still travel with their parent.</div>
+    <div id="bodyMap"></div>
+    <div id="bodyActions"></div>
+    <div id="bodyHint" role="status"></div>
+  </div>
   <div id="tooltip"></div>
 </div>
 <div id="right">
@@ -633,6 +725,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <b>Motion inputs</b> — independent switches; root movement is optional.
     <fieldset id="motionControls" disabled style="border:0;padding:6px 0">
       <label><input type="checkbox" id="root_motion"> Root translation</label><br>
+      <label><input type="checkbox" id="torso"> Torso motion</label><br>
+      <label><input type="checkbox" id="wrists"> Wrist motion</label><br>
+      <label><input type="checkbox" id="fingers"> Finger curl</label><br>
+      <label><input type="checkbox" id="feet"> Ankle and toe motion</label><br>
+      <label><input type="checkbox" id="legs"> Leg motion</label><br>
       <label><input type="checkbox" id="shoulders"> Shoulder motion</label><br>
       <label><input type="checkbox" id="elbows"> Elbow flexion</label><br>
       <label><input type="checkbox" id="head"> Head nod and turn</label><br>
@@ -845,7 +942,7 @@ scrubber.addEventListener("input", function () {
 document.getElementById("sourceLabel").textContent = "Synthetic / mm / noise SD " + DATA.noise_mm +
   " mm / " + (DATA.unequal_scales ? "unequal segment scales" : "uniform subject scale");
 
-var motionIds = ["root_motion", "shoulders", "elbows", "head"];
+var motionIds = ["root_motion", "shoulders", "elbows", "head", "torso", "legs", "wrists", "fingers", "feet"];
 document.getElementById("spreadHands").checked = DATA.spread_hands;
 function focusView(side) {
   var center = CENTER.clone();
@@ -867,6 +964,34 @@ document.getElementById("noiseEnabled").checked = DATA.noise_mm > 0;
 document.getElementById("noiseAmount").value = DATA.noise_mm || 1;
 var live = location.protocol === "http:" && (location.hostname === "127.0.0.1" || location.hostname === "localhost");
 document.getElementById("motionControls").disabled = !live;
+var regionState = Object.assign({}, DATA.regions);
+var regionNames = ['head','torso','left_arm','right_arm','left_hand','right_hand','left_leg','right_leg','left_foot','right_foot'];
+regionNames.forEach(function(key){if(regionState[key] === undefined) regionState[key]=true;});
+var regionLayout = [null,'head',null,'right_arm','torso','left_arm','right_hand',null,'left_hand','right_leg',null,'left_leg','right_foot',null,'left_foot'];
+var regionButtons = [];
+var regionMotions={head:['head'],torso:['torso'],left_arm:['shoulders','elbows'],right_arm:['shoulders','elbows'],left_hand:['wrists','fingers'],right_hand:['wrists','fingers'],left_leg:['legs'],right_leg:['legs'],left_foot:['feet'],right_foot:['feet']};
+function regionMoving(key){return regionState[key] && regionMotions[key].some(function(id){return document.getElementById(id).checked;});}
+regionNames.forEach(function(key){regionState[key]=regionMoving(key);});
+function syncRegions(busy) {
+  regionButtons.forEach(function(button){button.disabled=!live || busy;
+    if(button.dataset.region) button.setAttribute('aria-pressed',String(regionMoving(button.dataset.region)));});
+}
+regionLayout.forEach(function(key){
+  var node=document.createElement(key?'button':'span');
+  if(key){node.textContent=key.replace('_',' '); node.dataset.region=key;
+    node.addEventListener('click',function(){regionState[key]=!regionMoving(key); if(regionState[key]) regionMotions[key].forEach(function(id){document.getElementById(id).checked=true;});recompute();});regionButtons.push(node);}
+  document.getElementById('bodyMap').appendChild(node);
+});
+var groups={'All':regionNames,'None':[], 'Upper':['head','torso','left_arm','right_arm','left_hand','right_hand'],
+  'Lower':['left_leg','right_leg','left_foot','right_foot'], 'Hands':['left_hand','right_hand'], 'Feet':['left_foot','right_foot'],
+  'Left arm':['left_arm','left_hand'], 'Right arm':['right_arm','right_hand']};
+Object.keys(groups).forEach(function(label){var button=document.createElement('button');button.textContent=label;
+  button.title='Isolate '+label.toLowerCase();button.addEventListener('click',function(){
+    regionNames.forEach(function(key){regionState[key]=groups[label].includes(key);});
+    motionIds.forEach(function(id){document.getElementById(id).checked=id!=='root_motion';});recompute();});
+  regionButtons.push(button);document.getElementById('bodyActions').appendChild(button);});
+syncRegions(false);
+document.getElementById('bodyHint').textContent=live?'Presets isolate regions and enable their motion.':'Saved fit: use Synthetic humanoid for interactive motion controls.';
 var inputStatus = document.getElementById("inputStatus");
 function describeInputs() {
   inputStatus.textContent = DATA.noise_mm === 0
@@ -877,9 +1002,11 @@ if (live) describeInputs();
 else inputStatus.textContent = "Interactive inputs need Python: run scripts/generate_skeleton_viewer.py --serve and open the printed local URL. This file is a snapshot.";
 async function recompute() {
   var payload = {};
+  payload.regions = Object.assign({},regionState);
   payload.spread_hands = document.getElementById("spreadHands").checked;
   motionIds.forEach(function (id) { payload[id] = document.getElementById(id).checked; });
   payload.noise_mm = document.getElementById("noiseEnabled").checked ? Number(document.getElementById("noiseAmount").value) : 0;
+  syncRegions(true);
   var wasPlaying = playing;
   playing = false;
   document.getElementById("motionControls").disabled = true;
@@ -898,12 +1025,17 @@ async function recompute() {
     document.getElementById("noiseEnabled").checked = DATA.noise_mm > 0;
     document.getElementById("noiseAmount").value = DATA.noise_mm || 1;
   } finally {
+    regionState = Object.assign({}, DATA.regions);
+    syncRegions(false);
     document.getElementById("motionControls").disabled = false;
     playing = wasPlaying;
     document.getElementById("togglePlay").textContent = playing ? "pause" : "play";
   }
 }
-motionIds.concat(["noiseEnabled", "noiseAmount", "spreadHands"]).forEach(function (id) { document.getElementById(id).addEventListener("change", recompute); });
+motionIds.concat(["noiseEnabled", "noiseAmount", "spreadHands"]).forEach(function (id) { document.getElementById(id).addEventListener("change", function(){
+  regionNames.forEach(function(key){if(regionMotions[key].includes(id)) regionState[key]=regionMotions[key].some(function(m){return document.getElementById(m).checked;});});
+  recompute();
+}); });
 document.getElementById("resetInputs").addEventListener("click", function () {
   motionIds.forEach(function (id) { document.getElementById(id).checked = false; });
   document.getElementById("noiseEnabled").checked = false;
@@ -1150,6 +1282,7 @@ def _vendored_scripts() -> str:
 
 
 def main() -> None:
+    prepare_output()
     parser = argparse.ArgumentParser(description="Build an offline synthetic skeleton review viewer.")
     parser.add_argument("--noise-mm", type=float, default=0.0,
                         help="Landmark noise standard deviation in millimetres (default: 0).")
@@ -1163,7 +1296,7 @@ def main() -> None:
         parser.error("--noise-mm must be finite and nonnegative")
     data = _build_data(noise_mm=args.noise_mm, unequal_scales=args.unequal_scales,
                       root_motion=args.all_motion, shoulders=args.all_motion,
-                      elbows=args.all_motion, head=args.all_motion)
+                      elbows=args.all_motion, head=args.all_motion, torso=args.all_motion, legs=args.all_motion, wrists=args.all_motion, fingers=args.all_motion, feet=args.all_motion)
     html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, separators=(",", ":"), allow_nan=False))
     html = html.replace("__VENDORED_SCRIPTS__", _vendored_scripts())
     OUTPUT_PATH.write_text(html, encoding="utf-8")
@@ -1203,13 +1336,7 @@ def main() -> None:
                     if not 0 < length <= 2048:
                         raise ValueError("Invalid request size")
                     settings = json.loads(self.rfile.read(length))
-                    if not isinstance(settings, dict) or set(settings) != {"noise_mm", "root_motion", "shoulders", "elbows", "head", "spread_hands"}:
-                        raise ValueError("Expected noise_mm, spread_hands and four motion switches")
-                    if any(type(settings[key]) is not bool for key in ("root_motion", "shoulders", "elbows", "head", "spread_hands")):
-                        raise ValueError("Motion switches must be booleans")
-                    noise = settings["noise_mm"]
-                    if type(noise) not in (int, float) or not np.isfinite(noise) or not 0 <= noise <= 20:
-                        raise ValueError("Noise must be between 0 and 20 mm")
+                    validate_inputs(settings)
                 except (ValueError, TypeError) as error:
                     self.send(400, str(error).encode(), "text/plain")
                     return

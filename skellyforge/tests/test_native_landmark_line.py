@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
-from scripts.solver_chest_line import mapped_centerline, LINE_SOURCE_LANDMARKS
+from skellyforge.core.skeleton.fitting.centerline import mapped_centerline, LINE_SOURCE_LANDMARKS
 
 
 def solve(front, rotation=None, offset=None, enabled=True):

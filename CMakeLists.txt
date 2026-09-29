@@ -27,16 +27,6 @@ if(SKELLYFORGE_NATIVE_TESTS)
 endif()
 add_subdirectory(cpp)
 
-# Install the existing viewer assets unchanged: no separately maintained copies.
-install(FILES
-  scripts/viewer_geometry.js
-  scripts/recording_comparison.html.template
-  scripts/recording_comparison.css
-  scripts/recording_comparison.js
-  scripts/recording_comparison_scene.js
-  scripts/recording_comparison_table.js
-  scripts/problem_inspector.html
-  scripts/problem_inspector.js
-  scripts/solver_map.js
+# One source directory for development and installed viewer assets.
+install(DIRECTORY skellyforge/tools/viewer/web/
   DESTINATION skellyforge/tools/viewer/web COMPONENT python)
-install(DIRECTORY scripts/vendor/ DESTINATION skellyforge/tools/viewer/web/vendor COMPONENT python)

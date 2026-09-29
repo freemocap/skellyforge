@@ -52,10 +52,18 @@ remain for now; do not regenerate them as part of normal test execution.
 - `tests/reference/`: explicit full-recording tests.
 - `diagnostics/tests/`: regression checks for diagnostic tooling.
 - `experiments/tests/`: regression checks for exploratory tooling.
+- `test_support/`: deterministic shared inputs, independent of exploratory tools.
+- `experiments/generators/`: synthetic and recording-based solver comparisons.
+- `diagnostics/generators/`: saved-recording viewers and report calculations.
+- `diagnostics/checks/`: JavaScript viewer checks.
+- `skellyforge/tools/viewer/web/`: shared HTML, JavaScript, CSS, and vendored assets.
+- `.test-artifacts/viewers/`: new generated pages, media, and inspector captures (ignored).
 - `diagnostics/poe_tasks.toml`: `diagnostic-*` viewer/report commands.
 - `experiments/poe_tasks.toml`: `experiment-*` solver comparisons.
 
-Existing exploratory scripts and results are retained under `scripts/`. Their
+Legacy entry-point wrappers, build/authoring utilities, and historical results
+remain under `scripts/`. Generated pages now go to `.test-artifacts/viewers/`;
+existing snapshots are not moved, overwritten, or automatically adopted. Their
 Poe entry points now have explicit prefixes; for example,
 `solver-viewer-spine-ratios` becomes `experiment-solver-viewer-spine-ratios`.
 Python module paths remain compatible. The shared recording reader now lives in
@@ -66,9 +74,13 @@ parameter cases would remove useful regression coverage.
 
 ## Remaining work, in order
 
-1. Finish disentangling shared synthetic fixtures from experimental scripts and
-   move generators/assets together into their owning diagnostic or experiment
-   directories. Audit relative paths before moving them; keep historical results.
+1. Review the reorganized diagnostic viewer with `uv run poe diagnostic-viewer`
+   at http://127.0.0.1:8774/. Opening it reads saved results and serves the synthetic
+   view; it does not process recordings. An unavailable or stale saved result is
+   reported rather than silently recalculated. Stop with Ctrl+C. Then review
+   experiment commands individually; many comparisons require earlier saved fits.
+   The directory and asset migration is complete; build/authoring utilities and
+   compatibility wrappers intentionally remain under `scripts/`.
 2. Resolve **complete skeleton output from partial observations** in SkellyForge.
    Keypoints may be absent; modeled segments must retain all their landmarks.
    Specify rest-relative completion, observed/inferred provenance, and the wholly

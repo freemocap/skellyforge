@@ -2,8 +2,8 @@
 import numpy as np
 import pytest
 from scripts.recording_data import read_recording, recording_path
-from scripts.solver_recording_body import body_model, frame_targets
-from scripts.solver_shoulder_offsets import SC_LANDMARKS, SHOULDER_PROFILES
+from experiments.generators.solver_recording_body import body_model, frame_targets
+from experiments.generators.solver_shoulder_offsets import SC_LANDMARKS, SHOULDER_PROFILES
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 
 

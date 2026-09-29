@@ -21,9 +21,7 @@ def test_standard_fit(request):
     assert np.isfinite(times).all() and (np.diff(times) > 0).all()
     skeleton = SkeletonSnapshot.from_dict(metadata['skeleton']).restore()
     print(f'Fitting {dataset}: {path} ({len(records)} frames, SHA256 {before})', flush=True)
-    fitted = fit_human(skeleton, metadata['model'], scale.segment_scales, records,
-        progress=lambda window, total: print(f'Window {window["index"] + 1}/{total}', flush=True)
-        if window['index'] % 50 == 0 else None)
+    fitted = fit_human(skeleton, metadata['model'], scale.segment_scales, records)
     segments = len(fitted.model['names'])
     for name, width in (('translations', 3), ('quaternions', 4), ('linkage_displacements', 3)):
         values = np.asarray(getattr(fitted.sequence, name))

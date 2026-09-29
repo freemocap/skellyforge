@@ -3,16 +3,14 @@
 No pose averaging or post-fit smoothing. Two committed frames remain constant
 in each problem so acceleration residuals cross the moving boundary.
 """
-import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from time import perf_counter
 
 import numpy as np
 from skellyforge import _native
-from .terminal_progress import FibonacciMilestones, TerminalProgress
+from .terminal_progress import TerminalProgress
 
-logger = logging.getLogger(__name__)
 
 BOUNDARY_FRAMES = 2
 DEFAULT_MAX_ITERATIONS = _native.ChainSolveOptions().max_iterations
@@ -84,8 +82,6 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     initial_q=[None]*n;initial_t=[None]*n;introduced=0
     trace=[];window_seconds=0.;wall_start=perf_counter()
     total_windows = n-active_frames+1
-    logger.info('Starting Ceres sequence: frames=%d, segments=%d, windows=%d, active_frames=%d, boundary_frames=%d, max_iterations=%d, function_tolerance=%g', n, bodies, total_windows, active_frames, BOUNDARY_FRAMES, max_iterations, function_tolerance)
-    milestones = FibonacciMilestones()
     terminal = TerminalProgress(frames=n, segments=bodies, total=total_windows, active=active_frames,
         boundary=BOUNDARY_FRAMES, iterations=max_iterations, tolerance=function_tolerance)
     nonconverged = 0
@@ -130,7 +126,6 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         terminal.clear()
         if not result.usable:
             terminal.line(f'FAILED: window {first+1}/{total_windows}, frames {lo}-{hi-1}', 'ERROR')
-            logger.error("Unusable Ceres window %d/%d, frames=%d:%d: %s", first+1, total_windows, lo, hi-1, result.report)
             raise RuntimeError(f"Window {first}: {result.report}")
         if options.inspect_problem:
             inspections[first]=dict(frame_start=lo,active_start=first,frame_end=hi-1,
@@ -151,12 +146,8 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             parameter_blocks=result.parameter_blocks,residual_blocks=result.residual_blocks,
             report=result.report,full_report=result.full_report))
         nonconverged += not result.converged
-        now = perf_counter()
-        milestone = milestones.reached(first+1) or first+1 == total_windows
-        if milestone:
-            logger.info('Ceres progress: windows=%d/%d, elapsed_seconds=%.3f, nonconverged=%d', first+1, total_windows, now-wall_start, nonconverged)
         if progress:progress(trace[-1],total_windows)
-        terminal.update(trace[-1], permanent=milestone, unconverged=nonconverged)
+        terminal.update(trace[-1], unconverged=nonconverged)
     options=_native.ChainSolveOptions()
     options.landmark_position_priors=sliced_position_priors(0,n)
     options.landmark_huber_scale_mm=huber_scale
@@ -166,14 +157,11 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     options.function_tolerance=function_tolerance
     options.evaluate_only=True
     terminal.line('Evaluating full sequence (no optimization; excluded from window ETA)', 'INFO')
-    logger.info('Evaluating assembled Ceres sequence (no optimization)')
     started=perf_counter()
     final=_native.fit_chain_sequence(**{**args,'initial_quaternions':quaternions,'initial_roots':roots,'solve_options':options})
     final_wall=perf_counter()-started
-    logger.info('Ceres full-sequence evaluation complete (no optimization): seconds=%.3f', final_wall)
     if not final.usable:
         terminal.line('FAILED: full-sequence evaluation', 'ERROR')
-        logger.error('Unusable Ceres full-sequence evaluation: %s', final.report)
         raise RuntimeError(final.report)
     processing=dict(active_frames=active_frames,boundary_frames=BOUNDARY_FRAMES,refined=False,
         frame_weights=weights.tolist(),max_iterations=max_iterations,function_tolerance=function_tolerance,windows=trace,
@@ -186,7 +174,6 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         latency='At least active_frames minus one intervals of pose lookahead. This offline prototype uses full-recording timestamp weights, prepared scale and initialization; it is not an end-to-end live pipeline.')
     if fixed_length_segments:processing['fixed_length_segments']=list(fixed_length_segments)
     converged=all(w['converged'] for w in trace)
-    logger.log(logging.INFO if converged else logging.WARNING, 'Ceres sequence finished: converged_windows=%d/%d, native_seconds=%.3f, wall_seconds=%.3f; usable nonconverged windows are retained', sum(w['converged'] for w in trace), total_windows, window_seconds+final.seconds, processing['wall_seconds'])
     terminal.finish(trace, final_wall)
     report=f'{len(trace)} sequential windows; {sum(w["converged"] for w in trace)} converged. '+'Final full-sequence evaluation only; no global optimization.'
     return WindowSequenceFit(final,processing,window_seconds+final.seconds,converged,report,

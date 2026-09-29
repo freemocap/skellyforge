@@ -1,6 +1,6 @@
 """Video alignment must be demonstrated, never assumed from filenames."""
 import pytest
-from scripts.solver_recording_context import check_video_times
+from experiments.generators.solver_recording_context import check_video_times
 
 
 def records():

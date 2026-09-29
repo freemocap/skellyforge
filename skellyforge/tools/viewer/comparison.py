@@ -5,9 +5,9 @@ import re
 from pathlib import Path
 
 from .assets import asset_directory
+from .workspace import OUTPUT_FOLDER, prepare_output
 
 FOLDER = asset_directory()
-OUTPUT_FOLDER = Path.cwd() / "scripts"
 PALETTE = ['#9cafff', '#da95e8', '#bdb88a', '#69d7d0', '#d5dce5', '#77b5ff', '#e8ae71', '#82e39c', '#ff7899']
 
 
@@ -82,6 +82,8 @@ def version_viewer_assets(page):
 
 
 def write_comparison(data,filename='recording_comparison.html',alternate=''):
+    prepare_output()
+    OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
     page = (FOLDER / 'recording_comparison.html.template').read_text(encoding='utf-8')
     page = page.replace('__ALTERNATE_VIEW__',alternate)
     page = page.replace('__DATA__', json.dumps(data, allow_nan=False).replace('<', '\\u003c'))

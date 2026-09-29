@@ -1,3 +1,5 @@
+> Implementations now live under `experiments/generators`, `diagnostics/generators`, or the supported viewer package. Shared assets live in `skellyforge/tools/viewer/web`; new output goes to ignored `.test-artifacts/viewers`. Old results remain here as historical snapshots.
+
 > Workflow entry points have been reorganized. Start with [TESTING.md](../TESTING.md).
 > Exploratory implementations and historical results remain here; task names now distinguish diagnostics from experiments.
 
@@ -38,12 +40,12 @@ poses the metacarpals in a fan (thumb -35Â°, index -12Â°, middle 0Â°, ring
 path; these display-pose angles are not anatomical limits or edits to the shared
 rest skeleton. Disable it to inspect the original straight-finger pose.
 
-For a standalone snapshot, omit `--serve` and open `scripts/skeleton_viewer.html`.
+For a standalone snapshot, omit `--serve` and open `.test-artifacts/viewers/skeleton_viewer.html`.
 The generated HTML includes its data and JavaScript libraries and opens offline,
 but motion/noise input controls require the local server. Playback, scrubbing,
 axes and overlay controls work offline.
-Each generation overwrites the same HTML file. It is currently tracked despite
-its existing ignore rule, so this change includes the regenerated snapshot.
+Each generation overwrites its ignored output page. Historical tracked snapshots
+under scripts are retained unchanged.
 Edit the generator, then regenerate after changing the skeleton or calculation code.
 
 The viewer compares three representations of a synthetic moving subject:
@@ -101,7 +103,7 @@ From the SkellyForge repository:
 ```
 
 Open http://127.0.0.1:8771/real_skeleton_viewer.html. This overwrites
-`scripts/real_skeleton_viewer.html`, leaving `scripts/skeleton_viewer.html` intact.
+`.test-artifacts/viewers/real_skeleton_viewer.html`, leaving `.test-artifacts/viewers/skeleton_viewer.html` intact.
 Both viewers share the vendored Three.js/OrbitControls assets and cylinder drawing
 helpers. No FreeMoCap or SkellyTracker import is used by the real-data viewer.
 
@@ -150,7 +152,7 @@ beyond the existing optional Parquet reader.
 
 ## Connected root fitting demonstration
 
-From the SkellyForge checkout, run `.\.venv\Scripts\python.exe -B -m scripts.generate_connected_fit_viewer`, then open `scripts/connected_fit_viewer.html` in a browser. It uses the existing offline viewer assets and geometry.
+From the SkellyForge checkout, run `.\.venv\Scripts\python.exe -B -m scripts.generate_connected_fit_viewer`, then open `.test-artifacts/viewers/connected_fit_viewer.html` in a browser. It uses the existing offline viewer assets and geometry.
 
 The slider selects whole-body displacement (0–2), overhead arms (3–5), and four static 1 mm noise samples (6–9). Each noiseless group shows the initial pose, fixed-pelvis fit, and free-pelvis fit. Orange is fitted geometry, blue is the known synthetic geometry, and pink spheres are the 11 target observations. Short saturated axes belong to the fit; longer pale axes belong to the reference. Hover for names and select segments to inspect rotation and origin errors.
 
@@ -159,7 +161,7 @@ These are independent static comparisons, not a recording or a temporal solve. N
 ## Connected sequence fitting comparison
 
 Run `.\.venv\Scripts\python.exe -B -m scripts.generate_sequence_fit_viewer` from
-SkellyForge, then open `scripts/sequence_fit_viewer.html`. SciPy is a required
+SkellyForge, then open `.test-artifacts/viewers/sequence_fit_viewer.html`. SciPy is a required
 runtime dependency; normal `uv sync` installs it. Generation can take minutes
 because it runs the actual fitting algorithms.
 
@@ -183,7 +185,7 @@ on the page and remain experimental, not production defaults.
 ## Real recording: experimental connected fit
 
 Run `.\.venv\Scripts\python.exe -B -m scripts.generate_recording_fit_viewer`.
-Open `scripts/recording_fit_viewer.html`. It starts at recording frame 200 and
+Open `.test-artifacts/viewers/recording_fit_viewer.html`. It starts at recording frame 200 and
 reviews the eight-frame window 196–203 by default. Use `--first-frame`, `--count`,
 `--dataset sample` or `--parquet` to select another window/source.
 
@@ -251,7 +253,7 @@ sequence solve, as labeled. Native tests check timing/unit consistency, cost
 accounting, static noise reduction, and retention of moving trajectories.
 
 From the Forge repository, run `uv run --no-sync poe native-install`, then
-`uv run --no-sync poe experiment-solver-viewer`. Open `scripts/solver_viewer.html` directly
+`uv run --no-sync poe experiment-solver-viewer`. Open `.test-artifacts/viewers/solver_viewer.html` directly
 or run `uv run --no-sync poe diagnostic-solver-viewer-serve` and visit
 http://127.0.0.1:8773/solver_viewer.html . All JavaScript assets are local.
 
@@ -369,7 +371,7 @@ Scrubbing selects the matching frame number. A loading/error caption replaces an
 outdated image; the source videos are never modified. Choose a camera and resize,
 collapse or expand the panel. This is frame-sequence playback, without video audio.
 
-Previews live in ignored scripts/.solver_media/recording_torso, with stable camera
+Previews live in ignored .test-artifacts/viewers/.solver_media/recording_torso, with stable camera
 and frame names reused between generations. Current three-camera previews occupy
 about 108 MiB. Source hashes invalidate the cache; no per-run folders accumulate.
 `--no-videos` adds only 3D context if ffmpeg/ffprobe are unavailable. Regenerate this

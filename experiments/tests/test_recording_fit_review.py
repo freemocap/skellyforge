@@ -2,12 +2,12 @@
 
 import numpy as np
 import pytest
-from scripts.recording_fit_geometry import rigid_target_checks
-from scripts.generate_connected_fit_viewer import build_fixture
+from diagnostics.generators.recording_fit_geometry import rigid_target_checks
+from experiments.generators.generate_connected_fit_viewer import build_fixture
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose
 from skellyforge.core.skeleton.pose.fit_connected_pose import LandmarkTarget
-from scripts.generate_recording_fit_viewer import (
+from experiments.generators.generate_recording_fit_viewer import (
     TARGET_NAMES,
     target_sources,
     observed_targets,

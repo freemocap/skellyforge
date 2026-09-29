@@ -3,8 +3,8 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
-from scripts.solver_tree_experiment import tree_inputs
-from scripts.solver_axial_geometry import axial_points
+from test_support.tree import tree_inputs
+from test_support.geometry import axial_points
 
 
 def fixture(flexible=True, shortening=True):

@@ -49,8 +49,8 @@ Defaults from the checkout are:
 
 - `--results build/spine_positions`: sample candidate.json; test/candidate.json;
   synthetic.json and synthetic_window_0.json.
-- `--captures scripts/.solver_inspections`: existing named native window captures.
-- `--media scripts/.solver_media`: existing annotated JPEG previews.
+- `--captures .test-artifacts/viewers/.solver_inspections`: existing named native window captures.
+- `--media .test-artifacts/viewers/.solver_media`: existing annotated JPEG previews.
 
 These paths are explicit arguments when running an installed wheel from another
 folder. Saved candidates contain the exact prepared Parquet path/hash. Default
@@ -112,3 +112,15 @@ wire amber reference origins). Reference recording bases come from saved segment
 rotations; fitted bases come from the saved Ceres wxyz quaternions. Synthetic
 bases use their saved hydration/Ceres basis vectors. Roll is never reconstructed
 from endpoints. Hand helpers are smaller to keep the fingers readable.
+
+Synthetic Ceres preparation includes torso bend/twist and alternating hip/knee
+motion. The synthetic humanoid view also exposes Torso motion and Leg motion
+switches. Feet inherit leg motion through the model attachments. This is a
+periodic demonstration, not a gait or foot-contact model. Regenerate a saved
+synthetic fit with `uv run poe diagnostic-viewer --prepare-synthetic-fit`.
+
+### Synthetic body motion controls
+
+Restart `uv run poe diagnostic-viewer` and open **Synthetic humanoid** for the live body diagram. Click a region to enable or freeze its joint motion, or use All, None, Upper, Lower, Hands, Feet, Left arm and Right arm presets. Freeze holds the reference joint angles (including the inspection hand spread), not the world position: parent motion still carries a frozen child. Root translation has its own switch.
+
+The all-motion fixture includes wrist flexion/deviation/twist, finger curl, hip flexion plus a second rotation axis, ankle flexion and shin-axis rotation, and toe flexion. These are synthetic stress motions, not anatomical limits. Saved Ceres fits and experiment snapshots disable interactive motion controls; regenerate them to use the new fixture. The production smoothing settings are unchanged.

@@ -1,6 +1,6 @@
 """Numerical convergence cannot hide a large axial landmark displacement."""
 import numpy as np
-from scripts.solver_spine_positions import audit, LANDMARKS, ACCEPTANCE_DISTANCE_MM
+from experiments.generators.solver_spine_positions import audit, LANDMARKS, ACCEPTANCE_DISTANCE_MM
 
 
 def test_tail_escape_fails_acceptance_even_when_solver_converged():

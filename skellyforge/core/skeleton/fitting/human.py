@@ -3,8 +3,6 @@
 Input trajectories and person scale are prepared by the caller. No recording I/O,
 viewer imports, tracker dependency, or scale estimation occurs here.
 """
-import logging
-from time import perf_counter
 from dataclasses import dataclass
 from skellyforge import _native
 from .body_model import body_model
@@ -12,7 +10,6 @@ from .preparation import prepare_body_fit
 from .window_sequence import fit_windows
 from .settings import SPINE_PROPORTION_RATIOS
 
-logger = logging.getLogger(__name__)
 
 LANDMARKS = ('pelvis_origin', 'chest_center', 'neck_center', 'craniocervical_junction')
 POSITION_SCALE_MM = 5.0
@@ -72,13 +69,10 @@ def fit_human(skeleton, saved_model, segment_scales, records, *, inspect_windows
     """
     if len(records) < ACTIVE_FRAMES:
         raise ValueError('Human fitting requires at least three frames')
-    started = perf_counter()
-    logger.info('Preparing human fit: frames=%d, active_frames=%d, position_scale_mm=%g, keypoint_huber_scale_mm=%g', len(records), ACTIVE_FRAMES, POSITION_SCALE_MM, KEYPOINT_HUBER_SCALE_MM)
     options = human_fit_options()
     model = body_model(skeleton, saved_model, segment_scales,
         options['shoulder_profile'], flexible_cervical=True)
     arguments, preparation = prepare_body_fit(model, records, **options)
-    logger.info('Human fit preparation complete: segments=%d, elapsed_seconds=%.3f', len(model['names']), perf_counter()-started)
     sequence = fit_prepared_human(arguments, model, records,
         inspect_windows=inspect_windows, progress=progress)
     return HumanFit(model, preparation, sequence)

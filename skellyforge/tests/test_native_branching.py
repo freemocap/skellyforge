@@ -3,20 +3,9 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 from skellyforge import _native
-from scripts.solver_chain_experiment import chain_inputs, chain_experiment
+from test_support.chain import chain_inputs
 
 
-def test_branching_exact_attachments_and_gap_metrics():
-    run=chain_experiment(noise=1, gap=5, branching=True)
-    method=run["methods"]["temporal"]
-    assert method["summary"]["Ceres parameter blocks"]==164
-    assert method["summary"]["Ceres residual blocks"]==1100
-    for frame in method["frames"]:
-        assert frame["converged"]
-        assert frame["diagnostics"]["First attachment separation (mm)"]<1e-9
-        assert frame["diagnostics"]["Second attachment separation (mm)"]<1e-9
-        assert all(np.isfinite(b["angular_error_degrees"]) for b in frame["bodies"])
-    assert method["frames"][20]["bodies"][1]["observed"]==[None]*8
 
 
 def test_branch_order_does_not_change_fit():
@@ -35,21 +24,11 @@ def test_branch_order_does_not_change_fit():
         assert (Rotation.from_quat(qa,scalar_first=True).inv()*Rotation.from_quat(qb,scalar_first=True)).magnitude()<1e-5
 
 
-def test_five_segment_tree_connections():
-    from scripts.solver_tree_experiment import tree_experiment
-    run=tree_experiment(noise=1.)
-    method=run['methods']['temporal']
-    assert method['summary']['Ceres parameter blocks']==126
-    assert method['summary']['Ceres residual blocks']==954
-    for frame in method['frames']:
-        assert frame['converged']
-        assert max(v for k,v in frame['diagnostics'].items() if 'equation error' in k)<1e-9
-        assert max(b['truth_rms'] for b in frame['bodies'])<3.
 
 
 @pytest.mark.parametrize('parents', [[1,0,2,2], [0,1,4,2], [0,-1,2,2], [0,1]])
 def test_tree_rejects_invalid_topology(parents):
-    from scripts.solver_tree_experiment import tree_inputs
+    from test_support.tree import tree_inputs
     local,_,parent,child,times,records=tree_inputs()
     with pytest.raises(ValueError):
         _native.fit_chain_sequence(local=[local.tolist()]*5,observed=[r['observed'].tolist() for r in records],

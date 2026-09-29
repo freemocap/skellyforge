@@ -9,10 +9,24 @@ the boundary from being crossed rather than leaving it to convention.
 from __future__ import annotations
 
 from pathlib import Path
+import ast
 
 import skellyforge
 
 _FORBIDDEN = ("skellytracker", "freemocap")
+
+
+def test_core_tests_and_fixtures_do_not_import_exploratory_tools() -> None:
+    root = Path(__file__).resolve().parents[2]
+    offenders = []
+    for folder in (root / 'skellyforge/tests', root / 'test_support'):
+        for path in folder.rglob('*.py'):
+            for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+                modules = ([node.module or ''] if isinstance(node, ast.ImportFrom)
+                           else [alias.name for alias in node.names] if isinstance(node, ast.Import) else [])
+                if any(module.split('.')[0] in ('scripts', 'experiments', 'diagnostics') for module in modules):
+                    offenders.append(f'{path.relative_to(root)}:{node.lineno}')
+    assert not offenders, 'Core tests must use shared fixtures or production code: ' + ', '.join(offenders)
 
 
 def test_skellyforge_package_never_imports_skellytracker_or_freemocap() -> None:

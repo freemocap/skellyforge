@@ -23,7 +23,7 @@ def saved_fixture():
 
 
 def test_drawing_uses_saved_transform_geometry_and_fixed_scale():
-    from scripts.generate_real_skeleton_viewer import saved_segments
+    from diagnostics.generators.generate_real_skeleton_viewer import saved_segments
 
     record, skeleton, fit = saved_fixture()
     result = saved_segments(record, skeleton, fit)["bone"]
@@ -36,7 +36,7 @@ def test_drawing_uses_saved_transform_geometry_and_fixed_scale():
 
 
 def test_missing_saved_pose_is_not_reconstructed():
-    from scripts.generate_real_skeleton_viewer import saved_segments
+    from diagnostics.generators.generate_real_skeleton_viewer import saved_segments
 
     record, skeleton, fit = saved_fixture()
     record["rotations"] = {}
@@ -45,7 +45,7 @@ def test_missing_saved_pose_is_not_reconstructed():
 
 @pytest.mark.parametrize("bad", ["quaternion", "length"])
 def test_saved_pose_inconsistency_fails_without_repair(bad):
-    from scripts.generate_real_skeleton_viewer import saved_segments
+    from diagnostics.generators.generate_real_skeleton_viewer import saved_segments
 
     record, skeleton, fit = saved_fixture()
     if bad == "quaternion":
@@ -133,7 +133,9 @@ def test_rejects_ambiguous_or_incompatible_samples(bad):
         decode_rows(samples, ["point"])
 
 
-def test_prefers_prepared_recording_without_creating_or_downloading_data(tmp_path):
+def test_prefers_prepared_recording_without_creating_or_downloading_data(tmp_path_factory):
+    # The nested recording layout needs a short fixture name on Windows.
+    tmp_path = tmp_path_factory.mktemp("r")
     with pytest.raises(FileNotFoundError, match="Prepare it in FreeMoCap"):
         recording_path(home=tmp_path)
     name = "freemocap_test_data"

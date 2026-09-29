@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from scripts.solver_spine_validation import change_metrics, angular_rates
+from diagnostics.generators.solver_spine_validation import change_metrics, angular_rates
 
 
 @pytest.mark.parametrize('fps',[6,30,120])

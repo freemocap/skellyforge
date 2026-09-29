@@ -6,9 +6,6 @@ def asset_directory():
     installed = Path(__file__).with_name('web')
     if installed.is_dir():
         return installed
-    source = Path(__file__).resolve().parents[3] / 'scripts'
-    if (source / 'viewer_geometry.js').is_file():
-        return source
     raise FileNotFoundError('Viewer assets missing from SkellyForge installation')
 
 

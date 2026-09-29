@@ -8,16 +8,6 @@ import numpy as np
 from skellylogs.formatters.color_formatter import LOG_COLOR_CODES
 
 
-class FibonacciMilestones:
-    def __init__(self):
-        self.next = 1
-        self.following = 2
-
-    def reached(self, completed):
-        if completed != self.next:
-            return False
-        self.next, self.following = self.following, self.next + self.following
-        return True
 
 
 COLUMNS = (
@@ -88,24 +78,23 @@ class TerminalProgress:
         self.clear()
         self.write(self.paint(text, level) + '\n')
 
-    def update(self, row, *, permanent, unconverged):
+    def update(self, row, *, unconverged):
         now = self.clock()
         self.intervals.append(now - self.previous)
         self.previous = now
         done = row['index'] + 1
-        if permanent or not row['converged']:
-            initial, final = row['initial_cost'], row['final_cost']
-            values = [str(done), f"{row['active_start']}-{row['active_end']}",
-                f"{row['fixed_start']}-{row['active_start']-1}" if row['active_start'] > row['fixed_start'] else '-',
-                str(row['iterations']), f'{initial:.6g}', f'{final:.6g}',
-                f'{100*(initial-final)/initial:.1f}' if initial else '-',
-                f"{row['seconds']*1000:.1f}", f"{row['wall_seconds']*1000:.1f}",
-                f"{(row['wall_seconds']-row['seconds'])*1000:.1f}",
-                str(row['parameter_blocks']), str(row['residual_blocks']),
-                'CONVERGED' if row['converged'] else 'USABLE']
-            cells = [value.rjust(width) for value, (_, width, _) in zip(values, COLUMNS)]
-            cells[-1] = self.paint(cells[-1], 'SUCCESS' if row['converged'] else 'WARNING')
-            self.line(' '.join(cells))
+        initial, final = row['initial_cost'], row['final_cost']
+        values = [str(done), f"{row['active_start']}-{row['active_end']}",
+            f"{row['fixed_start']}-{row['active_start']-1}" if row['active_start'] > row['fixed_start'] else '-',
+            str(row['iterations']), f'{initial:.6g}', f'{final:.6g}',
+            f'{100*(initial-final)/initial:.1f}' if initial else '-',
+            f"{row['seconds']*1000:.1f}", f"{row['wall_seconds']*1000:.1f}",
+            f"{(row['wall_seconds']-row['seconds'])*1000:.1f}",
+            str(row['parameter_blocks']), str(row['residual_blocks']),
+            'CONVERGED' if row['converged'] else 'USABLE']
+        cells = [value.rjust(width) for value, (_, width, _) in zip(values, COLUMNS)]
+        cells[-1] = self.paint(cells[-1], 'SUCCESS' if row['converged'] else 'WARNING')
+        self.line(' '.join(cells))
         if self.interactive:
             self.clear()
             mean = sum(self.intervals) / len(self.intervals)

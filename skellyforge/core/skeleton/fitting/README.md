@@ -193,15 +193,15 @@ when using `fit_human`. Standalone `python -m skellyforge` and the accepted
 Run with `python -X utf8` in legacy Windows redirected consoles; the installed
 SkellyLogs formatter contains Unicode characters not supported by CP1252.
 
-INFO reports preparation, settings and completed windows 1, 2, 3, 5, 8, 13, ...
-(Fibonacci milestones), always the last window, then final evaluation and timing.
-There is no per-window DEBUG flood. The progress callback still runs after every
-window, so cancellation and application progress retain their existing cadence.
+Fit progress uses the terminal table only; duplicate formatted logging records
+are not emitted. The progress callback still runs after every window, preserving
+application progress and cancellation. Unusable results print a failure line and
+raise an exception.
 
 A separate terminal-only table writes directly to stderr, never to log handlers
 or the WebSocket queue. It begins with settings and a definition for every column
-and live-status field. Each Fibonacci milestone, last window, or usable
-nonconverged window occupies exactly one table row. Use a wide terminal (about
+and live-status field. Every completed window occupies exactly one table row, including usable
+nonconverged windows. Use a wide terminal (about
 180 columns) to avoid terminal soft wrapping. Interactive terminals have a single
 updating bottom status line; redirected output has only permanent lines and no
 ANSI escapes. Colors reuse SkellyLogs' `LOG_COLOR_CODES` palette; `NO_COLOR`

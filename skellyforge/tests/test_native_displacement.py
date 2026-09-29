@@ -99,7 +99,7 @@ def test_displacement_distance_and_time_units():
 
 def test_missing_middle_roll_is_unobserved_but_axial_displacement_is_determined():
     """Actual axial attachment geometry has a roll ambiguity, not a length ambiguity."""
-    from scripts.solver_chain_experiment import chain_inputs
+    from test_support.chain import chain_inputs
 
     local, parent, child, _, _, records = chain_inputs(noise=0, gap=5, extension=20)
     record = records[20]
@@ -122,23 +122,3 @@ def test_missing_middle_roll_is_unobserved_but_axial_displacement_is_determined(
         alternative.apply(local) + middle_translation
         - (rotations[1].apply(local) + translations[1])
     ) > 10
-
-
-def test_displacement_and_gap_use_identical_observations_in_both_problems():
-    from scripts.solver_displacement_experiment import displacement_experiment
-
-    run = displacement_experiment(noise=1, extension=20, gap=5)
-    fixed = run["methods"]["fixed"]
-    fitted = run["methods"]["displacement"]
-    assert fitted["summary"]["Ceres parameter blocks"] == 205
-    assert fitted["summary"]["Ceres residual blocks"] == 1180
-    assert fixed["summary"]["Ceres residual blocks"] == 1100
-    for i, (a, b) in enumerate(zip(fixed["frames"], fitted["frames"])):
-        assert a["converged"] and b["converged"]
-        assert [x["observed"] for x in a["bodies"]] == [x["observed"] for x in b["bodies"]]
-        assert b["diagnostics"]["Second linkage equation error (mm)"] < 1e-9
-        assert abs(b["displacement"]) <= 40
-        if i in run["gap_frames"]:
-            assert b["bodies"][1]["observed"] == [None] * 8
-            assert b["diagnostics"]["Middle landmark residual blocks"] == 0
-    assert fitted["summary"]["All landmark RMS vs known (mm)"] < fixed["summary"]["All landmark RMS vs known (mm)"]

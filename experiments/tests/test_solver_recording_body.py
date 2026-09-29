@@ -1,6 +1,6 @@
 """Read-only adapter checks against the prepared recording, when available."""
 import pytest
-from scripts.solver_recording_body import body_model, frame_targets
+from experiments.generators.solver_recording_body import body_model, frame_targets
 from scripts.recording_data import read_recording, recording_path
 from skellyforge.core.skeleton.skeleton_snapshot import SkeletonSnapshot
 
@@ -9,7 +9,7 @@ def test_native_sequence_arrays_are_read_once(inputs):
     """Avoid copying recording-sized C++ vectors for each displayed segment."""
     from collections import Counter
     from skellyforge import _native
-    from scripts.solver_recording_body import recording_body_catalog
+    from experiments.generators.solver_recording_body import recording_body_catalog
 
     reads = Counter()
 
@@ -59,7 +59,7 @@ def test_full_model_and_single_counted_keypoint_mappings(inputs):
     assert len(set(model['sources'].values()))==len(model['sources'])
     for child,parent in enumerate(model['parents'],1):
         assert parent<child
-    from scripts.solver_recording_body import display_bodies
+    from experiments.generators.solver_recording_body import display_bodies
     for body in display_bodies(skeleton, model):
         assert body['region']
 
@@ -129,6 +129,6 @@ def test_missing_tail_keypoints_only_changes_initialization(monkeypatch,inputs,m
 
 
 def test_interval_without_any_saved_root_seed_is_explicit_error(inputs,missing_tail):
-    from scripts.solver_recording_body import recording_body_catalog
+    from experiments.generators.solver_recording_body import recording_body_catalog
     with pytest.raises(ValueError,match='No saved root pose available'):
         recording_body_catalog(recording_path(),216,221)
