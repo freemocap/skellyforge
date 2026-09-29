@@ -10,9 +10,9 @@ from time import perf_counter
 
 import numpy as np
 from skellyforge import _native
+from .terminal_progress import FibonacciMilestones, TerminalProgress
 
 logger = logging.getLogger(__name__)
-PROGRESS_INTERVAL_SECONDS = 5.0
 
 BOUNDARY_FRAMES = 2
 DEFAULT_MAX_ITERATIONS = _native.ChainSolveOptions().max_iterations
@@ -84,8 +84,11 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     initial_q=[None]*n;initial_t=[None]*n;introduced=0
     trace=[];window_seconds=0.;wall_start=perf_counter()
     total_windows = n-active_frames+1
-    last_progress = wall_start
     logger.info('Starting Ceres sequence: frames=%d, segments=%d, windows=%d, active_frames=%d, boundary_frames=%d, max_iterations=%d, function_tolerance=%g', n, bodies, total_windows, active_frames, BOUNDARY_FRAMES, max_iterations, function_tolerance)
+    milestones = FibonacciMilestones()
+    terminal = TerminalProgress(frames=n, segments=bodies, total=total_windows, active=active_frames,
+        boundary=BOUNDARY_FRAMES, iterations=max_iterations, tolerance=function_tolerance)
+    nonconverged = 0
     for first in range(total_windows):
         lo=max(0,first-BOUNDARY_FRAMES);hi=first+active_frames
         if first:
@@ -117,8 +120,16 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
         options.frame_weights=weights[lo:hi].tolist();options.fixed_prefix_frames=first-lo
         options.function_tolerance=initial_function_tolerance if first==0 and initial_function_tolerance is not None else function_tolerance
         options.max_iterations=max_iterations;window['solve_options']=options
-        started=perf_counter();result=_native.fit_chain_sequence(**window);elapsed=perf_counter()-started
+        started=perf_counter()
+        try:
+            result=_native.fit_chain_sequence(**window)
+        except BaseException:
+            terminal.clear()
+            raise
+        elapsed=perf_counter()-started
+        terminal.clear()
         if not result.usable:
+            terminal.line(f'FAILED: window {first+1}/{total_windows}, frames {lo}-{hi-1}', 'ERROR')
             logger.error("Unusable Ceres window %d/%d, frames=%d:%d: %s", first+1, total_windows, lo, hi-1, result.report)
             raise RuntimeError(f"Window {first}: {result.report}")
         if options.inspect_problem:
@@ -139,12 +150,13 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
             iterations=result.iterations,converged=result.converged,initial_cost=result.costs[0],final_cost=result.costs[-1],
             parameter_blocks=result.parameter_blocks,residual_blocks=result.residual_blocks,
             report=result.report,full_report=result.full_report))
-        logger.debug('Ceres window %d/%d: active=%d:%d, iterations=%d, converged=%s, cost=%g -> %g, native_seconds=%.3f; %s', first+1, total_windows, first, hi-1, result.iterations, result.converged, result.costs[0], result.costs[-1], result.seconds, result.report)
+        nonconverged += not result.converged
         now = perf_counter()
-        if first == 0 or first+1 == total_windows or now-last_progress >= PROGRESS_INTERVAL_SECONDS:
-            logger.info('Ceres progress: windows=%d/%d, elapsed_seconds=%.3f, nonconverged=%d', first+1, total_windows, now-wall_start, sum(not w['converged'] for w in trace))
-            last_progress = now
+        milestone = milestones.reached(first+1) or first+1 == total_windows
+        if milestone:
+            logger.info('Ceres progress: windows=%d/%d, elapsed_seconds=%.3f, nonconverged=%d', first+1, total_windows, now-wall_start, nonconverged)
         if progress:progress(trace[-1],total_windows)
+        terminal.update(trace[-1], permanent=milestone, unconverged=nonconverged)
     options=_native.ChainSolveOptions()
     options.landmark_position_priors=sliced_position_priors(0,n)
     options.landmark_huber_scale_mm=huber_scale
@@ -153,11 +165,16 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     options.frame_weights=weights.tolist();options.max_iterations=max_iterations
     options.function_tolerance=function_tolerance
     options.evaluate_only=True
+    terminal.line('Evaluating full sequence (no optimization; excluded from window ETA)', 'INFO')
+    logger.info('Evaluating assembled Ceres sequence (no optimization)')
     started=perf_counter()
     final=_native.fit_chain_sequence(**{**args,'initial_quaternions':quaternions,'initial_roots':roots,'solve_options':options})
     final_wall=perf_counter()-started
     logger.info('Ceres full-sequence evaluation complete (no optimization): seconds=%.3f', final_wall)
-    if not final.usable:raise RuntimeError(final.report)
+    if not final.usable:
+        terminal.line('FAILED: full-sequence evaluation', 'ERROR')
+        logger.error('Unusable Ceres full-sequence evaluation: %s', final.report)
+        raise RuntimeError(final.report)
     processing=dict(active_frames=active_frames,boundary_frames=BOUNDARY_FRAMES,refined=False,
         frame_weights=weights.tolist(),max_iterations=max_iterations,function_tolerance=function_tolerance,windows=trace,
         initial_function_tolerance=initial_function_tolerance,
@@ -170,6 +187,7 @@ def fit_windows(arguments, *, active_frames=3, max_iterations=DEFAULT_MAX_ITERAT
     if fixed_length_segments:processing['fixed_length_segments']=list(fixed_length_segments)
     converged=all(w['converged'] for w in trace)
     logger.log(logging.INFO if converged else logging.WARNING, 'Ceres sequence finished: converged_windows=%d/%d, native_seconds=%.3f, wall_seconds=%.3f; usable nonconverged windows are retained', sum(w['converged'] for w in trace), total_windows, window_seconds+final.seconds, processing['wall_seconds'])
+    terminal.finish(trace, final_wall)
     report=f'{len(trace)} sequential windows; {sum(w["converged"] for w in trace)} converged. '+'Final full-sequence evaluation only; no global optimization.'
     return WindowSequenceFit(final,processing,window_seconds+final.seconds,converged,report,
                              initial_q,initial_t,inspections)

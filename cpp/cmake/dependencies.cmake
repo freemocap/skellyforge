@@ -6,6 +6,9 @@ set(BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(PROVIDE_UNINSTALL_TARGET OFF CACHE BOOL "" FORCE)
 set(MINIGLOG ON CACHE BOOL "" FORCE)
+# miniglog uses negative severities for warnings/errors and positive VLOG levels.
+# Keep WARNING (-1), ERROR (-2), FATAL (-3); Python owns routine progress output.
+set(MINIGLOG_MAX_LOG_LEVEL -1 CACHE STRING "Native warnings and errors only" FORCE)
 set(GFLAGS OFF CACHE BOOL "" FORCE)
 set(SUITESPARSE OFF CACHE BOOL "" FORCE)
 set(LAPACK OFF CACHE BOOL "" FORCE)

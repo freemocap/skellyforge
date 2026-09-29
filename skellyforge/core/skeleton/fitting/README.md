@@ -193,10 +193,31 @@ when using `fit_human`. Standalone `python -m skellyforge` and the accepted
 Run with `python -X utf8` in legacy Windows redirected consoles; the installed
 SkellyLogs formatter contains Unicode characters not supported by CP1252.
 
-INFO reports preparation, settings, first/last window and progress at least once
-every five seconds between completed windows, then final evaluation and timing.
-A single native solve can take longer than that interval. DEBUG records every
-window's frame range, iterations, convergence, costs and native report.
+INFO reports preparation, settings and completed windows 1, 2, 3, 5, 8, 13, ...
+(Fibonacci milestones), always the last window, then final evaluation and timing.
+There is no per-window DEBUG flood. The progress callback still runs after every
+window, so cancellation and application progress retain their existing cadence.
+
+A separate terminal-only table writes directly to stderr, never to log handlers
+or the WebSocket queue. It begins with settings and a definition for every column
+and live-status field. Each Fibonacci milestone, last window, or usable
+nonconverged window occupies exactly one table row. Use a wide terminal (about
+180 columns) to avoid terminal soft wrapping. Interactive terminals have a single
+updating bottom status line; redirected output has only permanent lines and no
+ANSI escapes. Colors reuse SkellyLogs' `LOG_COLOR_CODES` palette; `NO_COLOR`
+disables color. No terminal library or root-logger configuration is installed.
+
+The live mean uses the last 20 completed-window intervals (all available if fewer).
+ETA is remaining windows times that mean, excludes final evaluation, and is only
+an estimate. Updates happen between native solves, not within a solve. Extra time
+is measured native-call wall time minus native-reported time, not all Python
+overhead. Window costs belong to different objectives and are not a sequence-wide
+convergence curve. The final summary includes median/p95/max iterations and native
+solve time, the slowest call, convergence counts, and evaluation/total wall time.
+
+Ceres miniglog is compiled with `MINIGLOG_MAX_LOG_LEVEL=-1`, preserving native
+warnings/errors/fatal checks while removing INFO/VLOG diagnostics. Rebuild the
+native extension to apply this setting; Python logging levels cannot change it.
 Nonconverged but usable results remain accepted by the existing policy, with a
 WARNING summary. Unusable windows log ERROR and raise. No tolerances, residuals,
 initialization or callback semantics are changed. Per-window native reports and
