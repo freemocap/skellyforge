@@ -146,7 +146,7 @@ class Aspect(BaseModel):
                     "Second dimension of reprojection error must match the number of landmark names in the trajectory.")
 
         self.reprojection_error = Error(name='reprojection_error',
-                                        data=reprojection_error_data,
+                                        array=reprojection_error_data,
                                         marker_names=self.anatomical_structure.tracked_point_names)
 
     def add_metadata(self, metadata: Dict[str, Any]):
