@@ -6,9 +6,9 @@ tracker_name: RTMPose
 #=================================     
 order: 
   - body
-  - face
-  - left_hand
   - right_hand
+  - left_hand
+  - face
 
 aspects:
   #=================================
