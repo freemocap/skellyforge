@@ -7,7 +7,7 @@ import pytest
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.geometry.spatial_vectors import Point
-from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose
+from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose, synthesize_anchored_pose
 from skellyforge.core.skeleton.pose.model_scale_fitting import ModelScaleFit
 from skellyforge.core.skeleton.pose.rest_pose import RestPose
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
@@ -29,6 +29,64 @@ def inputs():
         voting_segment_names=frozenset(),
     )
     return skeleton, rest, fit
+
+
+@pytest.mark.parametrize('anchor', ['pelvis', 'skull', 'left_carpals', 'right_carpals'])
+def test_reanchoring_changes_only_translation_and_preserves_attachments(inputs, anchor):
+    skeleton, rest, fit = inputs
+    relative = {name: RotationQuaternion.from_rotation_vector(rotation_vector=np.array([.02 * i, -.15, .21]))
+                for i, name in enumerate(skeleton.segments) if name != rest.root_segment_name}
+    rotations, origins, landmarks = synthesize_fitted_pose(skeleton=skeleton, fit=fit,
+        segment_relative_orientations=relative, root_world_orientation=RotationQuaternion.identity(),
+        root_origin=Point.from_xyz(x=100., y=-200., z=900.))
+    destination = Point.from_xyz(x=-50., y=300., z=1500.)
+    shift = destination.array - origins[anchor].array
+    original_parents = dict(rest.parents)
+    anchored_rotations, anchored_origins, anchored_landmarks = synthesize_anchored_pose(
+        skeleton=skeleton, fit=fit, segment_world_orientations=rotations,
+        anchor_segment_name=anchor, anchor_origin=destination)
+    assert dict(rest.parents) == original_parents
+    for name in rotations:
+        assert anchored_rotations[name].is_same_rotation(other=rotations[name])
+        np.testing.assert_allclose(anchored_origins[name].array, origins[name].array + shift, atol=1e-9)
+    for name in landmarks:
+        np.testing.assert_allclose(anchored_landmarks[name].array, landmarks[name].array + shift, atol=1e-9)
+    for joint in skeleton.joints.values():
+        np.testing.assert_allclose(anchored_origins[joint.child.name].array,
+                                   anchored_landmarks[joint.connect_at.name].array, atol=1e-9)
+
+
+def test_head_anchored_component_does_not_require_pelvis_and_rejects_gaps(inputs):
+    skeleton, rest, fit = inputs
+    # Follow the anatomical path from head toward pelvis, but omit pelvis.
+    names = []
+    name = 'skull'
+    while name != rest.root_segment_name:
+        names.append(name)
+        name = rest.parents[name]
+    rotations = {name: rest.segment_orientations[name] for name in names}
+    kwargs = dict(skeleton=skeleton, fit=fit, segment_world_orientations=rotations,
+                  anchor_segment_name='skull', anchor_origin=Point.from_xyz(x=0., y=0., z=1700.))
+    _, origins, _ = synthesize_anchored_pose(**kwargs)
+    assert set(origins) == set(names)
+    assert rest.root_segment_name not in origins
+    del rotations[names[1]]
+    with pytest.raises(ValueError, match='without gaps'):
+        synthesize_anchored_pose(**kwargs)
+    with pytest.raises(ValueError, match='include the anchor'):
+        synthesize_anchored_pose(**(kwargs | {'segment_world_orientations': {names[-1]: rest.segment_orientations[names[-1]]}}))
+    with pytest.raises(ValueError, match='known segment'):
+        synthesize_anchored_pose(**(kwargs | {'anchor_segment_name': 'nose'}))
+
+
+def test_isolated_measured_anchor_is_valid(inputs):
+    skeleton, rest, fit = inputs
+    q = rest.segment_orientations['left_carpals']
+    _, origins, landmarks = synthesize_anchored_pose(skeleton=skeleton, fit=fit,
+        segment_world_orientations={'left_carpals': q}, anchor_segment_name='left_carpals',
+        anchor_origin=Point.from_xyz(x=100., y=200., z=300.))
+    assert set(origins) == {'left_carpals'}
+    assert set(landmarks) == set(skeleton.segments['left_carpals'].landmarks)
 
 
 def test_connected_motion_preserves_fitted_geometry(inputs):

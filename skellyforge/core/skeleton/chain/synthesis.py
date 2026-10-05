@@ -175,16 +175,7 @@ def synthesize_fitted_pose(
     fit, rotations, and root are not modified. Full measured poses stay separate.
     """
     selected = set(skeleton.segments) if segment_names is None else set(segment_names)
-    if set(fit.segment_scales) != set(skeleton.segments):
-        raise ValueError("Fit must cover the skeleton's exact segment set")
-    for name, segment in skeleton.segments.items():
-        if not np.isclose(
-            fit.segment_lengths[name],
-            segment.length * fit.segment_scales[name],
-            rtol=1e-9,
-            atol=1e-12,
-        ):
-            raise ValueError(f"Fit length and template geometry disagree for {name!r}")
+    _validate_fitted_geometry(skeleton=skeleton, fit=fit)
     if root_origin.array.shape != (3,) or not np.isfinite(root_origin.array).all():
         raise ValueError("Root origin must be one finite 3D point")
     required = {
@@ -206,6 +197,78 @@ def synthesize_fitted_pose(
         segment_scales=fit.segment_scales,
         segment_names=segment_names,
     )
+
+
+def _validate_fitted_geometry(*, skeleton: SkeletonDefinition, fit: ModelScaleFit) -> None:
+    if set(fit.segment_scales) != set(skeleton.segments) or set(fit.segment_lengths) != set(skeleton.segments):
+        raise ValueError("Fit must cover the skeleton's exact segment set")
+    for name, segment in skeleton.segments.items():
+        if not np.isfinite(fit.segment_scales[name]) or fit.segment_scales[name] <= 0:
+            raise ValueError("Segment scales must be finite and positive")
+        if not np.isclose(
+            fit.segment_lengths[name],
+            segment.length * fit.segment_scales[name],
+            rtol=1e-9,
+            atol=1e-12,
+        ):
+            raise ValueError(f"Fit length and template geometry disagree for {name!r}")
+
+
+def synthesize_anchored_pose(
+    *,
+    skeleton: SkeletonDefinition,
+    fit: ModelScaleFit,
+    segment_world_orientations: Mapping[str, RotationQuaternion],
+    anchor_segment_name: str,
+    anchor_origin: Point,
+) -> tuple[dict[str, RotationQuaternion], dict[str, Point], dict[str, Point]]:
+    """Connect a measured component from any segment without changing anatomy.
+
+    The orientation keys are the explicit segment selection. They must form one
+    connected component containing the anchor; missing intermediate poses fail.
+    An anatomical root outside that component is not required. No orientation,
+    scale, or unobserved segment is inferred. Anchor origin and fitted dimensions
+    use the same world units. Output orientations remain the supplied world poses.
+
+    Traversing an edge backwards subtracts the original parent's rotated/scaled
+    attachment. It does NOT swap attachment ownership or reverse joint conventions.
+    This places geometry in the existing world frame, not an anchor-relative frame.
+    """
+    _validate_fitted_geometry(skeleton=skeleton, fit=fit)
+    selected = set(segment_world_orientations)
+    if anchor_segment_name not in skeleton.segments:
+        raise ValueError("Anchor must name a known segment")
+    if anchor_segment_name not in selected or not selected.issubset(skeleton.segments):
+        raise ValueError("Orientations must include the anchor and only known segments")
+    if anchor_origin.array.shape != (3,) or not np.isfinite(anchor_origin.array).all():
+        raise ValueError("Anchor origin must be one finite 3D point")
+    neighbors: dict[str, list[tuple[str, np.ndarray]]] = {name: [] for name in selected}
+    for joint in skeleton.joints.values():
+        parent, child = joint.parent.name, joint.child.name
+        if parent not in selected or child not in selected:
+            continue
+        offset = segment_world_orientations[parent].rotate_vector(
+            vector=joint.connect_at.local_position.array * fit.segment_scales[parent])
+        neighbors[parent].append((child, offset))
+        neighbors[child].append((parent, -offset))
+    origins = {anchor_segment_name: anchor_origin}
+    pending = [anchor_segment_name]
+    while pending:
+        name = pending.pop()
+        for neighbor, offset in neighbors[name]:
+            if neighbor in origins:
+                continue
+            origins[neighbor] = Point.from_array(values=origins[name].array + offset)
+            pending.append(neighbor)
+    if set(origins) != selected:
+        raise ValueError("Selected segments must be connected to the anchor without gaps")
+    landmarks = {
+        name: Point.from_array(values=origins[landmark.segment].array
+            + segment_world_orientations[landmark.segment].rotate_vector(
+                vector=landmark.local_position.array * fit.segment_scales[landmark.segment]))
+        for name, landmark in skeleton.landmarks.items() if landmark.segment in selected
+    }
+    return dict(segment_world_orientations), origins, landmarks
 
 
 def synthesize_from_euler(
