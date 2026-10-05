@@ -1,6 +1,13 @@
 sided: true
 segments:
   CARPALS:
+    # An observed orientation frame, not a rigid fit of the palm/knuckle points.
+    # CMC attachment estimates supply reference span; they do not steer the axes.
+    # Left local +X points away from the index; sided expansion mirrors this.
+    observation_frame:
+      origin: carpal_origin
+      z_axis: {landmark: middle_mcp, type: exact}
+      x_axis: {landmark: index_mcp, type: approximate, negate: true}
     reference_geometry:
       origin: carpal_origin
       z_axis:
