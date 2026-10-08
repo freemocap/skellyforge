@@ -37,7 +37,7 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def read_recording(path, sensor_group=None, *, include_model=False):
+def read_recording(path, sensor_group=None, *, include_model=False, landmark_kind="LANDMARKS_3D"):
     try:
         import pyarrow.parquet as pq
     except ImportError as error:
@@ -58,7 +58,7 @@ def read_recording(path, sensor_group=None, *, include_model=False):
         channels = [
             c
             for c in run["channels"]
-            if c["kind"] == "LANDMARKS_3D"
+            if c["kind"] == landmark_kind
             and c["source"] == "model:standard_human"
             and (sensor_group is None or c["sensor_group"] == sensor_group)
         ]

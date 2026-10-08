@@ -2,21 +2,9 @@
 PYTHONUTF8 = "1"
 
 [tool.poe.tasks]
-native-check = "python scripts/native_build.py check"
-native-configure = "python scripts/native_build.py configure"
-native-build = "python scripts/native_build.py build"
-native-install = "python scripts/native_build.py install"
-test-native = "python scripts/native_build.py test"
-test = "python -m pytest"
-test-native-python = "python -B -m pytest skellyforge/tests -k native"
-build-wheel = "python scripts/native_build.py wheel"
-
-
-wheel-validation-inputs = "python -m scripts.validate_installed_wheel prepare --inputs build/wheel_validation/inputs.json.gz"
-
+test = "python -B -m pytest"
 test-test-data = "python -B -m pytest tests/reference --dataset test_data -s"
 test-sample-data = "python -B -m pytest tests/reference --dataset sample_data -s"
 test-all-data = ["test-test-data", "test-sample-data"]
-test-diagnostics = "python -B -m pytest diagnostics/tests"
-test-experiments = "python -B -m pytest experiments/tests"
-test-all = ["test", "test-diagnostics", "test-experiments"]
+test-all = ["test", "test-all-data"]
+viewer = "python -B -m skellyforge.tools.viewer.synthetic"

@@ -10,7 +10,7 @@ from skellyforge.core.trajectories import fill_trajectory_gaps
 prepared, report = fill_trajectory_gaps(points=raw, timestamps_s=times)
 measured_support = report.measured_support(prepared)
 for start, stop in report.active_spans:
-    # Smooth and reconstruct this interval, then fit it independently.
+    # Smooth and reconstruct this interval independently.
     interval = prepared[start:stop]
 ```
 
@@ -33,8 +33,6 @@ anatomical keypoint is observed. Skeleton geometry is complete independently.
 They partition the recording. A single blank frame is a boundary too; the array
 alone cannot distinguish detector failure from a person leaving. This API does
 not infer identities, detect a person from one point, or join multiple people.
-Intervals too short for a caller's sequence solver need an explicit skip or
-closed-form reconstruction policy; the three-frame window solver cannot fit them.
 
 Keep `report.measured_support(prepared)` alongside the trajectories through
 smoothing/alignment. Interpolated samples may guide fitting, but must not count
@@ -43,35 +41,13 @@ as independent measured evidence for person dimensions or ground alignment.
 `to_dict()` supplies a serialization-ready report without adding a Pydantic
 dependency to SkellyForge.
 
-## Inspect the behavior
+## Validation and integration
 
-From the SkellyForge repository:
+Run `uv run --no-sync poe test` for deterministic dropout and support regressions.
+The connected-fit dropout viewer is preserved on `development-skelly-fit`.
 
-```powershell
-uv run poe experiment-partial-observations --serve
-```
-
-Open http://127.0.0.1:8777/. Without `--serve`, the same command only saves the
-self-contained page to `.test-artifacts/viewers/partial_observations/index.html`.
-It compares raw, prepared and fitted geometry for five deterministic dropout
-cases using the production connected window solver. Reference truth never enters
-the fit. It is a controlled chain experiment, not the accepted full-human fit.
-
-## FreeMoCap integration handoff
-
-After this SkellyForge change is committed and pushed on `development-streaming`:
-
-1. Refresh FreeMoCap's pinned SkellyForge revision and installed native extension.
-2. Replace the algorithm in `core/reconstruction/trajectory_gap_filling.py` with
-   a thin adapter to this API. Preserve reading legacy version-2/3 saved reports;
-   adapt version-4 dataclass reports into FreeMoCap's existing persisted schema.
-3. Keep gap filling before smoothing and preserve measured-support masks for
-   alignment and scale. Do not independently fill the same data again.
-4. Split sequence fitting at `active_spans`, retain the original frame/time grid
-   with blank outputs at absence, and define how intervals shorter than three
-   frames are represented. Do not borrow root seeds across separate appearances.
-5. Emit all modeled landmarks for present skeletons and keep observation arrays
-   separate. Reprocess `test_data`, then `sample_data`, through standard commands.
-
-FreeMoCap's calibration-specific interpolation is separate: this person-presence
-contract must not be applied to calibration-board data as an incidental change.
+FreeMoCap owns detector mapping, calibration, filtering, recording publication and
+end-to-end reference-data runs. Keep gap filling before smoothing and preserve
+measured-support masks through alignment and scale estimation. Do not independently
+fill the same data twice. Validate both test_data and sample_data after integration.
+Calibration-board interpolation is a separate contract from person presence.

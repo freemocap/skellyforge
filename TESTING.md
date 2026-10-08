@@ -1,96 +1,65 @@
-# Tests, diagnostics, and experiments
+# Testing the reconstruction package
 
-Run commands from the **SkellyForge repository**, `project/repos/skellyforge`,
-using its existing environment. Prefix Poe tasks with `uv run --no-sync poe`.
+`development-streaming` contains closed-form geometry, skeleton hydration, person
+scale estimation, forward synthesis, biomechanics and trajectory preparation.
+Connected optimization, Ceres, native builds and fitting experiments are preserved
+on `development-skelly-fit`, not required by this branch.
 
-| Purpose | Command | Inputs and outcome |
-| --- | --- | --- |
-| Core regression tests | `uv run --no-sync poe test` | Synthetic fixtures; geometry and solver contracts; pass/fail |
-| Standard fit on test data | `uv run --no-sync poe test-test-data` | Prepared `test_data`, 222 frames; accepted `fit_human` only |
-| Standard fit on sample data | `uv run --no-sync poe test-sample-data` | Prepared `sample_data`, 1,108 frames; accepted `fit_human` only |
-| Both reference recordings | `uv run --no-sync poe test-all-data` | Test data first; a failure stops sample data |
-| Diagnostic tooling tests | `uv run --no-sync poe test-diagnostics` | Readers, viewers, and diagnostic calculations |
-| Experimental tooling tests | `uv run --no-sync poe test-experiments` | Comparison machinery and experimental assertions; some need local recordings |
-| All three regression suites | `uv run --no-sync poe test-all` | Core, diagnostic tooling, experimental tooling; no full reference fits |
+Run from the SkellyForge checkout using its own environment:
 
-`poe test` does not download recordings, open viewers, or sweep solver options.
-The native extension must already be built. Reference tests additionally need
-the `recording-viewer` extra (PyArrow) and prepared data from FreeMoCap. Missing
-inputs fail explicitly. SkellyForge reads data; it never imports FreeMoCap or
-reruns calibration, tracking, triangulation, alignment, or person scaling.
+| Check | Command |
+| --- | --- |
+| Core regression suite | `uv run --no-sync poe test` |
+| Prepared 222-frame test recording | `uv run --no-sync poe test-test-data` |
+| Prepared 1,108-frame sample recording | `uv run --no-sync poe test-sample-data` |
+| Both reference recordings | `uv run --no-sync poe test-all-data` |
+| Offline synthetic hydration viewer | `uv run --no-sync poe viewer` |
 
-Reference tests call the public accepted fitter with its defaults, check complete
-finite returned segment state and unit quaternions, and verify the source file
-is unchanged. They do not use the experimental 50 mm spine-distance gate, claim
-anatomical accuracy, or require arbitrary coverage percentages. Numerical contracts
-and regression cases belong in tests; error distributions belong in diagnostics;
-changes to solver choices belong in experiments until deliberately accepted.
+Reference tests require PyArrow (`recording-viewer` extra) and prepared recordings.
+Missing data fails explicitly; tests never download data or import FreeMoCap.
+An explicit input may be selected with `--parquet PATH --sensor-group GROUP`.
+Default discovery prefers `~/freemocap_data/testing/prepared/RECORDING/current/recordings/RECORDING/`.
 
-Default data discovery prefers FreeMoCap's `testing/prepared/.../current` recording
-and falls back to the original recording directory. The input path and SHA256 are
-printed. To select a particular prepared recording or disambiguate its group:
+The reference tests read mapped observations and the saved skeleton definition,
+rehydrate every frame, and validate finite poses, unit rotations, positive scales
+and absence handling. They print the input hash and assert the original file is
+unchanged. These checks exercise the geometry on real data; they do not certify
+anatomical accuracy or replace FreeMoCap's full pipeline and export acceptance tests.
+Those integration checks run in FreeMoCap after the human commit/push handoff.
 
-```powershell
-uv run --no-sync poe test-test-data --parquet C:\data\recording_data.parquet --sensor-group GROUP
-```
+Keep both synthetic regressions and real-data runs when changing reconstruction.
+Place generated artifacts in ignored `.test-artifacts/` or `build/`. The root
+pytest configuration creates a separate scratch directory for each invocation.
+Do not overwrite prepared source recordings or regenerate tracked HTML snapshots.
 
-No fit output is saved by these tests. They do not replace FreeMoCap's accepted
-recording. Each pytest invocation gets its own temporary directory beneath
-`.test-artifacts/pytest/run-*`, avoiding the shared Windows `pytest-of-USER`
-directory and collisions between concurrent runs. Explicit `--basetemp` overrides
-are respected. Run directories remain available for debugging; old runs are not
-automatically pruned. Any persistent generated artifacts
-must be ignored. Pytest's shared cache is disabled by default to avoid the same
-cross-session permission problem in `.pytest_cache/`. Other generated files
-must go under ignored `.test-artifacts/` or `build/`, or outside the repository.
-Check ignore rules before creating outputs. Historical tracked HTML snapshots
-remain for now; do not regenerate them as part of normal test execution.
+The package uses Flit and must build a `py3-none-any.whl`, without CMake, a C++
+compiler or a bundled native extension. Validate release contents from a clean
+source copy: ignored binaries left by previous native builds are not source.
 
-## Locations and exploratory work
+The historical tracker-mapping authoring script and its development dependency
+are separate architectural debt. This extraction does not expand those imports
+or move integration ownership into Forge.
 
-- `skellyforge/tests/`: core regression tests (the default pytest collection).
-- `tests/reference/`: explicit full-recording tests.
-- `diagnostics/tests/`: regression checks for diagnostic tooling.
-- `experiments/tests/`: regression checks for exploratory tooling.
-- `test_support/`: deterministic shared inputs, independent of exploratory tools.
-- `experiments/generators/`: synthetic and recording-based solver comparisons.
-- `diagnostics/generators/`: saved-recording viewers and report calculations.
-- `diagnostics/checks/`: JavaScript viewer checks.
-- `skellyforge/tools/viewer/web/`: shared HTML, JavaScript, CSS, and vendored assets.
-- `.test-artifacts/viewers/`: new generated pages, media, and inspector captures (ignored).
-- `diagnostics/poe_tasks.toml`: `diagnostic-*` viewer/report commands.
-- `experiments/poe_tasks.toml`: `experiment-*` solver comparisons.
+## Extraction validation (2026-10-08)
 
-Legacy entry-point wrappers, build/authoring utilities, and historical results
-remain under `scripts/`. Generated pages now go to `.test-artifacts/viewers/`;
-existing snapshots are not moved, overwritten, or automatically adopted. Their
-Poe entry points now have explicit prefixes; for example,
-`solver-viewer-spine-ratios` becomes `experiment-solver-viewer-spine-ratios`.
-Python module paths remain compatible. The shared recording reader now lives in
-`skellyforge/tools/recording_data.py`; `scripts.recording_data` remains an alias.
-Tests of individual native primitives remain core tests even where the primitive
-also supports an experiment. Moving them out merely because they have many
-parameter cases would remove useful regression coverage.
+Both prepared recordings passed source and isolated-wheel hydration checks:
+222 frames (216 hydrated, 6 absent) and 1,108 frames (1,079 hydrated, 29 absent).
+The original Parquet hashes were unchanged. The standalone CLI and synthetic
+viewer also ran successfully. Clean-source and direct-checkout wheels passed
+`scripts/validate_python_wheel.py`; neither contained a native extension.
 
-## Remaining work, in order
+Final source suite: **643 passed, 1 skipped, 1 failed**. The core suite has a pre-existing failure:
+`test_twist_backfill.py::test_pure_pronation_is_recovered_during_resolution`
+recovers 0 degrees where its fixture expects 60. It fails identically in a source
+snapshot of preserved commit `8a28aab7f57a6d7e268e5e67baca026bccaf6bcd` and in
+the extracted package. It has not been skipped, weakened or fixed by this cleanup.
+The suite's existing skip concerns the lack of adjacent rigid-fit pairs.
 
-1. Review the reorganized diagnostic viewer with `uv run poe diagnostic-viewer`
-   at http://127.0.0.1:8774/. Opening it reads saved results and serves the synthetic
-   view; it does not process recordings. An unavailable or stale saved result is
-   reported rather than silently recalculated. Stop with Ctrl+C. Then review
-   experiment commands individually; many comparisons require earlier saved fits.
-   The directory and asset migration is complete; build/authoring utilities and
-   compatibility wrappers intentionally remain under `scripts/`.
-2. Resolve **complete skeleton output from partial observations** in SkellyForge.
-   Keypoints may be absent; modeled segments must retain all their landmarks.
-   Specify rest-relative completion, observed/inferred provenance, and the wholly
-   unobservable case. Do not feed inferred positions back as measured evidence.
-   This is a separate mathematical change, not a workaround in the dataset test.
-3. Revalidate the two standard-data tests against newly processed FreeMoCap data.
-   Fresh test-data currently exposes `KeyError: pelvis_origin` in position-prior
-   preparation. Older prepared data may pass; that does not resolve this blocker.
-4. After the human commit/push handoff, validate FreeMoCap's adapter against the
-   completed-skeleton contract and finish end-to-end dataset acceptance there.
+Locally, the old ignored `_native.cp312-win_amd64.pyd` and generated dependency
+licenses were moved out of the package to `.test-artifacts/extraction/old-native/`.
+Keep generated binaries outside `skellyforge/` when building a pure Python wheel.
+The existing `.venv` was not synchronized; wheel checks used a separate environment.
 
-The suite reorganization does not alter fitting mathematics or decide the missing
-observation policy. Experimental quality thresholds remain explicitly experimental.
+After review, commit and push this repository on `development-streaming` before
+refreshing FreeMoCap's dependency. FreeMoCap still needs its own fitting-removal
+changes and full recording/reprocessing/export tests; this is the Forge handoff.

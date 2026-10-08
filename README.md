@@ -27,10 +27,13 @@ rest pose `human`
   resolved landmarks  124
 ```
 
-See [TESTING.md](TESTING.md) for core tests, full test_data/sample_data fits,
-diagnostics, experiments, and the remaining cleanup work.
+See [TESTING.md](TESTING.md) for core tests and checks against prepared test/sample recordings.
 
-For keypoint gap filling, whole-person absence and the partial-observation viewer,
+Connected skeleton fitting, Ceres, native builds and their experiments are preserved
+on `development-skelly-fit`. This branch builds a pure Python package and retains
+closed-form reconstruction, person scale fitting and trajectory preparation.
+
+For keypoint gap filling and whole-person absence,
 see the [trajectory preparation contract](skellyforge/core/trajectories/README.md).
 
 ## What is in here
@@ -127,13 +130,3 @@ gitignored; regenerate it rather than committing it.
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE).
-
-
-## Pipeline viewer
-
-Run `uv run --no-sync poe diagnostic-viewer --prepare-synthetic-fit` from this checkout,
-then open **http://127.0.0.1:8774/**. Subsequent starts can omit the preparation
-flag. The viewer brings synthetic motion, accepted test/sample fits and actual
-Ceres parameter/residual inspection together. See
-[viewer instructions](skellyforge/tools/viewer/README.md) for inputs, layers,
-installed usage and current limitations.
