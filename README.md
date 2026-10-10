@@ -130,3 +130,18 @@ gitignored; regenerate it rather than committing it.
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE).
+
+
+### Foot-support alignment and tracking jitter
+
+Foot contacts require sustained, good-quality observations. The estimator fits
+motion over `minimum_dwell_seconds`, rather than differentiating adjacent frames:
+a stationary marker with millimeter-scale tracking jitter can otherwise appear to
+move rapidly, especially at high frame rates. A window must also remain within
+`maximum_speed * minimum_dwell_seconds` of its median position, rejecting large
+out-and-back excursions. Overlapping accepted windows form one contact episode.
+Low-quality samples and long timestamp gaps split episodes; they are not filled.
+
+The existing floor consensus, spatial spread, residual, and body-orientation
+checks still apply. If they reject the floor, reference alignment can fall back
+to a body anchor; this does not imply that the feet lie on the ground plane.

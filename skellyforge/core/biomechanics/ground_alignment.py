@@ -25,7 +25,12 @@ class GroundAlignmentOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class GroundAlignmentConfig:
-    """Distance thresholds use the same length unit as contact positions."""
+    """Distance thresholds use the same length unit as contact positions.
+
+    maximum_speed bounds fitted drift over minimum_dwell_seconds. Each contact
+    window also stays within maximum_speed * minimum_dwell_seconds of its median
+    position, admitting bounded tracking jitter but rejecting large excursions.
+    """
 
     maximum_speed: float
     maximum_plane_distance: float
@@ -99,33 +104,56 @@ class GroundAlignmentResult:
 def _contact_centers(
     *, track: FootContactTrack, config: GroundAlignmentConfig
 ) -> list[FloatArray]:
+    # Differentiate over the dwell interval, not adjacent camera frames: small
+    # positional jitter otherwise becomes large apparent velocity at high FPS.
     centers: list[FloatArray] = []
+    times, positions = track.timestamps_seconds, track.positions
+    count = len(times)
     start = 0
-    count = len(track.timestamps_seconds)
     while start < count:
         if track.quality[start] < config.minimum_quality:
             start += 1
             continue
-        end = start + 1
-        while end < count:
-            delta = track.timestamps_seconds[end] - track.timestamps_seconds[end - 1]
-            if (
-                track.quality[end] < config.minimum_quality
-                or delta > config.maximum_gap_seconds
-            ):
-                break
-            if (
-                np.linalg.norm(track.positions[end] - track.positions[end - 1]) / delta
-                > config.maximum_speed
-            ):
-                break
-            end += 1
-        if (
-            track.timestamps_seconds[end - 1] - track.timestamps_seconds[start]
-            >= config.minimum_dwell_seconds
+        stop = start + 1
+        while (
+            stop < count
+            and track.quality[stop] >= config.minimum_quality
+            and times[stop] - times[stop - 1] <= config.maximum_gap_seconds
         ):
-            centers.append(np.median(track.positions[start:end], axis=0))
-        start = end
+            stop += 1
+        episode_start = None
+        episode_stop = None
+        for first in range(start, stop):
+            last = int(
+                np.searchsorted(times, times[first] + config.minimum_dwell_seconds)
+            )
+            if last >= stop:
+                break
+            window = positions[first : last + 1]
+            elapsed = times[first : last + 1] - times[first]
+            centered_time = elapsed - elapsed.mean()
+            velocity = np.einsum(
+                "n,ni->i", centered_time, window - window.mean(axis=0)
+            ) / (centered_time @ centered_time)
+            # A closed excursion can have zero fitted velocity. Also bound the
+            # entire window's spatial extent so it cannot masquerade as contact.
+            radius = np.max(np.linalg.norm(window - np.median(window, axis=0), axis=1))
+            stationary = (
+                np.linalg.norm(velocity) <= config.maximum_speed
+                and radius <= config.maximum_speed * config.minimum_dwell_seconds
+            )
+            if stationary:
+                if episode_start is not None and first >= episode_stop:
+                    centers.append(
+                        np.median(positions[episode_start:episode_stop], axis=0)
+                    )
+                    episode_start = None
+                if episode_start is None:
+                    episode_start = first
+                episode_stop = last + 1
+        if episode_start is not None:
+            centers.append(np.median(positions[episode_start:episode_stop], axis=0))
+        start = stop
     return centers
 
 
