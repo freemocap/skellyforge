@@ -39,6 +39,7 @@ from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternio
 from skellyforge.core.math.geometry.spatial_vectors import Point, UnitVector
 from skellyforge.core.math.kinematics.coordinate_frame_ops import (
     rotation_between_vectors,
+    rotations_between_vector_pairs,
 )
 from skellyforge.core.math.kinematics.rigid_point_set import (
     MINIMUM_POINTS_FOR_RIGID_FIT,
@@ -244,12 +245,42 @@ def hydrate_skeleton(
         The skeleton's pose, keyed by segment name. Every segment is present when
         ``require_all``; otherwise only the hydratable ones.
     """
+    # Only the ordinary two-point solver is eligible. Observation-frame and
+    # rigid-fit precedence, failures, and scalar-shaped input requirements stay
+    # with hydrate_segment. Exceptional cases take its original error path.
+    eligible = []
+    for segment in skeleton.segments.values():
+        origin = segment.frame_definition.origin_point_name
+        primary = segment.frame_definition.primary_point_name
+        if segment.observation_frame is not None or segment.supports_rigid_fit:
+            continue
+        if origin in observed and primary in observed and observed[origin].array.shape == (3,) and observed[primary].array.shape == (3,):
+            eligible.append(segment)
+    prepared = {}
+    if eligible:
+        displacement = np.asarray([observed[s.frame_definition.primary_point_name].array for s in eligible]) - np.asarray([
+            observed[s.frame_definition.origin_point_name].array for s in eligible])
+        lengths = np.linalg.norm(displacement, axis=1)
+        local = np.asarray([s.landmarks[s.frame_definition.primary_point_name].local_position.array for s in eligible])
+        local_lengths = np.linalg.norm(local, axis=1)
+        valid = np.isfinite(lengths) & (lengths >= MINIMUM_VECTOR_NORM) & (local_lengths >= MINIMUM_VECTOR_NORM)
+        indices = np.flatnonzero(valid)
+        if len(indices):
+            signs = np.asarray([float(eligible[i].frame_definition.primary_axis.sign) for i in indices])[:, None]
+            orientations = rotations_between_vector_pairs(
+                from_directions=UnitVector.from_array(values=signs * local[indices] / local_lengths[indices, None]),
+                to_directions=UnitVector.from_array(values=signs * displacement[indices] / lengths[indices, None]),
+            )
+            for index, orientation in zip(indices, orientations, strict=True):
+                segment = eligible[index]
+                prepared[segment.name] = SegmentPose(segment_name=segment.name,
+                    origin=observed[segment.frame_definition.origin_point_name], orientation=orientation,
+                    scale_estimate=float(lengths[index] / segment.length), solved_by=PoseSolution.DIRECTION)
     segment_poses = {}
     for segment in skeleton.segments.values():
         try:
-            segment_poses[segment.name] = hydrate_segment(
-                segment=segment, observed=observed
-            )
+            segment_poses[segment.name] = prepared[segment.name] if segment.name in prepared else hydrate_segment(
+                segment=segment, observed=observed)
         except (MissingLandmarkObservations, DegenerateObservations):
             if require_all:
                 raise

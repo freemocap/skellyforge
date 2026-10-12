@@ -19,8 +19,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+import numpy as np
 
-from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion, rotate_vector_pairs
 from skellyforge.core.math.geometry.spatial_vectors import Displacement, Point
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
@@ -98,21 +99,20 @@ def build_rest_pose(
         resolve(segment_name)
 
     landmark_positions: dict[LandmarkNameString, Point] = {}
-    for landmark in skeleton.landmarks.values():
-        owning_segment = skeleton.owning_segment_name_of(landmark=landmark)
-        if owning_segment not in parents:
-            continue
-        offset = Displacement.from_prevalidated_array(
-            array=world_orientations[owning_segment].rotate_vector(
-                vector=landmark.local_position.array
-                * (
-                    segment_scales[owning_segment]
-                    if segment_scales is not None
-                    else 1.0
-                )
-            )
-        )
-        landmark_positions[landmark.name] = world_origins[owning_segment] + offset
+    entries = [(landmark, skeleton.owning_segment_name_of(landmark=landmark))
+               for landmark in skeleton.landmarks.values()]
+    entries = [(landmark, owner) for landmark, owner in entries if owner in parents]
+    if entries:
+        positions = rotate_vector_pairs(
+            quaternions=np.asarray([world_orientations[owner].as_array() for _, owner in entries]),
+            vectors=np.asarray([landmark.local_position.array for landmark, _ in entries])
+            * np.asarray([segment_scales[owner] if segment_scales is not None else 1.0
+                          for _, owner in entries])[:, None],
+        ) + np.asarray([world_origins[owner].array for _, owner in entries])
+        landmark_positions = {
+            landmark.name: Point.from_prevalidated_array(array=position)
+            for (landmark, _), position in zip(entries, positions, strict=True)
+        }
 
     return world_orientations, world_origins, landmark_positions
 

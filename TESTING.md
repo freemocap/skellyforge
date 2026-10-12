@@ -28,6 +28,8 @@ anatomical accuracy or replace FreeMoCap's full pipeline and export acceptance t
 Those integration checks run in FreeMoCap after the human commit/push handoff.
 
 Keep both synthetic regressions and real-data runs when changing reconstruction.
+For before/after anchored-synthesis measurements using these same recordings,
+see [VECTORIZATION.md](VECTORIZATION.md) and `scripts/benchmark_synthesis.py`.
 Place generated artifacts in ignored `.test-artifacts/` or `build/`. The root
 pytest configuration creates a separate scratch directory for each invocation.
 Do not overwrite prepared source recordings or regenerate tracked HTML snapshots.

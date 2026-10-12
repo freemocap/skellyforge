@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion, rotate_vector_pairs
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import SkeletonPose, SegmentPose
@@ -78,7 +78,14 @@ def complete_pose(*, skeleton: SkeletonDefinition, rest: RestPose,
 
     for name in skeleton.segments:
         resolve(name)
-    landmarks = {name: Point.from_array(values=origins[landmark.segment].array +
-        rotations[landmark.segment].rotate_vector(vector=landmark.local_position.array * segment_scales[landmark.segment]))
-        for name, landmark in skeleton.landmarks.items()}
+    entries = list(skeleton.landmarks.items())
+    landmarks = {}
+    if entries:
+        positions = rotate_vector_pairs(
+            quaternions=np.asarray([rotations[lm.segment].as_array() for _, lm in entries]),
+            vectors=np.asarray([lm.local_position.array for _, lm in entries])
+            * np.asarray([segment_scales[lm.segment] for _, lm in entries])[:, None],
+        ) + np.asarray([origins[lm.segment].array for _, lm in entries])
+        landmarks = {name: Point.from_array(values=value)
+                     for (name, _), value in zip(entries, positions, strict=True)}
     return CompletedPose(rotations, origins, landmarks, frozenset(names - set(observed.segment_poses)))

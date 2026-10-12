@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion, quaternions_to_rotation_matrices
 from skellyforge.type_overloads import FloatArray
 
 _VALID_AXES = frozenset("xyz")
@@ -135,6 +135,44 @@ def decompose_euler_angles(
     if np.linalg.det(permutation) < 0.0:
         angles = tuple(-angle for angle in angles)
     return tuple(float(angle) for angle in angles)
+
+
+def decompose_euler_batch(*, quaternions: FloatArray, sequence: str) -> FloatArray:
+    """Decompose (N, 4) unit wxyz rotations under one intrinsic convention.
+
+    Same lock threshold, pinned angle, parity sign and branches as the scalar API.
+    Returns (N, 3); callers group by convention before entering this function.
+    """
+    raise_unless_valid_sequence(sequence=sequence)
+    matrices = quaternions_to_rotation_matrices(quaternions=quaternions)
+    symmetric = is_symmetric_sequence(sequence=sequence)
+    permutation = (_symmetric_permutation_matrix(first=sequence[0], middle=sequence[1])
+                   if symmetric else _permutation_matrix(
+                       image_of={"x": sequence[0], "y": sequence[1], "z": sequence[2]}))
+    matrix = permutation.T @ matrices @ permutation
+    angles = np.zeros((len(matrices), 3), dtype=np.float64)
+    if symmetric:
+        cosine = np.clip(matrix[:, 2, 2], -1.0, 1.0)
+        angles[:, 1] = np.arccos(cosine)
+        free = np.abs(cosine) < 1.0 - _LOCK_EPSILON
+        angles[free, 0] = np.arctan2(matrix[free, 0, 2], -matrix[free, 1, 2])
+        angles[free, 2] = np.arctan2(matrix[free, 2, 0], matrix[free, 2, 1])
+        positive_lock = ~free & (cosine > 0.0)
+        negative_lock = ~free & ~positive_lock
+        angles[positive_lock, 0] = np.arctan2(matrix[positive_lock, 1, 0], matrix[positive_lock, 0, 0])
+        angles[negative_lock, 0] = np.arctan2(matrix[negative_lock, 0, 1], matrix[negative_lock, 0, 0])
+    else:
+        sine = np.clip(matrix[:, 0, 2], -1.0, 1.0)
+        angles[:, 1] = np.arcsin(sine)
+        free = np.abs(sine) < 1.0 - _LOCK_EPSILON
+        angles[free, 0] = np.arctan2(-matrix[free, 1, 2], matrix[free, 2, 2])
+        angles[free, 2] = np.arctan2(-matrix[free, 0, 1], matrix[free, 0, 0])
+        locked = ~free
+        angles[locked, 0] = np.arctan2(
+            np.where(sine[locked] > 0.0, 1.0, -1.0) * matrix[locked, 1, 0], matrix[locked, 1, 1])
+    if np.linalg.det(permutation) < 0.0:
+        angles = -angles
+    return angles
 
 
 def angle_axis_quaternion(*, axis: str, angle: float) -> RotationQuaternion:

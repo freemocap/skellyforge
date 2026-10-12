@@ -2,6 +2,58 @@
 import numpy as np
 import pytest
 from skellyforge.tools.recording_data import attach_keypoints, decode_rows, recording_path
+from skellyforge.tools.recording_data import decode_batches
+
+
+@pytest.mark.parametrize("bad", [None, "duplicate", "units", "time", "component", "nan", "null"])
+def test_column_batches_match_row_reader_and_reject_invalid_data(bad):
+    pa = pytest.importorskip("pyarrow")
+    samples = rows()
+    if bad == "duplicate":
+        samples.append(samples[0])
+    elif bad == "units":
+        samples[0]["units"] = "px"
+    elif bad == "time":
+        samples[0]["timestamp_s"] = 99.
+    elif bad == "component":
+        samples[0]["component"] = "w"
+    elif bad == "nan":
+        samples[0]["value"] = np.nan
+    elif bad == "null":
+        samples[0]["value"] = None
+    batches = pa.Table.from_pylist(samples).to_batches(max_chunksize=2)
+    if bad not in (None, "null"):
+        with pytest.raises(ValueError):
+            decode_batches(batches, ["point"])
+    else:
+        actual = decode_batches(batches, ["point"])
+        expected = decode_rows(samples, ["point"])
+        for a, b in zip(actual, expected, strict=True):
+            assert a["number"] == b["number"] and a["time"] == b["time"]
+            assert list(a["points"]) == list(b["points"])
+            for n in a["points"]:
+                np.testing.assert_array_equal(a["points"][n], b["points"][n])
+
+
+def test_column_reader_preserves_first_seen_point_order_and_shuffled_rows():
+    pa = pytest.importorskip("pyarrow")
+    samples = [dict(r, name=name) for name in ("b", "a") for r in rows()]
+    samples = [samples[i] for i in np.random.default_rng(83).permutation(len(samples))]
+    actual = decode_batches(pa.Table.from_pylist(samples).to_batches(max_chunksize=3), ["a", "b"])
+    expected = decode_rows(samples, ["a", "b"])
+    for a, b in zip(actual, expected, strict=True):
+        assert list(a["points"]) == list(b["points"])
+        for n in a["points"]:
+            np.testing.assert_array_equal(a["points"][n], b["points"][n])
+
+
+def test_column_reader_empty_and_all_null_channels():
+    pa = pytest.importorskip("pyarrow")
+    with pytest.raises(ValueError, match="nonempty"):
+        decode_batches([], ["point"])
+    table = pa.Table.from_pylist([dict(r, value=None) for r in rows()])
+    result = decode_batches(table.to_batches(), ["point"])
+    assert len(result) == 2 and all(not frame["points"] for frame in result)
 
 
 def test_quaternion_channel_preserves_wxyz_and_missing_values():

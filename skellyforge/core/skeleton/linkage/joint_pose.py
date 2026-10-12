@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
-from skellyforge.core.math.kinematics.euler_sequence import decompose_euler_angles
+from skellyforge.core.math.kinematics.euler_sequence import decompose_euler_angles, decompose_euler_batch
 from skellyforge.core.skeleton.linkage.joint_definition import JointDefinition
 from skellyforge.core.skeleton.skeleton_pose import PoseSolution, SegmentPose, SkeletonPose
 from skellyforge.type_overloads import FloatArray, LinkageNameString
@@ -102,15 +102,26 @@ def compute_joint_poses(
     same rule landmark hydration follows for unobserved segments.
     """
     result: dict[LinkageNameString, JointPose] = {}
+    groups = {}
     for joint in skeleton.joints.values():
         parent_pose = pose.segment_poses.get(joint.parent.name)
         child_pose = pose.segment_poses.get(joint.child.name)
         if parent_pose is None or child_pose is None:
             continue
-        result[joint.name] = joint_pose_from_segment_poses(
-            joint=joint, parent_pose=parent_pose, child_pose=child_pose
-        )
-    return result
+        relative = relative_orientation(parent_orientation=parent_pose.orientation, child_pose=child_pose)
+        groups.setdefault(joint.convention.sequence, []).append((joint, parent_pose, child_pose, relative))
+    for sequence, entries in groups.items():
+        angles = decompose_euler_batch(
+            quaternions=np.asarray([relative.as_array() for _, _, _, relative in entries]), sequence=sequence,
+        ) + np.asarray([joint.convention.zero_offsets for joint, _, _, _ in entries])
+        for (joint, parent_pose, child_pose, relative), values in zip(entries, angles, strict=True):
+            result[joint.name] = JointPose(
+                name=joint.name, relative_orientation=relative,
+                angles=tuple(float(value) for value in values),
+                angle_names=joint.convention.angle_names,
+                provenance=JointInputProvenance(parent_solution=parent_pose.solved_by, child_solution=child_pose.solved_by),
+            )
+    return {name: result[name] for name in skeleton.joints if name in result}
 
 
 def joint_angles_vector(*, joint_poses: Mapping[LinkageNameString, JointPose], joint_name: str) -> FloatArray:

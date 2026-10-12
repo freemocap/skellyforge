@@ -20,7 +20,7 @@ from skellyforge.core.biomechanics.center_of_mass import (
     landmark_world_positions,
     segment_com,
 )
-from skellyforge.core.biomechanics.segment_inertia import segment_inertia_tensor
+from skellyforge.core.biomechanics.segment_inertia import segment_inertia_tensors
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import SkeletonPose
 from skellyforge.type_overloads import FloatArray
@@ -75,6 +75,7 @@ def body_inertial_properties(
     segment_masses: dict[str, float] = {}
     segment_coms: dict[str, FloatArray] = {}
     segment_inertias: dict[str, FloatArray] = {}
+    tensor_inputs = []
     for definition in com_definitions.definitions.values():
         parameters = anthropometric.get(name=definition.name)
         mass = parameters.mass_fraction * body_mass
@@ -95,15 +96,15 @@ def body_inertial_properties(
                 # Every COM-defining landmark is occluded; the mass is invisible.
                 continue
             proximal, distal = world[proximal_name], world[distal_name]
-            inertia = segment_inertia_tensor(
-                mass=mass,
-                radii=parameters.radii_of_gyration,
-                proximal=proximal,
-                distal=distal,
-            )
+            radii = parameters.radii_of_gyration
+            tensor_inputs.append((full_name, mass, [radii.transverse, radii.sagittal, radii.longitudinal], proximal, distal))
             segment_masses[full_name] = mass
             segment_coms[full_name] = com
-            segment_inertias[full_name] = inertia
+    if tensor_inputs:
+        tensors = segment_inertia_tensors(masses=np.asarray([entry[1] for entry in tensor_inputs]),
+            radii=np.asarray([entry[2] for entry in tensor_inputs]), proximal=np.asarray([entry[3] for entry in tensor_inputs]),
+            distal=np.asarray([entry[4] for entry in tensor_inputs]))
+        segment_inertias = {entry[0]: tensor for entry, tensor in zip(tensor_inputs, tensors, strict=True)}
 
     center_of_mass = whole_body_center_of_mass(
         segment_coms=segment_coms, segment_masses=segment_masses
@@ -131,19 +132,16 @@ def whole_body_center_of_mass(
     whole-body CoM rolls up over the visible segments. Returns ``None`` when no
     segment COM is available.
     """
-    total_mass = 0.0
-    weighted_sum = np.zeros(3, dtype=np.float64)
-    for name, com in segment_coms.items():
-        if com is None:
-            continue
-        mass = segment_masses.get(name)
-        if mass is None:
-            continue
-        total_mass += mass
-        weighted_sum = weighted_sum + mass * com
+    entries = [(com, segment_masses[name]) for name, com in segment_coms.items()
+               if com is not None and segment_masses.get(name) is not None]
+    if not entries:
+        return None
+    masses = np.asarray([mass for _, mass in entries])
+    total_mass = np.add.accumulate(masses)[-1]
     if total_mass <= 0.0:
         return None
-    return weighted_sum / total_mass
+    weighted = masses[:, None] * np.asarray([com for com, _ in entries])
+    return np.add.accumulate(weighted, axis=0)[-1] / total_mass
 
 
 def whole_body_inertia_tensor(
@@ -159,7 +157,8 @@ def whole_body_inertia_tensor(
     and `segment_masses` - an inertia without the COM it is being translated about
     is a caller bug and raises rather than guessing.
     """
-    total = np.zeros((3, 3), dtype=np.float64)
+    if not segment_inertias:
+        return np.zeros((3, 3), dtype=np.float64)
     for name, inertia in segment_inertias.items():
         segment_com = segment_coms.get(name)
         if name not in segment_coms or name not in segment_masses:
@@ -173,9 +172,16 @@ def whole_body_inertia_tensor(
                 f"segment {name!r} has a None COM - occluded segments must be left "
                 "out of all three maps entirely, not carried as None"
             )
-        offset = segment_com - np.asarray(body_center_of_mass, dtype=np.float64)
-        total = total + inertia + segment_masses[name] * _parallel_axis_term(offset=offset)
-    return total
+    names = list(segment_inertias)
+    offsets = np.asarray([segment_coms[name] for name in names]) - np.asarray(body_center_of_mass, dtype=np.float64)
+    squared = (offsets[:, None, :] @ offsets[:, :, None])[:, 0, 0]
+    shifts = squared[:, None, None] * np.eye(3) - offsets[:, :, None] * offsets[:, None, :]
+    shifts *= np.asarray([segment_masses[name] for name in names])[:, None, None]
+    # Preserve original sequential addition: total + inertia + displacement.
+    terms = np.empty((2 * len(names), 3, 3), dtype=np.float64)
+    terms[::2] = np.asarray([segment_inertias[name] for name in names])
+    terms[1::2] = shifts
+    return np.add.accumulate(terms, axis=0)[-1]
 
 
 def _parallel_axis_term(*, offset: FloatArray) -> FloatArray:

@@ -20,6 +20,7 @@ import numpy as np
 import yaml
 
 from skellyforge.core.biomechanics import FRACTION_SUM_TOLERANCE
+from skellyforge.core.math.geometry.rotation_quaternion import rotate_vector_pairs
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import SkeletonPose
 from skellyforge.type_overloads import FloatArray
@@ -346,7 +347,7 @@ def landmark_world_positions(
     Raises:
         KeyError: a hydrated segment has no entry in `segment_scales`.
     """
-    positions: dict[str, FloatArray] = {}
+    entries = []
     for segment_name, segment in skeleton.segments.items():
         segment_pose = pose.segment_poses.get(segment_name)
         if segment_pose is None:
@@ -359,12 +360,16 @@ def landmark_world_positions(
                 f"same fit that the pose was measured against; it covers every segment of "
                 f"the skeleton."
             )
-        origin = segment_pose.origin.array
         for landmark_name, landmark in segment.landmarks.items():
-            positions[landmark_name] = origin + segment_pose.orientation.rotate_vector(
-                vector=scale * landmark.local_position.array
-            )
-    return positions
+            entries.append((landmark_name, landmark, segment_pose, scale))
+    if not entries:
+        return {}
+    positions = rotate_vector_pairs(
+        quaternions=np.asarray([pose.orientation.as_array() for _, _, pose, _ in entries]),
+        vectors=np.asarray([landmark.local_position.array for _, landmark, _, _ in entries])
+        * np.asarray([scale for _, _, _, scale in entries])[:, None],
+    ) + np.asarray([pose.origin.array for _, _, pose, _ in entries])
+    return {name: position for (name, _, _, _), position in zip(entries, positions, strict=True)}
 
 
 def segment_com(

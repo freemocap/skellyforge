@@ -19,7 +19,10 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.rotation_quaternion import (
+    RotationQuaternion,
+    rotate_vector_pairs,
+)
 from skellyforge.core.math.geometry.spatial_vectors import Point
 from skellyforge.core.skeleton.pose.model_scale_fitting import ModelScaleFit
 from skellyforge.core.skeleton.pose.rest_pose import build_rest_pose
@@ -29,7 +32,6 @@ from skellyforge.type_overloads import (
     LandmarkNameString,
     RigidBodySegmentName,
 )
-
 
 def synthesize_pose(
     *,
@@ -202,16 +204,16 @@ def synthesize_fitted_pose(
 def _validate_fitted_geometry(*, skeleton: SkeletonDefinition, fit: ModelScaleFit) -> None:
     if set(fit.segment_scales) != set(skeleton.segments) or set(fit.segment_lengths) != set(skeleton.segments):
         raise ValueError("Fit must cover the skeleton's exact segment set")
-    for name, segment in skeleton.segments.items():
-        if not np.isfinite(fit.segment_scales[name]) or fit.segment_scales[name] <= 0:
-            raise ValueError("Segment scales must be finite and positive")
-        if not np.isclose(
-            fit.segment_lengths[name],
-            segment.length * fit.segment_scales[name],
-            rtol=1e-9,
-            atol=1e-12,
-        ):
-            raise ValueError(f"Fit length and template geometry disagree for {name!r}")
+    names = list(skeleton.segments)
+    scales = np.asarray([fit.segment_scales[name] for name in names])
+    lengths = np.asarray([fit.segment_lengths[name] for name in names])
+    template_lengths = np.asarray([skeleton.segments[name].length for name in names])
+    if not np.all(np.isfinite(scales) & (scales > 0)):
+        raise ValueError("Segment scales must be finite and positive")
+    matches = np.isclose(lengths, template_lengths * scales, rtol=1e-9, atol=1e-12)
+    if not np.all(matches):
+        name = names[int(np.flatnonzero(~matches)[0])]
+        raise ValueError(f"Fit length and template geometry disagree for {name!r}")
 
 
 def synthesize_anchored_pose(
@@ -243,12 +245,19 @@ def synthesize_anchored_pose(
     if anchor_origin.array.shape != (3,) or not np.isfinite(anchor_origin.array).all():
         raise ValueError("Anchor origin must be one finite 3D point")
     neighbors: dict[str, list[tuple[str, np.ndarray]]] = {name: [] for name in selected}
-    for joint in skeleton.joints.values():
+    selected_joints = [joint for joint in skeleton.joints.values()
+                       if joint.parent.name in selected and joint.child.name in selected]
+    if selected_joints:
+        offsets = rotate_vector_pairs(
+            quaternions=np.asarray([segment_world_orientations[j.parent.name].as_array()
+                                    for j in selected_joints]),
+            vectors=np.asarray([j.connect_at.local_position.array * fit.segment_scales[j.parent.name]
+                                for j in selected_joints]),
+        )
+    else:
+        offsets = np.empty((0, 3))
+    for joint, offset in zip(selected_joints, offsets, strict=True):
         parent, child = joint.parent.name, joint.child.name
-        if parent not in selected or child not in selected:
-            continue
-        offset = segment_world_orientations[parent].rotate_vector(
-            vector=joint.connect_at.local_position.array * fit.segment_scales[parent])
         neighbors[parent].append((child, offset))
         neighbors[child].append((parent, -offset))
     origins = {anchor_segment_name: anchor_origin}
@@ -261,13 +270,38 @@ def synthesize_anchored_pose(
             origins[neighbor] = Point.from_array(values=origins[name].array + offset)
             pending.append(neighbor)
     if set(origins) != selected:
-        raise ValueError("Selected segments must be connected to the anchor without gaps")
-    landmarks = {
-        name: Point.from_array(values=origins[landmark.segment].array
-            + segment_world_orientations[landmark.segment].rotate_vector(
-                vector=landmark.local_position.array * fit.segment_scales[landmark.segment]))
-        for name, landmark in skeleton.landmarks.items() if landmark.segment in selected
-    }
+        raise ValueError(
+            "Selected segments must be connected to the anchor without gaps"
+        )
+    selected_landmarks = [
+        (name, landmark)
+        for name, landmark in skeleton.landmarks.items()
+        if landmark.segment in selected
+    ]
+    landmarks = {}
+    if selected_landmarks:
+        offsets = rotate_vector_pairs(
+            quaternions=np.asarray(
+                [
+                    segment_world_orientations[lm.segment].as_array()
+                    for _, lm in selected_landmarks
+                ]
+            ),
+            vectors=np.asarray(
+                [
+                    lm.local_position.array * fit.segment_scales[lm.segment]
+                    for _, lm in selected_landmarks
+                ]
+            ),
+        )
+        positions = (
+            np.asarray([origins[lm.segment].array for _, lm in selected_landmarks])
+            + offsets
+        )
+        landmarks = {
+            name: Point.from_array(values=position)
+            for (name, _), position in zip(selected_landmarks, positions, strict=True)
+        }
     return dict(segment_world_orientations), origins, landmarks
 
 

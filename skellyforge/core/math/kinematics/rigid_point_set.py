@@ -158,6 +158,40 @@ def align_point_sets_similarity(*, reference: Point, observed: Point) -> Similar
     )
 
 
+def align_point_sets_batch(*, reference: np.ndarray, observed: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Same similarity fit for (F,N,3) observations sharing (N,3) references.
+
+    Returns rotations (F,3,3), translations (F,3), scales (F), and validity.
+    Invalid fits are NaN; their mask is false. Uses the scalar solver's thresholds
+    and reflection correction. Callers group equal landmark selections first.
+    """
+    reference = np.asarray(reference, dtype=np.float64)
+    observed = np.asarray(observed, dtype=np.float64)
+    if reference.ndim != 2 or reference.shape[1] != 3 or observed.ndim != 3 or observed.shape[1:] != reference.shape:
+        raise ValueError("Expected reference (N,3) and observed (F,N,3)")
+    if len(reference) < MINIMUM_POINTS_FOR_RIGID_FIT or not np.isfinite(reference).all() or not np.isfinite(observed).all():
+        raise ValueError("Similarity fit needs at least three finite points")
+    reference_centroid = reference.mean(axis=0)
+    observed_centroid = observed.mean(axis=1)
+    centered = reference - reference_centroid
+    covariance = centered.T @ (observed - observed_centroid[:, None])
+    left, values, right_t = np.linalg.svd(covariance)
+    transpose = lambda a: a.swapaxes(-1, -2)
+    sign = np.where(np.linalg.det(transpose(right_t) @ transpose(left)) >= 0, 1., -1.)
+    correction = np.broadcast_to(np.eye(3), covariance.shape).copy()
+    correction[:, 2, 2] = sign
+    rotations = transpose(right_t) @ correction @ transpose(left)
+    spread = float(np.sum(centered ** 2))
+    valid = (values[:, 1] > MINIMUM_RELATIVE_SINGULAR_VALUE * values[:, 0]) & (spread >= MINIMUM_VECTOR_NORM)
+    signed = values.copy()
+    signed[:, 2] *= sign
+    scales = np.sum(signed, axis=1) / (spread if spread >= MINIMUM_VECTOR_NORM else 1.)
+    valid &= (scales > 0) & np.isfinite(scales)
+    translations = observed_centroid - scales[:, None] * (rotations @ reference_centroid)
+    return (np.where(valid[:, None, None], rotations, np.nan),
+        np.where(valid[:, None], translations, np.nan), np.where(valid, scales, np.nan), valid)
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class RigidPointSet:
     """A named set of reference points that move together as one rigid body.

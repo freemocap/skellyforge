@@ -375,10 +375,20 @@ class RotationQuaternion:
                 f"Vector must have shape ({NUMBER_OF_SPATIAL_DIMENSIONS},), "
                 f"got {vector.shape}"
             )
-        axis_part = np.array([self.x, self.y, self.z], dtype=np.float64)
-        cross_once = np.cross(axis_part, vector)
-        cross_twice = np.cross(axis_part, cross_once)
-        return vector + 2.0 * (self.w * cross_once + cross_twice)
+        # Fixed three-component arithmetic avoids dispatching two general array
+        # cross products for a single vector. Keep the original grouping.
+        vx, vy, vz = vector
+        cx = self.y * vz - self.z * vy
+        cy = self.z * vx - self.x * vz
+        cz = self.x * vy - self.y * vx
+        return np.array(
+            [
+                vx + 2.0 * (self.w * cx + (self.y * cz - self.z * cy)),
+                vy + 2.0 * (self.w * cy + (self.z * cx - self.x * cz)),
+                vz + 2.0 * (self.w * cz + (self.x * cy - self.y * cx)),
+            ],
+            dtype=np.float64,
+        )
 
     # ── Interpolation ─────────────────────────────────────────────
 
@@ -450,6 +460,51 @@ class RotationQuaternion:
 # vectorized equivalents of the RotationQuaternion methods above, element for element and
 # threshold for threshold, and are the ones used in the per-frame hot loop. No per-element
 # RotationQuaternion objects are created.
+
+
+def rotation_vectors_to_quaternions(*, vectors: FloatArray) -> FloatArray:
+    """Batch the scalar exponential map, including its small-angle branch."""
+    vectors = np.asarray(vectors, dtype=np.float64)
+    if vectors.ndim != 2 or vectors.shape[1] != 3 or not np.isfinite(vectors).all():
+        raise ValueError("Rotation vectors must be finite (N, 3)")
+    angles = np.linalg.norm(vectors, axis=1)
+    regular = angles >= MINIMUM_VECTOR_NORM
+    output = np.empty((len(vectors), 4))
+    output[:, 0] = 1.
+    output[:, 1:] = .5 * vectors
+    output[regular, 0] = np.cos(angles[regular] / 2.)
+    output[regular, 1:] = (vectors[regular] / angles[regular, None]
+        * np.sin(angles[regular] / 2.)[:, None])
+    return normalize_quaternion_array(quaternions=output)
+
+
+def rotation_matrices_to_quaternions(*, matrices: FloatArray) -> FloatArray:
+    """Batch the scalar trace-based conversion with identical branch ordering."""
+    matrices = np.asarray(matrices, dtype=np.float64)
+    if matrices.ndim != 3 or matrices.shape[1:] != (3, 3) or not np.isfinite(matrices).all():
+        raise ValueError("Rotation matrices must be finite (N, 3, 3)")
+    m = matrices
+    trace = m[:, 0, 0] + m[:, 1, 1] + m[:, 2, 2]
+    positive = trace > 0
+    x = ~positive & (m[:, 0, 0] > m[:, 1, 1]) & (m[:, 0, 0] > m[:, 2, 2])
+    y = ~positive & ~x & (m[:, 1, 1] > m[:, 2, 2])
+    z = ~positive & ~x & ~y
+    output = np.empty((len(m), 4))
+    a = m[positive]
+    s = .5 / np.sqrt(trace[positive] + 1.)
+    output[positive] = np.column_stack((.25 / s, (a[:, 2, 1] - a[:, 1, 2]) * s,
+        (a[:, 0, 2] - a[:, 2, 0]) * s, (a[:, 1, 0] - a[:, 0, 1]) * s))
+    # Three fixed formula branches, not a loop over matrices.
+    for mask, i, j, k in ((x, 0, 1, 2), (y, 1, 0, 2), (z, 2, 0, 1)):
+        a = m[mask]
+        s = 2. * np.sqrt(1. + a[:, i, i] - a[:, j, j] - a[:, k, k])
+        values = np.empty((len(a), 4))
+        values[:, i + 1] = .25 * s
+        values[:, j + 1] = (a[:, i, j] + a[:, j, i]) / s
+        values[:, k + 1] = (a[:, i, k] + a[:, k, i]) / s
+        values[:, 0] = ((a[:, k, j] - a[:, j, k]) if i != 1 else (a[:, j, k] - a[:, k, j])) / s
+        output[mask] = values
+    return normalize_quaternion_array(quaternions=output)
 
 
 def normalize_quaternion_array(*, quaternions: FloatArray) -> FloatArray:
@@ -588,6 +643,25 @@ def quaternions_to_roll_pitch_yaw(*, quaternions: FloatArray) -> FloatArray:
     yaw = np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
 
     return np.column_stack([roll, pitch, yaw])
+
+
+def rotate_vector_pairs(*, quaternions: FloatArray, vectors: FloatArray) -> FloatArray:
+    """Rotate N vectors by their corresponding N unit wxyz quaternions.
+
+    Returns (N, 3), including an empty (0, 3) result for empty inputs.
+    Unlike rotate_vectors_batch this computes pairs, not a Cartesian product.
+    Inputs must already be normalized, as for the other batch quaternion APIs.
+    """
+    quaternions = np.asarray(quaternions, dtype=np.float64)
+    vectors = np.asarray(vectors, dtype=np.float64)
+    _raise_unless_quaternion_array(quaternions=quaternions)
+    if vectors.shape != (len(quaternions), NUMBER_OF_SPATIAL_DIMENSIONS):
+        raise ValueError("vectors must have shape (N, 3) matching quaternions")
+    axes = quaternions[:, 1:]
+    cross_once = np.cross(axes, vectors)
+    return vectors + 2.0 * (
+        quaternions[:, :1] * cross_once + np.cross(axes, cross_once)
+    )
 
 
 def rotate_vectors_batch(*, quaternions: FloatArray, vectors: FloatArray) -> FloatArray:

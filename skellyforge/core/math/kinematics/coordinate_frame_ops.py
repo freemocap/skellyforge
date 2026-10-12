@@ -54,6 +54,51 @@ def rotation_between_vectors(
     return RotationQuaternion.from_rotation_vector(rotation_vector=axis * angle)
 
 
+def direction_pair_quaternions(*, from_directions: UnitVector, to_directions: UnitVector) -> FloatArray:
+    """Shortest arcs as an array, including deterministic parallel/antiparallel cases."""
+    from skellyforge.core.math.geometry.rotation_quaternion import rotation_vectors_to_quaternions
+    source, target = from_directions.array, to_directions.array
+    if source.ndim != 2 or source.shape != target.shape:
+        raise ValueError('Direction arrays must have matching (N, 3) shapes')
+    crosses = np.cross(source, target)
+    norms = np.linalg.norm(crosses, axis=1)
+    dots = np.sum(source * target, axis=1)
+    ordinary = norms >= MINIMUM_VECTOR_NORM
+    vectors = np.zeros_like(crosses)
+    vectors[ordinary] = (crosses[ordinary] / norms[ordinary, None]
+        * np.arctan2(norms[ordinary], dots[ordinary])[:, None])
+    opposite = ~ordinary & (dots < 0)
+    axes = source[opposite]
+    references = np.zeros_like(axes)
+    references[:, 0] = 1.
+    use_y = np.abs(axes[:, 0]) > .9
+    references[use_y] = [0., 1., 0.]
+    perpendicular = references - np.sum(references * axes, axis=1)[:, None] * axes
+    vectors[opposite] = perpendicular / np.linalg.norm(perpendicular, axis=1)[:, None] * np.pi
+    return rotation_vectors_to_quaternions(vectors=vectors)
+
+
+def rotations_between_vector_pairs(*, from_directions: UnitVector, to_directions: UnitVector) -> list[RotationQuaternion]:
+    """Shortest-arc rotations for matching rows; retain scalar singular branches."""
+    source, target = from_directions.array, to_directions.array
+    if source.ndim != 2 or source.shape != target.shape:
+        raise ValueError('Direction arrays must have matching (N, 3) shapes')
+    crosses = np.cross(source, target)
+    norms = np.linalg.norm(crosses, axis=1)
+    dots = np.sum(source * target, axis=1)
+    ordinary = norms >= MINIMUM_VECTOR_NORM
+    vectors = np.zeros_like(crosses)
+    vectors[ordinary] = (crosses[ordinary] / norms[ordinary, None]
+                         * np.arctan2(norms[ordinary], dots[ordinary])[:, None])
+    # The exponential map still owns quaternion construction and normalization.
+    # Batch the geometric cross/dot/norm work without changing that boundary.
+    return [RotationQuaternion.from_rotation_vector(rotation_vector=vector) if regular
+            else rotation_between_vectors(
+                from_direction=UnitVector.from_prevalidated_array(array=left),
+                to_direction=UnitVector.from_prevalidated_array(array=right))
+            for vector, regular, left, right in zip(vectors, ordinary, source, target, strict=True)]
+
+
 def primary_axis_unit(*, axis: SpatialAxis) -> FloatArray:
     """The signed axis as a unit vector in the segment's local frame."""
     unit = np.zeros(3, dtype=np.float64)

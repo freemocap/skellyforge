@@ -209,10 +209,35 @@ def scale_voting_segment_names(
     return frozenset(voting)
 
 
+def fit_model_scale_arrays(*, skeleton: SkeletonDefinition, segment_names: tuple[str, ...],
+                          scales: np.ndarray, segment_present: np.ndarray,
+                          voting_segment_names: Set[RigidBodySegmentName]) -> ModelScaleFit:
+    """Fit full-recording array evidence once; no per-frame streaming-fitter calls.
+
+    Preserve the scalar fitter's first-observation segment order and temporal
+    sample order. Missing values never become scale evidence. This is for a
+    whole-recording fit, not a replacement for a live rolling window.
+    """
+    values = np.asarray(scales, dtype=float)
+    present = np.asarray(segment_present)
+    if tuple(skeleton.segments) != segment_names:
+        raise ValueError("Segment axis must match skeleton order")
+    if values.ndim != 2 or values.shape[1] != len(segment_names) or present.dtype != np.bool_ or present.shape != values.shape:
+        raise ValueError("Expected scales and boolean presence (frames, segments)")
+    if not np.isfinite(values[present]).all() or np.any(values[present] <= 0):
+        raise ValueError("Present scale evidence must be finite and positive")
+    columns = np.flatnonzero(present.any(axis=0))
+    if len(columns):
+        columns = columns[np.argsort(np.argmax(present[:, columns], axis=0), kind="stable")]
+    return fit_model_scale(skeleton=skeleton,
+        scale_samples={segment_names[i]: values[present[:, i], i] for i in columns},
+        voting_segment_names=voting_segment_names)
+
+
 def fit_model_scale(
     *,
     skeleton: SkeletonDefinition,
-    scale_samples: Mapping[RigidBodySegmentName, Sequence[float]],
+    scale_samples: Mapping[RigidBodySegmentName, Sequence[float] | np.ndarray],
     voting_segment_names: Set[RigidBodySegmentName],
 ) -> ModelScaleFit:
     """Fit one scale and a per-segment scale field from per-segment scale readings.
@@ -240,12 +265,7 @@ def fit_model_scale(
             f"{unknown}"
         )
 
-    readings = {
-        name: reading
-        for name, samples in scale_samples.items()
-        if (reading := _summarize_scale_samples(segment_name=name, samples=samples))
-        is not None
-    }
+    readings = _summarize_scale_groups(scale_samples=scale_samples)
 
     fitted_scale = _pooled_body_height(
         skeleton=skeleton,
@@ -280,8 +300,29 @@ def fit_model_scale(
     )
 
 
+def _summarize_scale_groups(*, scale_samples: Mapping[RigidBodySegmentName, Sequence[float] | np.ndarray]) -> dict[RigidBodySegmentName, SegmentScaleReading]:
+    """Batch medians for equally sized windows without padding missing evidence."""
+    groups: dict[int, list[str]] = {}
+    for name, samples in scale_samples.items():
+        if len(samples):
+            groups.setdefault(len(samples), []).append(name)
+    summaries = {}
+    for count, names in groups.items():
+        values = np.asarray([scale_samples[name] for name in names], dtype=np.float64)
+        medians = np.median(values, axis=1)
+        if np.any(~(medians > 0.0)):
+            # Keep the original named error and validation semantics.
+            for name in names:
+                _summarize_scale_samples(segment_name=name, samples=scale_samples[name])
+        dispersion = np.median(np.abs(values - medians[:, None]), axis=1) / medians
+        for name, middle, spread in zip(names, medians, dispersion, strict=True):
+            summaries[name] = SegmentScaleReading(segment_name=name, median_scale=float(middle),
+                relative_dispersion=float(spread), sample_count=count)
+    return {name: summaries[name] for name in scale_samples if name in summaries}
+
+
 def _summarize_scale_samples(
-    *, segment_name: RigidBodySegmentName, samples: Sequence[float]
+    *, segment_name: RigidBodySegmentName, samples: Sequence[float] | np.ndarray
 ) -> SegmentScaleReading | None:
     """One segment's readings, as a median and how much they disagree.
 

@@ -82,6 +82,37 @@ def segment_inertia_tensor(
     return rotation @ principal @ rotation.T
 
 
+def segment_inertia_tensors(*, masses: FloatArray, radii: FloatArray,
+                            proximal: FloatArray, distal: FloatArray) -> FloatArray:
+    """Matching-row inertia tensors; radii columns are transverse/sagittal/longitudinal."""
+    masses = np.asarray(masses, dtype=np.float64)
+    radii = np.asarray(radii, dtype=np.float64)
+    proximal = np.asarray(proximal, dtype=np.float64)
+    distal = np.asarray(distal, dtype=np.float64)
+    if masses.ndim != 1 or any(array.shape != (len(masses), 3) for array in (radii, proximal, distal)):
+        raise ValueError('Expected (N,) masses and matching (N, 3) radii and anchors')
+    if np.any(masses <= 0.0):
+        raise ValueError('mass must be positive')
+    long_vectors = distal - proximal
+    lengths = np.linalg.norm(long_vectors, axis=1)
+    if np.any(lengths < MINIMUM_VECTOR_NORM):
+        raise ValueError('segment has zero length - proximal and distal coincide')
+    longitudinal = long_vectors / lengths[:, None]
+    sagittal = _FORWARD - longitudinal[:, 1, None] * longitudinal
+    sagittal_norms = np.linalg.norm(sagittal, axis=1)
+    fallback = sagittal_norms < MINIMUM_VECTOR_NORM
+    sagittal[fallback] = _UP - longitudinal[fallback, 2, None] * longitudinal[fallback]
+    sagittal_norms[fallback] = np.linalg.norm(sagittal[fallback], axis=1)
+    if np.any(sagittal_norms < MINIMUM_VECTOR_NORM):
+        raise ValueError('Cannot build a principal frame')
+    sagittal_axes = sagittal / sagittal_norms[:, None]
+    transverse = np.cross(sagittal_axes, longitudinal)
+    rotations = np.stack([transverse, sagittal_axes, longitudinal], axis=2)
+    principal = np.zeros((len(masses), 3, 3), dtype=np.float64)
+    principal[:, np.arange(3), np.arange(3)] = masses[:, None] * lengths[:, None] ** 2 * radii ** 2
+    return rotations @ principal @ rotations.transpose(0, 2, 1)
+
+
 def _project_perpendicular(*, vector: FloatArray, axis: FloatArray) -> FloatArray:
     """The component of vector perpendicular to axis."""
     return vector - float(np.dot(vector, axis)) * axis

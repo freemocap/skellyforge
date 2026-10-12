@@ -31,6 +31,17 @@ def inputs():
     return skeleton, rest, fit
 
 
+@pytest.mark.parametrize('bad_scale', [0.0, -1.0, float('nan'), float('inf')])
+def test_anchored_pose_rejects_invalid_fitted_scales(inputs, bad_scale):
+    skeleton, rest, fit = inputs
+    scales = dict(fit.segment_scales)
+    scales[rest.root_segment_name] = bad_scale
+    with pytest.raises(ValueError, match='finite and positive'):
+        synthesize_anchored_pose(skeleton=skeleton, fit=replace(fit, segment_scales=scales),
+            segment_world_orientations=rest.segment_orientations,
+            anchor_segment_name=rest.root_segment_name, anchor_origin=Point.from_xyz(x=0., y=0., z=0.))
+
+
 @pytest.mark.parametrize('anchor', ['pelvis', 'skull', 'left_carpals', 'right_carpals'])
 def test_reanchoring_changes_only_translation_and_preserves_attachments(inputs, anchor):
     skeleton, rest, fit = inputs

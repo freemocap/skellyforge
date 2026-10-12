@@ -40,6 +40,7 @@ def digest(path):
 def read_recording(path, sensor_group=None, *, include_model=False, landmark_kind="LANDMARKS_3D"):
     try:
         import pyarrow.parquet as pq
+        import pyarrow.compute as pc
     except ImportError as error:
         raise RuntimeError(
             "Real-data viewing requires PyArrow: install the recording-viewer extra."
@@ -131,37 +132,21 @@ def read_recording(path, sensor_group=None, *, include_model=False, landmark_kin
             selected_channels[kind] = matches[0]
         rows = {kind: [] for kind in selected_channels}
         for batch in parquet.iter_batches(batch_size=65536):
-            columns = batch.to_pydict()
-            for i, kind in enumerate(columns["channel"]):
-                selected = selected_channels.get(kind)
-                if selected is None or columns["run_id"][i] != run_id:
-                    continue
-                if any(
-                    columns[k][i] != selected[k]
-                    for k in ("source", "sensor_group", "reference_frame")
-                ):
-                    continue
-                rows[kind].append(
-                    {
-                        k: columns[k][i]
-                        for k in (
-                            "frame_number",
-                            "timestamp_s",
-                            "name",
-                            "component",
-                            "value",
-                            "units",
-                        )
-                    }
-                )
-    frames = decode_rows(rows[channel["kind"]], channel["names"])
-    keypoints = decode_rows(rows[keypoint_channel["kind"]], keypoint_channel["names"])
+            for kind, selected in selected_channels.items():
+                mask = pc.and_(pc.equal(batch.column("run_id"), run_id), pc.equal(batch.column("channel"), kind))
+                for key in ("source", "sensor_group", "reference_frame"):
+                    mask = pc.and_(mask, pc.equal(batch.column(key), selected[key]))
+                chosen = batch.filter(mask)
+                if chosen.num_rows:
+                    rows[kind].append(chosen.select(["frame_number", "timestamp_s", "name", "component", "value", "units"]))
+    frames = decode_batches(rows[channel["kind"]], channel["names"])
+    keypoints = decode_batches(rows[keypoint_channel["kind"]], keypoint_channel["names"])
     attach_keypoints(frames, keypoints)
     for kind, field, components, units in (
         ("SEGMENT_ORIGINS", "origins", "xyz", "mm"),
         ("ROTATIONS_WORLD", "rotations", "wxyz", "1"),
     ):
-        values = decode_rows(
+        values = decode_batches(
             rows[kind], selected_channels[kind]["names"], components, units
         )
         attach_series(frames, values, field)
@@ -197,6 +182,60 @@ def attach_series(frames, keypoints, field):
         )
     for frame, points in zip(frames, keypoints, strict=True):
         frame[field] = points["points"]
+
+
+def decode_batches(batches, names, components="xyz", units="mm"):
+    """Validate and scatter selected Arrow columns without per-scalar dictionaries.
+
+    Only the final viewer compatibility boundary constructs per-frame/point
+    dictionaries. All numerical checks, duplicate detection and array assembly
+    run in batches. Preserve original first-seen point order within each frame.
+    """
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    if not batches:
+        raise ValueError("Expected nonempty, strictly increasing frame timestamps")
+    table = pa.Table.from_batches(batches)
+    if not table.num_rows:
+        raise ValueError("Expected nonempty, strictly increasing frame timestamps")
+    names = tuple(dict.fromkeys(names))
+    name_index = pc.index_in(table["name"], value_set=pa.array(names))
+    component_index = pc.index_in(table["component"], value_set=pa.array(list(components)))
+    if name_index.null_count or component_index.null_count or table["units"].null_count or not pc.all(pc.equal(table["units"], units)).as_py():
+        raise ValueError("Unexpected landmark name, component or units")
+    if table["frame_number"].null_count or table["timestamp_s"].null_count:
+        raise ValueError("Invalid frame or timestamp")
+    numbers = table["frame_number"].to_numpy()
+    times = table["timestamp_s"].to_numpy()
+    if np.any(numbers < 0) or not np.isfinite(times).all():
+        raise ValueError("Invalid frame or timestamp")
+    frames, first, frame_index = np.unique(numbers, return_index=True, return_inverse=True)
+    frame_times = times[first]
+    if not np.array_equal(times, frame_times[frame_index]):
+        raise ValueError("Inconsistent timestamps within a frame")
+    if not np.all(np.diff(frame_times) > 0):
+        raise ValueError("Expected nonempty, strictly increasing frame timestamps")
+    ni = name_index.to_numpy()
+    ci = component_index.to_numpy()
+    point_offsets = frame_index * len(names) + ni
+    offsets = point_offsets * len(components) + ci
+    if len(np.unique(offsets)) != len(offsets):
+        raise ValueError("Unexpected or duplicate landmark sample")
+    values = table["value"].cast(pa.float64()).to_numpy()
+    nonnull = pc.is_valid(table["value"]).to_numpy()
+    if not np.isfinite(values[nonnull]).all():
+        raise ValueError("Nonfinite landmark value must be null")
+    array = np.full((len(frames), len(names), len(components)), np.nan)
+    array.reshape(-1)[offsets] = values
+    valid = np.isfinite(array).all(axis=2)
+    unique_points, first_point = np.unique(point_offsets, return_index=True)
+    point_frames, point_names = np.divmod(unique_points, len(names))
+    order = np.lexsort((first_point, point_frames))
+    point_frames, point_names = point_frames[order], point_names[order]
+    boundaries = np.searchsorted(point_frames, np.arange(len(frames) + 1))
+    return [dict(number=int(number), time=float(frame_times[f]), points={
+        names[i]: array[f, i] for i in point_names[boundaries[f]:boundaries[f+1]] if valid[f, i]})
+        for f, number in enumerate(frames)]
 
 
 def decode_rows(rows, names, components="xyz", units="mm"):
