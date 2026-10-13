@@ -17,6 +17,24 @@ HUMAN_ENUMS = (HumanAspectNames.FACE,
 
 logger = logging.getLogger(__name__)
 
+# Marker name aliases across tracker schemas.
+# RTMPose whole-body names the hand root `hand_root` (MediaPipe hands use
+# `wrist`), and the toes `*_big_toe` (MediaPipe bodies use `*_foot_index`).
+# Prefer the MediaPipe name when both exist so current behaviour is unchanged.
+HAND_WRIST_MARKERS = ("wrist", "hand_root")
+TOE_MARKERS_BY_SIDE = {
+    "left": ("left_foot_index", "left_big_toe"),
+    "right": ("right_foot_index", "right_big_toe"),
+}
+
+
+def _find_marker(landmark_names, candidates):
+    """Return the first candidate present in landmark_names, else None."""
+    for candidate in candidates:
+        if candidate in landmark_names:
+            return candidate
+    return None
+
 class Human(Animal):
     """
     Specialized Actor class representing a tracked human subject.
@@ -147,12 +165,17 @@ class Human(Animal):
 
         if not any('wrist' in marker for marker in self.body.anatomical_structure.landmark_names):
             missing.append(self.body.name)
-        
-        if not any('wrist' in marker for marker in self.left_hand.anatomical_structure.landmark_names):
-            missing.append(self.left_hand.name)
 
-        if not any('wrist' in marker for marker in self.right_hand.anatomical_structure.landmark_names):
-            missing.append(self.right_hand.name)
+        hand_wrist_markers = {}
+        for side in ['left', 'right']:
+            hand_aspect = self.aspects[f'{side}_hand']
+            wrist_marker = _find_marker(
+                hand_aspect.anatomical_structure.landmark_names, HAND_WRIST_MARKERS
+            )
+            if wrist_marker is None:
+                missing.append(hand_aspect.name)
+            else:
+                hand_wrist_markers[side] = wrist_marker
             
         if missing:
             logger.warning(f"Wrist markers missing from {missing}. Cannot fix hands to wrist")  
@@ -162,7 +185,7 @@ class Human(Animal):
 
         for side in ['left', 'right']:
             hand_aspect = self.aspects[f'{side}_hand']
-            hand_wrist = hand_aspect.xyz.as_dict['wrist']
+            hand_wrist = hand_aspect.xyz.as_dict[hand_wrist_markers[side]]
             body_wrist = (self.body.rigid_xyz or self.body.xyz).as_dict[f'{side}_wrist']
 
             
@@ -184,21 +207,28 @@ class Human(Animal):
         
         def get_unit_vector(vector: np.ndarray) -> np.ndarray:
             return vector / np.linalg.norm(vector)
-        
-        foot_marker_list = ['left_heel', 'right_heel', 'left_foot_index', 'right_foot_index']
 
-        if not all(marker in self.body.anatomical_structure.landmark_names for marker in foot_marker_list):
+        body_markers = self.body.anatomical_structure.landmark_names
+        toe_markers = {}
+        for side in ['left', 'right']:
+            toe_markers[side] = _find_marker(body_markers, TOE_MARKERS_BY_SIDE[side])
+
+        if not all(marker in body_markers for marker in ['left_heel', 'right_heel']) or not all(
+            toe_markers.values()
+        ):
             logger.warning('Missing foot markers necessary to put skeleton on ground.')
             return None
-        else: 
+        else:
             logger.info("Placing skeleton onto ground")
+
+        foot_marker_list = ['left_heel', 'right_heel', toe_markers['left'], toe_markers['right']]
 
         foot_trajectories = np.concatenate([np.expand_dims(self.body.xyz.as_dict[marker],axis = 1) for marker in foot_marker_list], axis = 1)
         still_frame = self._find_still_frame(foot_trajectories)
 
         center = np.mean(foot_trajectories[still_frame], axis = 0)
 
-        mid_foot_index =  (self.body.xyz.as_dict['right_foot_index'][still_frame] + self.body.xyz.as_dict['left_foot_index'][still_frame])/2
+        mid_foot_index =  (self.body.xyz.as_dict[toe_markers['right']][still_frame] + self.body.xyz.as_dict[toe_markers['left']][still_frame])/2
         # mid_right_foot = (self.body.xyz.as_dict['right_heel'][still_frame] + self.body.xyz.as_dict['right_foot_index'][still_frame])/2
 
         forward = get_unit_vector(mid_foot_index - center)
