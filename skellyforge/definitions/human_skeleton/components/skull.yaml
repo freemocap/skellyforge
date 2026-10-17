@@ -1,0 +1,139 @@
+segments:
+  SKULL:
+    aliases:
+    - head
+    reference_geometry:
+      origin: head_center
+      y_axis:
+        landmark: nose
+        type: exact
+      z_axis:
+        landmark: head_vertex
+        type: approximate
+    anatomical_segment: head_neck
+landmarks:
+  HEAD_CENTER:
+    aliases:
+    - skull_center
+    definition: Geometric center of the foramen magnum, the hole at the base of the
+      skull where the spinal cord enters
+    reference_frame: skull
+    local_position:
+    - 0
+    - 0
+    - 0
+  HEAD_VERTEX:
+    aliases:
+    - skull_top
+    - bregma
+    definition: Top of the head at the bregma, the intersection of the coronal and
+      sagittal sutures
+    reference_frame: skull
+    local_position:
+    - 0.0
+    - 0.0
+    - 0.078964
+  NOSE:
+    aliases:
+    - nose_tip
+    definition: Tip of the nose
+    reference_frame: skull
+    local_position:
+    - 0.0
+    - 0.060741
+    - 0.0
+  CHIN:
+    aliases:
+    - menton
+    definition: Tip of the chin (menton), the most inferior point of the mandible
+    reference_frame: skull
+    local_position:
+    - 0.0
+    - 0.057704
+    - -0.057704
+  EYE:
+    sided: true
+    aliases:
+    - eye_center
+    definition: Geometric center of the eye, the midpoint of the inner and outer canthi
+    reference_frame: skull
+    local_position:
+    - -0.019437
+    - 0.039482
+    - 0.024297
+  EYE_INNER:
+    sided: true
+    aliases:
+    - inner_canthus
+    definition: Inner corner of the eye (inner canthus), at the lacrimal fossa (tear
+      duct)
+    reference_frame: skull
+    local_position:
+    - -0.009719
+    - 0.042519
+    - 0.023082
+  EYE_OUTER:
+    sided: true
+    aliases:
+    - outer_canthus
+    definition: Outer corner of the eye (outer canthus), at the junction of the frontal
+      and zygomatic bones
+    reference_frame: skull
+    local_position:
+    - -0.027941
+    - 0.036445
+    - 0.023082
+  EAR:
+    sided: true
+    aliases:
+    - acoustic_meatus
+    definition: Entrance to the ear canal (acoustic meatus), just behind the tragus
+    reference_frame: skull
+    local_position:
+    - -0.042519
+    - 0.0
+    - 0.0
+  CANINE_TOOTH_TIP:
+    sided: true
+    definition: Tip of the canine tooth, roughly behind the corner of the mouth
+    reference_frame: skull
+    local_position:
+    - -0.012148
+    - 0.036445
+    - -0.030371
+
+# ── Groupings ──────────────────────────────────────────────────────────────
+# What these landmarks ARE, and which of them a consumer should draw as edges.
+# Authored here rather than recovered downstream from a name prefix: a renderer that
+# knows the face by `startsWith("eye")` is a second, silent copy of this file.
+#
+# Groups carry TAGS, not colours — `definitions/color_palette.yaml` turns a tag into a
+# colour, so a user recolours by editing that one file rather than every component. Tags
+# are ordered most-specific-first: EYE_LINE asks for the `eye` colour if the palette has
+# one and falls back to `face` if it does not.
+#
+# The sided landmarks are named explicitly with their `left_`/`right_` prefixes because a
+# group is a set of specific points, not a rule that mirrors.
+landmark_groups:
+  FACE_SURFACE:
+    tags: [face]
+    landmark_names:
+      - HEAD_VERTEX
+      - NOSE
+      - CHIN
+      - LEFT_EYE
+      - RIGHT_EYE
+      - LEFT_EYE_INNER
+      - RIGHT_EYE_INNER
+      - LEFT_EYE_OUTER
+      - RIGHT_EYE_OUTER
+      - LEFT_EAR
+      - RIGHT_EAR
+
+# No `landmark_connections`: the skull's markers are sparse anatomical points on a
+# smooth surface, and drawing edges between them reads as a scribbled polygon over
+# the face. The FACE_SURFACE group is the model's declaration of what these points
+# ARE; whether to draw them and how is the renderer's business.
+
+joints:
+  skull: {parent: cervical_spine, child: skull, connect_at: craniocervical_junction}

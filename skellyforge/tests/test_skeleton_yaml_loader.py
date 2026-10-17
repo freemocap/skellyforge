@@ -1,0 +1,601 @@
+"""Tests for loading skeleton component YAML into landmark and segment objects."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+import yaml
+
+from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedness
+from skellyforge.core.math.geometry.orthonormal_basis.spatial_axis import SpatialAxis
+from skellyforge.core.math.geometry.spatial_vectors import Point
+from skellyforge.core.skeleton.components.anatomical_landmark import AnatomicalLandmark
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+from skellyforge.core.skeleton.loading import (
+    LoadedComponent,
+    build_component,
+    build_reference_frame_definition,
+    expand_sided_entries,
+    lowercase_names,
+    resolve_includes,
+)
+
+
+def _component_contents(
+    loaded: LoadedComponent,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """The two parts these tests assert on, for the many that predate groupings."""
+    return loaded.landmarks, loaded.segments
+
+SKELETON_YAML_PATH: Path = (
+    Path(__file__).resolve().parents[1]
+    / "definitions"
+    / "human_skeleton"
+    / "human_skeleton.yaml"
+)
+
+
+
+# ── $include ──────────────────────────────────────────────────────────
+
+
+def test_include_is_equivalent_to_pasting_the_file_in(tmp_path: Path) -> None:
+    # The whole contract: a document with an include means the same thing as the same
+    # document with the included file's contents typed in its place.
+    (tmp_path / "parts").mkdir()
+    (tmp_path / "parts" / "arm.yaml").write_text("segments:\n  UPPER_ARM: {}\n")
+    including = {"components": {"arm": {"$include": "parts/arm.yaml"}}}
+    pasted = {"components": {"arm": {"segments": {"UPPER_ARM": {}}}}}
+    assert (
+        resolve_includes(node=including, base_directory=tmp_path, include_stack=())
+        == pasted
+    )
+
+
+def test_include_paths_resolve_relative_to_the_including_file(tmp_path: Path) -> None:
+    # `inner.yaml` includes `sibling.yaml` by bare name, so it must resolve next to
+    # `inner.yaml` - not next to whoever included `inner.yaml`.
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "sibling.yaml").write_text("value: found_it\n")
+    (nested / "inner.yaml").write_text("wrapped: {$include: sibling.yaml}\n")
+    outer = {"$include": "nested/inner.yaml"}
+    assert resolve_includes(node=outer, base_directory=tmp_path, include_stack=()) == {
+        "wrapped": {"value": "found_it"}
+    }
+
+
+def test_include_mapping_may_carry_no_other_keys(tmp_path: Path) -> None:
+    (tmp_path / "part.yaml").write_text("value: 1\n")
+    with pytest.raises(ValueError, match="no other keys"):
+        resolve_includes(
+            node={"$include": "part.yaml", "extra": "ambiguous"},
+            base_directory=tmp_path,
+            include_stack=(),
+        )
+
+
+def test_include_cycles_are_caught(tmp_path: Path) -> None:
+    (tmp_path / "a.yaml").write_text("next: {$include: b.yaml}\n")
+    (tmp_path / "b.yaml").write_text("back: {$include: a.yaml}\n")
+    with pytest.raises(ValueError, match="cycle"):
+        resolve_includes(
+            node={"$include": "a.yaml"}, base_directory=tmp_path, include_stack=()
+        )
+
+
+def test_missing_include_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="does not name a file"):
+        resolve_includes(
+            node={"$include": "nope.yaml"}, base_directory=tmp_path, include_stack=()
+        )
+
+
+# ── lowercasing ───────────────────────────────────────────────────────
+
+
+def test_names_aliases_and_references_are_lowercased_but_prose_is_not() -> None:
+    component = yaml.safe_load(
+        """
+        segments:
+          PELVIS:
+            reference_geometry:
+              origin: PELVIS_ORIGIN
+              X_AXIS: {landmark: LEFT_HIP_SOCKET, type: exact}
+        landmarks:
+          PELVIS_ORIGIN:
+            aliases: [HIPS_CENTER]
+            definition: "Mean of the two hip sockets"
+            reference_frame: PELVIS
+            local_position: [0, 0, 0]
+        """
+    )
+    lowercased = lowercase_names(node=component)
+    assert sorted(lowercased["landmarks"]) == ["pelvis_origin"]
+    assert lowercased["landmarks"]["pelvis_origin"]["aliases"] == ["hips_center"]
+    assert lowercased["landmarks"]["pelvis_origin"]["reference_frame"] == "pelvis"
+    geometry = lowercased["segments"]["pelvis"]["reference_geometry"]
+    assert geometry["origin"] == "pelvis_origin"
+    assert geometry["x_axis"]["landmark"] == "left_hip_socket"
+    # Prose survives untouched.
+    assert (
+        lowercased["landmarks"]["pelvis_origin"]["definition"]
+        == "Mean of the two hip sockets"
+    )
+
+
+# ── sidedness ─────────────────────────────────────────────────────────
+
+
+def _sided_component() -> dict[str, object]:
+    return lowercase_names(
+        node=yaml.safe_load(
+            """
+            segments:
+              UPPER_ARM:
+                sided: true
+                reference_geometry:
+                  origin: SHOULDER
+                  y_axis: {landmark: ELBOW, type: exact}
+            landmarks:
+              SHOULDER:
+                sided: true
+                aliases: [SHO]
+                definition: "Glenohumeral joint center"
+                reference_frame: UPPER_ARM
+                local_position: [180, 1400, 0]
+              ELBOW:
+                sided: true
+                definition: "Elbow joint center"
+                reference_frame: UPPER_ARM
+                local_position: [180, 1120, 0]
+            """
+        )
+    )
+
+
+def test_sided_entries_become_a_left_and_a_right() -> None:
+    expanded = expand_sided_entries(component=_sided_component())
+    assert sorted(expanded["segments"]) == ["left_upper_arm", "right_upper_arm"]
+    assert sorted(expanded["landmarks"]) == [
+        "left_elbow",
+        "left_shoulder",
+        "right_elbow",
+        "right_shoulder",
+    ]
+
+
+def test_the_right_side_is_mirrored_across_the_sagittal_plane() -> None:
+    expanded = expand_sided_entries(component=_sided_component())
+    assert expanded["landmarks"]["left_shoulder"]["local_position"] == [180.0, 1400.0, 0.0]
+    assert expanded["landmarks"]["right_shoulder"]["local_position"] == [-180.0, 1400.0, 0.0]
+
+
+def test_references_inside_a_sided_entry_resolve_to_the_same_side() -> None:
+    expanded = expand_sided_entries(component=_sided_component())
+    left = expanded["segments"]["left_upper_arm"]["reference_geometry"]
+    right = expanded["segments"]["right_upper_arm"]["reference_geometry"]
+    assert left["origin"] == "left_shoulder"
+    assert left["y_axis"]["landmark"] == "left_elbow"
+    assert right["origin"] == "right_shoulder"
+    assert right["y_axis"]["landmark"] == "right_elbow"
+    assert expanded["landmarks"]["right_shoulder"]["reference_frame"] == "right_upper_arm"
+    assert expanded["landmarks"]["right_shoulder"]["aliases"] == ["right_sho"]
+
+
+def test_a_file_level_sided_flag_sides_every_entry() -> None:
+    component = lowercase_names(
+        node=yaml.safe_load(
+            """
+            sided: true
+            segments:
+              HEEL:
+                reference_geometry:
+                  origin: ANKLE
+                  y_axis: {landmark: CALCANEUS, type: exact}
+            landmarks:
+              ANKLE:
+                definition: "Ankle joint center"
+                reference_frame: HEEL
+                local_position: [90, 80, 0]
+              CALCANEUS:
+                definition: "Calcaneal tuberosity"
+                reference_frame: HEEL
+                local_position: [90, 30, -50]
+            """
+        )
+    )
+    expanded = expand_sided_entries(component=component)
+    assert sorted(expanded["segments"]) == ["left_heel", "right_heel"]
+    assert sorted(expanded["landmarks"]) == [
+        "left_ankle",
+        "left_calcaneus",
+        "right_ankle",
+        "right_calcaneus",
+    ]
+
+
+def test_a_sided_landmark_may_span_negative_x() -> None:
+    # Fan-shaped structures (the hand) put the thumb on +x and the pinky on -x within one
+    # side. Negative x is legitimate; the right side is still the mirror of the left.
+    component = _sided_component()
+    component["landmarks"]["shoulder"]["local_position"] = [-180, 1400, 0]
+    expanded = expand_sided_entries(component=component)
+    assert expanded["landmarks"]["left_shoulder"]["local_position"] == [-180.0, 1400.0, 0.0]
+    assert expanded["landmarks"]["right_shoulder"]["local_position"] == [180.0, 1400.0, 0.0]
+
+
+
+# ── reference_geometry -> ReferenceFrameDefinition ────────────────────
+
+
+def test_exact_becomes_primary_and_approximate_becomes_secondary() -> None:
+    definition = build_reference_frame_definition(
+        segment_name="pelvis",
+        reference_geometry={
+            "origin": "pelvis_origin",
+            "x_axis": {"landmark": "left_hip_socket", "type": "exact"},
+            "y_axis": {"landmark": "sacrum_top", "type": "approximate"},
+        },
+    )
+    assert definition.primary_axis is SpatialAxis.X
+    assert definition.primary_point_name == "left_hip_socket"
+    assert definition.secondary_axis is SpatialAxis.Y
+    assert definition.secondary_point_name == "sacrum_top"
+    assert definition.is_fully_specified
+
+
+def test_negate_selects_the_negative_half_axis() -> None:
+    definition = build_reference_frame_definition(
+        segment_name="lumbar_spine",
+        reference_geometry={
+            "origin": "sacrum_top",
+            "y_axis": {"landmark": "thoracolumbar_junction", "type": "exact"},
+            "z_axis": {"landmark": "xiphoid_process", "type": "approximate", "negate": True},
+        },
+    )
+    assert definition.secondary_axis is SpatialAxis.NEGATIVE_Z
+
+
+def test_geometry_with_no_approximate_axis_is_underspecified() -> None:
+    definition = build_reference_frame_definition(
+        segment_name="upper_arm",
+        reference_geometry={
+            "origin": "shoulder",
+            "y_axis": {"landmark": "elbow", "type": "exact"},
+        },
+    )
+    assert not definition.is_fully_specified
+    assert definition.point_names == ("shoulder", "elbow")
+
+
+@pytest.mark.parametrize(
+    "reference_geometry,message",
+    [
+        ({"y_axis": {"landmark": "elbow", "type": "exact"}}, "needs an `origin`"),
+        ({"origin": "a", "w_axis": {"landmark": "b", "type": "exact"}}, "unknown"),
+        ({"origin": "a", "y_axis": {"landmark": "b", "type": "roughly"}}, "must be"),
+        ({"origin": "a", "y_axis": {"landmark": "b", "type": "approximate"}}, "type: exact"),
+        (
+            {
+                "origin": "a",
+                "y_axis": {"landmark": "b", "type": "exact"},
+                "z_axis": {"landmark": "c", "type": "exact"},
+            },
+            "exactly one axis",
+        ),
+    ],
+    ids=["no-origin", "unknown-axis", "unknown-type", "no-exact", "two-exact"],
+)
+def test_malformed_reference_geometry_raises(
+    reference_geometry: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        build_reference_frame_definition(
+            segment_name="segment", reference_geometry=reference_geometry
+        )
+
+
+def test_every_fully_specified_segment_solves_to_its_own_authoring_frame() -> None:
+    """A segment fed its own rest positions must return the identity basis.
+
+    Only segments that OWN their origin landmark participate: an externally-
+    originated segment's origin landmark stores its position in the PARENT'S
+    frame, which is not the same as its own frame unless the two happen to be
+    world-aligned with no lateral offset. Those segments exercise the invariant
+    through the FK-closure tests instead.
+    """
+    skeleton = SkeletonDefinition.from_yaml(path=SKELETON_YAML_PATH)
+    rest_positions = {
+        name: landmark.local_position for name, landmark in skeleton.landmarks.items()
+    }
+    fully_specified_self_origin = [
+        segment
+        for segment in skeleton.segments.values()
+        if segment.is_fully_specified
+        and segment.frame_definition.origin_point_name in segment.landmarks
+    ]
+    assert fully_specified_self_origin, "the skeleton must have at least one such segment"
+    for segment in fully_specified_self_origin:
+        basis = segment.calculate_basis(points=rest_positions)
+        matrix = np.stack(
+            [basis.x_axis.array, basis.y_axis.array, basis.z_axis.array], axis=0
+        )
+        np.testing.assert_allclose(
+            matrix,
+            np.eye(3),
+            atol=1e-9,
+            err_msg=f"segment {segment.name!r} does not solve to its own authoring frame",
+        )
+
+
+# ── skeleton-level cross validation ───────────────────────────────────
+
+
+def test_a_landmark_naming_a_nonexistent_segment_is_rejected() -> None:
+    component = yaml.safe_load(
+        """
+        segments:
+          PELVIS:
+            reference_geometry:
+              origin: PELVIS_ORIGIN
+              x_axis: {landmark: HIP, type: exact}
+        landmarks:
+          PELVIS_ORIGIN:
+            definition: "origin"
+            reference_frame: PELVIS
+            local_position: [0, 0, 0]
+          HIP:
+            definition: "hip"
+            reference_frame: PELVIS
+            local_position: [88, 0, 0]
+          STRAY:
+            definition: "belongs to nothing"
+            reference_frame: NOT_A_SEGMENT
+            local_position: [0, 10, 0]
+        """
+    )
+    landmarks, segments = _component_contents(build_component(component=component, name="pelvis"))
+    with pytest.raises(ValueError, match="an owning segment that this skeleton does not have"):
+        SkeletonDefinition(name="pelvis", landmarks=landmarks, segments=segments)
+
+
+def test_a_segment_with_no_reference_geometry_is_rejected() -> None:
+    component = yaml.safe_load("segments:\n  UPPER_ARM:\nlandmarks: {}\n")
+    with pytest.raises(ValueError, match="no `reference_geometry`"):
+        build_component(component=component, name="arm")
+
+def test_a_component_can_share_a_joint_between_two_segments() -> None:
+    # The elbow is the upper arm's distal joint AND the lower arm's origin - one
+    # landmark, owned by one segment, referenced by the other as its origin.
+    component = yaml.safe_load(
+        """
+        sided: true
+        segments:
+          UPPER_ARM:
+            reference_geometry:
+              origin: SHOULDER
+              y_axis: {landmark: ELBOW, type: exact}
+          LOWER_ARM:
+            reference_geometry:
+              origin: ELBOW
+              y_axis: {landmark: WRIST, type: exact}
+        landmarks:
+          SHOULDER:
+            definition: "shoulder joint center"
+            reference_frame: UPPER_ARM
+            local_position: [0, 0, 0]
+          ELBOW:
+            definition: "elbow joint center"
+            reference_frame: UPPER_ARM
+            local_position: [0, 300, 0]
+          WRIST:
+            definition: "wrist joint center"
+            reference_frame: LOWER_ARM
+            local_position: [0, 260, 0]
+        """
+    )
+    landmarks, segments = _component_contents(build_component(component=component, name="arm"))
+    skeleton = SkeletonDefinition(name="arm", landmarks=landmarks, segments=segments)
+    assert sorted(skeleton.segments) == [
+        "left_lower_arm",
+        "left_upper_arm",
+        "right_lower_arm",
+        "right_upper_arm",
+    ]
+    lower = skeleton.segments["left_lower_arm"]
+    assert lower.frame_definition.origin_point_name == "left_elbow"
+    assert lower.frame_definition.primary_point_name == "left_wrist"
+    assert lower.length == pytest.approx(260.0)
+    assert "left_elbow" in lower.landmark_names
+
+def test_a_segment_owning_an_origin_landmark_away_from_zero_is_rejected() -> None:
+    """A segment's own origin landmark must sit at [0, 0, 0] in that segment's frame.
+
+    Being the origin is what "at zero" means, and `length`, the rest pose's forward
+    kinematics and hydration all read it that way. Nothing enforced it, so an authoring
+    slip would have produced quietly wrong lengths and orientations.
+    """
+    component = yaml.safe_load(
+        """
+        segments:
+          SPINE:
+            reference_geometry:
+              origin: BASE
+              y_axis: {landmark: TOP, type: exact}
+        landmarks:
+          BASE: {definition: base, reference_frame: spine, local_position: [0, 5, 0]}
+          TOP:  {definition: top,  reference_frame: spine, local_position: [0, 100, 0]}
+        """
+    )
+    with pytest.raises(ValueError, match=r"must sit at \[0, 0, 0\]"):
+        build_component(component=component, name="spine")
+
+
+def test_a_landmark_may_name_its_segment_by_an_alias() -> None:
+    """A segment collects landmarks that name any of its names, not only the canonical one.
+
+    Matching the canonical name alone left an alias-referencing landmark owned by nothing:
+    present in the skeleton, and invisible to the rigid fit, to `landmark_names`, and to
+    everything else that reads a segment's landmarks.
+    """
+    component = yaml.safe_load(
+        """
+        segments:
+          SPINE:
+            aliases: [BACKBONE]
+            reference_geometry:
+              origin: BASE
+              y_axis: {landmark: TOP, type: exact}
+              z_axis: {landmark: FRONT, type: approximate}
+        landmarks:
+          BASE:  {definition: base,  reference_frame: spine,    local_position: [0, 0, 0]}
+          TOP:   {definition: top,   reference_frame: SPINE,    local_position: [0, 100, 0]}
+          FRONT: {definition: front, reference_frame: BACKBONE, local_position: [0, 0, 40]}
+        """
+    )
+    landmarks, segments = _component_contents(build_component(component=component, name="spine"))
+    assert sorted(segments["spine"].landmarks) == ["base", "front", "top"]
+    skeleton = SkeletonDefinition(name="t", landmarks=landmarks, segments=segments)
+    assert skeleton.owning_segment_name_of(landmark=landmarks["front"]) == "spine"
+
+
+def test_a_landmark_owned_by_no_segment_is_rejected() -> None:
+    """The cross-component case the alias fix cannot reach still has to fail loudly."""
+    landmarks, segments = _component_contents(build_component(
+        component=yaml.safe_load(
+            """
+            segments:
+              SPINE:
+                reference_geometry:
+                  origin: BASE
+                  y_axis: {landmark: TOP, type: exact}
+            landmarks:
+              BASE: {definition: base, reference_frame: spine, local_position: [0, 0, 0]}
+              TOP:  {definition: top,  reference_frame: spine, local_position: [0, 100, 0]}
+            """
+        ),
+        name="spine",
+    ))
+    stranger = AnatomicalLandmark(
+        name="stranger",
+        anatomical_definition="a landmark whose segment never collected it",
+        local_position=Point.from_xyz(x=1.0, y=1.0, z=1.0),
+        segment="spine",
+    )
+    with pytest.raises(ValueError, match="owned by no segment"):
+        SkeletonDefinition(
+            name="t",
+            landmarks={**landmarks, "stranger": stranger},
+            segments=segments,
+        )
+
+
+def test_two_segments_may_not_share_an_alias() -> None:
+    """Segment aliases need the global uniqueness landmark aliases already had."""
+    component = yaml.safe_load(
+        """
+        segments:
+          ALPHA:
+            aliases: [SHARED]
+            reference_geometry:
+              origin: A
+              y_axis: {landmark: B, type: exact}
+          BETA:
+            aliases: [SHARED]
+            reference_geometry:
+              origin: C
+              y_axis: {landmark: D, type: exact}
+        landmarks:
+          A: {definition: a, reference_frame: alpha, local_position: [0, 0, 0]}
+          B: {definition: b, reference_frame: alpha, local_position: [0, 10, 0]}
+          C: {definition: c, reference_frame: beta,  local_position: [0, 0, 0]}
+          D: {definition: d, reference_frame: beta,  local_position: [0, 10, 0]}
+        """
+    )
+    landmarks, segments = _component_contents(build_component(component=component, name="t"))
+    with pytest.raises(ValueError, match="globally unique"):
+        SkeletonDefinition(name="t", landmarks=landmarks, segments=segments)
+
+
+# ── bilateral (sided) frame convention ────────────────────────────────
+
+
+def _bilateral_component() -> dict[str, object]:
+    """A sided segment whose roll IS pinned, so both sides build a full triad."""
+    return yaml.safe_load(
+        """
+        sided: true
+        segments:
+          LIMB:
+            reference_geometry:
+              origin: PROXIMAL
+              y_axis: {landmark: DISTAL, type: exact}
+              x_axis: {landmark: SIDE_MARKER, type: approximate}
+        landmarks:
+          PROXIMAL:    {definition: p, reference_frame: limb, local_position: [0, 0, 0]}
+          DISTAL:      {definition: d, reference_frame: limb, local_position: [0, 100, 0]}
+          SIDE_MARKER: {definition: s, reference_frame: limb, local_position: [30, 0, 0]}
+        """
+    )
+
+
+def test_left_and_right_local_frames_agree_on_up_forward_and_distal() -> None:
+    """The two sides' frames must mean the same thing, which is the Blender convention.
+
+    Mirroring the coordinates alone left the right side's frame as the left side's rotated
+    a half turn about y, so local +y was anterior on the left and posterior on the right -
+    the same joint angle would have carried opposite signs on the two sides. Negating
+    x-axis declarations on the right makes +z distal and +y anterior on both, at the cost
+    of +x being medial on the left and lateral on the right, which a right-handed triad
+    cannot avoid.
+    """
+    landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
+    rest_positions = {name: landmark.local_position for name, landmark in landmarks.items()}
+    bases = {
+        side: segments[f"{side}_limb"].calculate_basis(points=rest_positions)
+        for side in ("left", "right")
+    }
+    for side, basis in bases.items():
+        np.testing.assert_allclose(
+            basis.x_axis.array, [1.0, 0.0, 0.0], atol=1e-12, err_msg=f"{side} x"
+        )
+        np.testing.assert_allclose(
+            basis.y_axis.array, [0.0, 1.0, 0.0], atol=1e-12, err_msg=f"{side} y"
+        )
+        np.testing.assert_allclose(
+            basis.z_axis.array, [0.0, 0.0, 1.0], atol=1e-12, err_msg=f"{side} z"
+        )
+
+
+def test_both_sided_frames_stay_right_handed() -> None:
+    landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
+    rest_positions = {name: landmark.local_position for name, landmark in landmarks.items()}
+    for side in ("left", "right"):
+        basis = segments[f"{side}_limb"].calculate_basis(points=rest_positions)
+        matrix = np.stack(
+            [basis.x_axis.array, basis.y_axis.array, basis.z_axis.array], axis=0
+        )
+        assert float(np.linalg.det(matrix)) == pytest.approx(1.0, abs=1e-12)
+        assert basis.handedness is Handedness.RIGHT_HANDED
+
+
+def test_the_right_side_negates_an_x_axis_declaration() -> None:
+    """The landmark still lies exactly on its declared signed axis - the negative half."""
+    _landmarks, segments = _component_contents(build_component(component=_bilateral_component(), name="limb"))
+    assert segments["left_limb"].frame_definition.secondary_axis is SpatialAxis.X
+    assert segments["right_limb"].frame_definition.secondary_axis is SpatialAxis.NEGATIVE_X
+    # y is untouched by a sagittal mirror, so the primary axis is the same on both sides.
+    assert segments["left_limb"].frame_definition.primary_axis is SpatialAxis.Y
+    assert segments["right_limb"].frame_definition.primary_axis is SpatialAxis.Y
+
+
+def test_an_already_negated_x_axis_flips_back_on_the_right() -> None:
+    component = _bilateral_component()
+    component["segments"]["LIMB"]["reference_geometry"]["x_axis"]["negate"] = True
+    _landmarks, segments = _component_contents(build_component(component=component, name="limb"))
+    assert segments["left_limb"].frame_definition.secondary_axis is SpatialAxis.NEGATIVE_X
+    assert segments["right_limb"].frame_definition.secondary_axis is SpatialAxis.X
+

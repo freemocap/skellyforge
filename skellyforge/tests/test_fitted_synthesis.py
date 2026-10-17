@@ -1,0 +1,252 @@
+"""Connected fitted motion has fixed attachments, independently of measured origins."""
+
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.spatial_vectors import Point
+from skellyforge.core.skeleton.chain.synthesis import synthesize_fitted_pose, synthesize_anchored_pose
+from skellyforge.core.skeleton.pose.model_scale_fitting import ModelScaleFit
+from skellyforge.core.skeleton.pose.rest_pose import RestPose
+from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
+
+
+@pytest.fixture
+def inputs():
+    skeleton = SkeletonDefinition.from_default_yaml()
+    rest = RestPose.from_default_yaml(skeleton=skeleton)
+    scales = {name: 1400.0 + 11 * index for index, name in enumerate(skeleton.segments)}
+    fit = ModelScaleFit(
+        fitted_scale=1700.0,
+        segment_scales=scales,
+        segment_lengths={
+            name: segment.length * scales[name]
+            for name, segment in skeleton.segments.items()
+        },
+        measured_segment_names=frozenset(),
+        voting_segment_names=frozenset(),
+    )
+    return skeleton, rest, fit
+
+
+@pytest.mark.parametrize('bad_scale', [0.0, -1.0, float('nan'), float('inf')])
+def test_anchored_pose_rejects_invalid_fitted_scales(inputs, bad_scale):
+    skeleton, rest, fit = inputs
+    scales = dict(fit.segment_scales)
+    scales[rest.root_segment_name] = bad_scale
+    with pytest.raises(ValueError, match='finite and positive'):
+        synthesize_anchored_pose(skeleton=skeleton, fit=replace(fit, segment_scales=scales),
+            segment_world_orientations=rest.segment_orientations,
+            anchor_segment_name=rest.root_segment_name, anchor_origin=Point.from_xyz(x=0., y=0., z=0.))
+
+
+@pytest.mark.parametrize('anchor', ['pelvis', 'skull', 'left_carpals', 'right_carpals'])
+def test_reanchoring_changes_only_translation_and_preserves_attachments(inputs, anchor):
+    skeleton, rest, fit = inputs
+    relative = {name: RotationQuaternion.from_rotation_vector(rotation_vector=np.array([.02 * i, -.15, .21]))
+                for i, name in enumerate(skeleton.segments) if name != rest.root_segment_name}
+    rotations, origins, landmarks = synthesize_fitted_pose(skeleton=skeleton, fit=fit,
+        segment_relative_orientations=relative, root_world_orientation=RotationQuaternion.identity(),
+        root_origin=Point.from_xyz(x=100., y=-200., z=900.))
+    destination = Point.from_xyz(x=-50., y=300., z=1500.)
+    shift = destination.array - origins[anchor].array
+    original_parents = dict(rest.parents)
+    anchored_rotations, anchored_origins, anchored_landmarks = synthesize_anchored_pose(
+        skeleton=skeleton, fit=fit, segment_world_orientations=rotations,
+        anchor_segment_name=anchor, anchor_origin=destination)
+    assert dict(rest.parents) == original_parents
+    for name in rotations:
+        assert anchored_rotations[name].is_same_rotation(other=rotations[name])
+        np.testing.assert_allclose(anchored_origins[name].array, origins[name].array + shift, atol=1e-9)
+    for name in landmarks:
+        np.testing.assert_allclose(anchored_landmarks[name].array, landmarks[name].array + shift, atol=1e-9)
+    for joint in skeleton.joints.values():
+        np.testing.assert_allclose(anchored_origins[joint.child.name].array,
+                                   anchored_landmarks[joint.connect_at.name].array, atol=1e-9)
+
+
+def test_head_anchored_component_does_not_require_pelvis_and_rejects_gaps(inputs):
+    skeleton, rest, fit = inputs
+    # Follow the anatomical path from head toward pelvis, but omit pelvis.
+    names = []
+    name = 'skull'
+    while name != rest.root_segment_name:
+        names.append(name)
+        name = rest.parents[name]
+    rotations = {name: rest.segment_orientations[name] for name in names}
+    kwargs = dict(skeleton=skeleton, fit=fit, segment_world_orientations=rotations,
+                  anchor_segment_name='skull', anchor_origin=Point.from_xyz(x=0., y=0., z=1700.))
+    _, origins, _ = synthesize_anchored_pose(**kwargs)
+    assert set(origins) == set(names)
+    assert rest.root_segment_name not in origins
+    del rotations[names[1]]
+    with pytest.raises(ValueError, match='without gaps'):
+        synthesize_anchored_pose(**kwargs)
+    with pytest.raises(ValueError, match='include the anchor'):
+        synthesize_anchored_pose(**(kwargs | {'segment_world_orientations': {names[-1]: rest.segment_orientations[names[-1]]}}))
+    with pytest.raises(ValueError, match='known segment'):
+        synthesize_anchored_pose(**(kwargs | {'anchor_segment_name': 'nose'}))
+
+
+def test_isolated_measured_anchor_is_valid(inputs):
+    skeleton, rest, fit = inputs
+    q = rest.segment_orientations['left_carpals']
+    _, origins, landmarks = synthesize_anchored_pose(skeleton=skeleton, fit=fit,
+        segment_world_orientations={'left_carpals': q}, anchor_segment_name='left_carpals',
+        anchor_origin=Point.from_xyz(x=100., y=200., z=300.))
+    assert set(origins) == {'left_carpals'}
+    assert set(landmarks) == set(skeleton.segments['left_carpals'].landmarks)
+
+
+def test_connected_motion_preserves_fitted_geometry(inputs):
+    skeleton, rest, fit = inputs
+    originals = {
+        name: landmark.local_position.array.copy()
+        for name, landmark in skeleton.landmarks.items()
+    }
+    for frame in range(3):
+        rotations = {
+            name: RotationQuaternion.from_rotation_vector(
+                rotation_vector=np.array([0.13 * frame, 0.02 * index, -0.17])
+            )
+            for index, name in enumerate(skeleton.segments)
+        }
+        root = Point.from_xyz(x=100.0 * frame, y=-230.0, z=910.0)
+        orientations, origins, landmarks = synthesize_fitted_pose(
+            skeleton=skeleton,
+            fit=fit,
+            segment_relative_orientations={
+                name: q
+                for name, q in rotations.items()
+                if name != rest.root_segment_name
+            },
+            root_world_orientation=rotations[rest.root_segment_name],
+            root_origin=root,
+        )
+        np.testing.assert_allclose(origins[rest.root_segment_name].array, root.array)
+        np.testing.assert_allclose(
+            orientations[rest.root_segment_name].to_rotation_matrix(),
+            rotations[rest.root_segment_name].to_rotation_matrix(),
+            atol=1e-12,
+        )
+        for joint in skeleton.joints.values():
+            parent, child = joint.parent.name, joint.child.name
+            parent_matrix = orientations[parent].to_rotation_matrix()
+            np.testing.assert_allclose(
+                orientations[child].to_rotation_matrix(),
+                parent_matrix @ rotations[child].to_rotation_matrix(),
+                atol=1e-12,
+            )
+            np.testing.assert_allclose(
+                origins[child].array, landmarks[joint.connect_at.name].array
+            )
+            np.testing.assert_allclose(
+                parent_matrix.T @ (origins[child].array - origins[parent].array),
+                originals[joint.connect_at.name] * fit.segment_scales[parent],
+                atol=1e-9,
+            )
+        for name, landmark in skeleton.landmarks.items():
+            owner = skeleton.owning_segment_name_of(landmark=landmark)
+            np.testing.assert_allclose(
+                orientations[owner].to_rotation_matrix().T
+                @ (landmarks[name].array - origins[owner].array),
+                originals[name] * fit.segment_scales[owner],
+                atol=1e-9,
+            )
+    for name, landmark in skeleton.landmarks.items():
+        np.testing.assert_array_equal(landmark.local_position.array, originals[name])
+
+
+def test_selection_and_missing_motion_are_explicit(inputs):
+    skeleton, rest, fit = inputs
+    root = rest.root_segment_name
+    child = next(
+        joint.child.name
+        for joint in skeleton.joints.values()
+        if joint.parent.name == root
+    )
+    kwargs = dict(
+        skeleton=skeleton,
+        fit=fit,
+        root_world_orientation=rest.relative_orientations[root],
+        root_origin=Point.from_xyz(x=0.0, y=0.0, z=0.0),
+        segment_names=frozenset({root, child}),
+        segment_relative_orientations={child: rest.relative_orientations[child]},
+    )
+    orientations, origins, landmarks = synthesize_fitted_pose(**kwargs)
+    assert set(orientations) == set(origins) == {root, child}
+    assert set(landmarks) == {
+        name
+        for name, landmark in skeleton.landmarks.items()
+        if skeleton.owning_segment_name_of(landmark=landmark) in {root, child}
+    }
+    with pytest.raises(ValueError, match="Rotations"):
+        synthesize_fitted_pose(**(kwargs | {"segment_relative_orientations": {}}))
+    with pytest.raises(ValueError, match="root"):
+        synthesize_fitted_pose(**(kwargs | {"segment_names": frozenset({child})}))
+    grandchild = next(
+        joint.child.name
+        for joint in skeleton.joints.values()
+        if joint.parent.name == child
+    )
+    with pytest.raises(ValueError, match="ancestor"):
+        synthesize_fitted_pose(
+            **(
+                kwargs
+                | {
+                    "segment_names": frozenset({root, grandchild}),
+                    "segment_relative_orientations": {
+                        grandchild: rest.relative_orientations[grandchild]
+                    },
+                }
+            )
+        )
+    lengths = dict(fit.segment_lengths)
+    lengths[child] *= 2
+    with pytest.raises(ValueError, match="geometry disagree"):
+        synthesize_fitted_pose(
+            **(kwargs | {"fit": replace(fit, segment_lengths=lengths)})
+        )
+
+
+def test_uniform_fit_reproduces_scaled_rest_pose(inputs):
+    skeleton, rest, fit = inputs
+    scale = 1750.0
+    fit = replace(
+        fit,
+        segment_scales={name: scale for name in skeleton.segments},
+        segment_lengths={
+            name: segment.length * scale for name, segment in skeleton.segments.items()
+        },
+    )
+    root = Point.from_xyz(x=100.0, y=200.0, z=900.0)
+    orientations, origins, landmarks = synthesize_fitted_pose(
+        skeleton=skeleton,
+        fit=fit,
+        root_origin=root,
+        root_world_orientation=rest.relative_orientations[rest.root_segment_name],
+        segment_relative_orientations={
+            name: q
+            for name, q in rest.relative_orientations.items()
+            if name != rest.root_segment_name
+        },
+    )
+    for name in skeleton.segments:
+        np.testing.assert_allclose(
+            orientations[name].to_rotation_matrix(),
+            rest.segment_orientations[name].to_rotation_matrix(),
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            origins[name].array,
+            root.array + scale * rest.segment_origins[name].array,
+            atol=1e-9,
+        )
+    for name in skeleton.landmarks:
+        np.testing.assert_allclose(
+            landmarks[name].array,
+            root.array + scale * rest.landmark_positions[name].array,
+            atol=1e-9,
+        )

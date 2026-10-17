@@ -1,0 +1,144 @@
+"""The hydrated pose of a skeleton: each segment's world origin, orientation and scale.
+
+A static skeleton's per-frame face is a pose: where each segment's frame is (origin), how
+it is turned (orientation) and how big it is (scale). The closed-form hydration fills this
+in from observed landmark positions; velocities and accelerations come later, when the
+trajectory is known.
+
+Scale is a component of the pose rather than a property of the definition because the
+authored template is dimensionless - local positions are fractions of the model's reference unit - so the
+map from a segment's frame into the world is a similarity, not a rigid motion. Every
+hydrated segment therefore reports its own reading of how big the model is, and
+`pose.model_scale_fitting` pools those readings into one.
+
+Every pose records HOW it was solved, because the two solutions carry different amounts of
+information: a rigid fit pins the full orientation, while a direction fit pins only the
+long axis and leaves roll free. A consumer that has to guess which it got will guess wrong.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import Enum
+
+from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
+from skellyforge.core.math.geometry.spatial_vectors import Point
+from skellyforge.type_overloads import RigidBodySegmentName
+
+
+class PoseSolution(Enum):
+    """Which closed form produced a pose, and therefore how much of it is determined."""
+
+    RIGID_FIT = "rigid_fit"
+    """Kabsch over three or more non-collinear landmarks. The full orientation is pinned."""
+    OBSERVATION_FRAME = "observation_frame"
+    """Explicit geometric axes from observations; offset landmarks do not steer them."""
+
+    DIRECTION = "direction"
+    """Shortest-arc rotation from two landmarks. Roll about the long axis is arbitrary."""
+
+    TRANSPORTED_ROLL = "transported_roll"
+    """Direction from observations, roll resolved by minimum-swing transport.
+
+    The roll starts from authored rest orientation, is carried in the parent's
+    frame when available, and may receive model-declared terminal twist evidence.
+    It is a model convention, distinct from fitting a full orientation directly
+    to a non-collinear landmark set.
+    """
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class SegmentPose:
+    """One segment's pose at one instant.
+
+    Attributes:
+        segment_name: the segment this pose belongs to.
+        origin: the world position of the segment's frame origin.
+        orientation: the world orientation (local-to-world rotation).
+        scale_estimate: this segment's own reading of the model's size, in world
+            units per unit of the skeleton's reference unit - millimetres per unit `H` for the
+            standard human, when
+            the observations were in millimetres. A rigid fit measures it over every
+            observed landmark at once; a direction fit measures it as the observed
+            origin-to-primary distance over the authored proportion. It is ONE segment's
+            noisy reading, not the model's size: pooling those readings is
+            `pose.model_scale_fitting`'s job.
+        solved_by: which closed form produced it. `PoseSolution.DIRECTION` means the roll
+            about the segment's long axis is arbitrary and must be resolved downstream.
+    """
+
+    segment_name: RigidBodySegmentName
+    origin: Point
+    orientation: RotationQuaternion
+    scale_estimate: float
+    solved_by: PoseSolution
+
+    def __post_init__(self) -> None:
+        if not self.scale_estimate > 0.0:
+            raise ValueError(
+                f"segment {self.segment_name!r}: scale_estimate must be positive - "
+                f"got {self.scale_estimate!r}. A segment with no measurable size has "
+                "no pose; it should have been left out of the hydration, not hydrated "
+                "with a degenerate scale."
+            )
+
+    @property
+    def has_resolved_roll(self) -> bool:
+        """Whether this pose carries a usable roll about the segment's long axis."""
+        return self.solved_by in (
+            PoseSolution.OBSERVATION_FRAME,
+            PoseSolution.RIGID_FIT,
+            PoseSolution.TRANSPORTED_ROLL,
+        )
+
+    def with_orientation(
+        self, *, orientation: RotationQuaternion, solved_by: PoseSolution
+    ) -> SegmentPose:
+        """This pose with a different orientation, keeping its segment, origin and scale.
+
+        Roll resolution turns a segment about its own long axis, which changes neither where
+        it sits nor how big it is - so both ride through untouched.
+        """
+        return SegmentPose(
+            segment_name=self.segment_name,
+            origin=self.origin,
+            orientation=orientation,
+            scale_estimate=self.scale_estimate,
+            solved_by=solved_by,
+        )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class SkeletonPose:
+    """The whole skeleton's pose at one instant, keyed by segment name."""
+
+    segment_poses: Mapping[RigidBodySegmentName, SegmentPose]
+
+    def parent_relative_orientations(
+        self, *, parents: Mapping[RigidBodySegmentName, RigidBodySegmentName | None]
+    ) -> dict[RigidBodySegmentName, RotationQuaternion]:
+        """Roots use world orientation; a child requires its parent's observed pose."""
+        if not set(self.segment_poses).issubset(parents):
+            raise ValueError("Observed segments must belong to the parent map")
+        if any(parent is not None and parent not in parents for parent in parents.values()):
+            raise ValueError("Parent map refers to an unknown segment")
+        orientations: dict[RigidBodySegmentName, RotationQuaternion] = {}
+        for name, pose in self.segment_poses.items():
+            parent = parents[name]
+            if parent is None:
+                orientations[name] = pose.orientation
+            elif parent in self.segment_poses:
+                orientations[name] = self.segment_poses[parent].orientation.inverse() * pose.orientation
+        return orientations
+
+    @property
+    def segment_names_with_free_roll(self) -> tuple[RigidBodySegmentName, ...]:
+        """Segments solved by direction only, whose roll a downstream pass must supply."""
+        return tuple(
+            sorted(
+                name
+                for name, pose in self.segment_poses.items()
+                if not pose.has_resolved_roll
+            )
+        )

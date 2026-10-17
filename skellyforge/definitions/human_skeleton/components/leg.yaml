@@ -1,0 +1,83 @@
+sided: true
+segments:
+  UPPER_LEG:
+    aliases:
+    - femur
+    reference_geometry:
+      origin: hip_joint
+      z_axis:
+        landmark: knee
+        type: exact
+    anatomical_segment: thigh
+  LOWER_LEG:
+    aliases:
+    - tibia_fibula
+    reference_geometry:
+      origin: knee
+      z_axis:
+        landmark: ankle
+        type: exact
+    anatomical_segment: shank
+landmarks:
+  HIP_JOINT:
+    aliases:
+    - coxofemoral_joint
+    definition: Geometric center of the hip joint, the femoral head seated in the
+      acetabulum
+    reference_frame: upper_leg
+    local_position:
+    - 0
+    - 0
+    - 0
+  KNEE:
+    aliases:
+    - tibiofemoral_joint
+    definition: Geometric center of the knee joint, between the femoral condyles and
+      the tibial plateau
+    reference_frame: upper_leg
+    local_position:
+    - 0.0
+    - 0.0
+    - 0.267263
+  ANKLE:
+    aliases:
+    - talocrural_joint
+    definition: Geometric center of the ankle joint, between the tibia/fibula and
+      the talus
+    reference_frame: lower_leg
+    local_position:
+    - 0.0
+    - 0.0
+    - 0.24904
+
+# ── Joints and chains ──────────────────────────────────────────────────────
+# The leg's linkage: both leg rays hang off the pelvis (the pelvis component's
+# business), and the heel mirrors the foot ray at the ankle. `sided: true`
+# expands at the skeleton level.
+joints:
+  upper_leg:
+    sided: true
+    parent: pelvis
+    child: upper_leg
+    connect_at: hip_socket
+  lower_leg:
+    sided: true
+    parent: upper_leg
+    child: lower_leg
+  heel:
+    sided: true
+    parent: lower_leg
+    child: heel
+    connect_at: ankle
+
+chains:
+  left_leg:
+    - left_upper_leg
+    - left_lower_leg
+    - left_foot
+    - left_toes
+  right_leg:
+    - right_upper_leg
+    - right_lower_leg
+    - right_foot
+    - right_toes

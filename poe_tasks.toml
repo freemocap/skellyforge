@@ -1,0 +1,10 @@
+[tool.poe.env]
+PYTHONUTF8 = "1"
+
+[tool.poe.tasks]
+test = "python -B -m pytest"
+test-test-data = "python -B -m pytest tests/reference --dataset test_data -s"
+test-sample-data = "python -B -m pytest tests/reference --dataset sample_data -s"
+test-all-data = ["test-test-data", "test-sample-data"]
+test-all = ["test", "test-all-data"]
+viewer = "python -B -m skellyforge.tools.viewer.synthetic"

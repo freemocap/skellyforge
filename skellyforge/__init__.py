@@ -1,4 +1,4 @@
-"""Top-level package for basic_template_repo."""
+"""skellyforge: the standard human, and the closed-form math that hydrates it."""
 
 __package_name__ = "skellyforge"
 __version__ = "v2024.12.1009"
@@ -11,9 +11,16 @@ __repo_url__ = (
 )
 __repo_issues_url__ = f"{__repo_url__}issues"
 
+from beartype.claw import beartype_this_package
 
-from skellyforge.system.logging_configuration.configure_logging import configure_logging
-from skellyforge.system.logging_configuration.log_levels import LogLevels
+beartype_this_package()
 
-LOG_LEVEL = LogLevels.TRACE
-configure_logging(LOG_LEVEL)
+
+# Dump a Python traceback on native crashes (segfault / Windows access violation, e.g. 0xC0000005)
+# instead of dying silently. Spawned workers re-import this package, so they inherit this too.
+# Near-zero steady-state overhead — handlers stay dormant until a fatal signal actually fires.
+import faulthandler
+
+faulthandler.enable()
+
+# Logging is configured by the owning application or standalone entry point.

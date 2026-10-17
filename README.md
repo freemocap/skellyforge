@@ -1,27 +1,147 @@
-# postprocessing_gui
+# skellyforge
 
-# INSTALLING the GUI
- 1. Create a 3.9 or 3.10 conda environment environment 
-   -have tested this successfully on 3.9.16 (latest 3.9 version) and 3.10.11 (latest 3.10 version)
- 2. Navigate to this github repo and use the command `pip install -e.` to install the dependencies from the pyproject.toml
+**The standard human.** A skeleton definition — landmarks, rigid-body segments, and the
+reference frames they realize — authored in YAML and compiled into typed objects, plus the
+closed-form math that hydrates it from observed 3D positions.
 
-# STARTING the GUI:
- 1. Open up `postprocess_GUI.py`
- 2. Scroll down to the `if __name__ == '__main__'` section at the bottom
- 3. Change the `path_to_data_folder` variable to the path to your recording
-   -NOTE: The GUI is set up to take file paths and file names corresponding to the 
-          FreeMoCap 1.0 release. If you need to change these file paths, you can do so
-          from the `FileManager` class at the top of `postprocess_GUI.py`
- 4. After changing the path, run the `postprocess_GUI.py` script, and the GUI will pop up
+Part of the [FreeMoCap](https://freemocap.org) project. skellyforge never imports
+skellytracker or freemocap: it stands alone, and freemocap consumes it.
 
-# OPERATING the GUI 
- - When the GUI pops up you'll see the main menu, from which you can alter and apply
-   various postprocessing parameters (currently mostly for interpolation/filtering)
- - Press the 'Process Data and View Results' button to run the postprocessing on the skeleton,
-   and the postprocessed skeleton should appear in the 'post-processed data' skeleton viewer
- - You can move between the Filtering and Interpolation tabs at the top to more closely look
-   at how the different processing options affect your data 
- - When finished, press the 'Save Out Data' button on the main menu to save the post_processed data
-   and a .toml file of your processing parameters into the 'output_data' folder
- - Default processed data file name is 'mediapipe_processed_xyz.npy' and the parameter summary name
-   is 'postprocessing_settings.toml'
+```bash
+uv sync
+uv run python -m skellyforge          # load the standard human and describe it
+uv run --no-sync poe test
+```
+
+`python -m skellyforge` prints:
+
+```
+skeleton `human`
+  segments            61
+  landmarks           124
+  face blendshapes    52
+  fully specified     3 (roll pinned by a secondary landmark)
+  underspecified      58 (roll resolved downstream)
+rest pose `human`
+  root segment        pelvis
+  resolved landmarks  124
+```
+
+See [TESTING.md](TESTING.md) for core tests and checks against prepared test/sample recordings.
+
+Connected skeleton fitting, Ceres, native builds and their experiments are preserved
+on `development-skelly-fit`. This branch builds a pure Python package and retains
+closed-form reconstruction, person scale fitting and trajectory preparation.
+
+For keypoint gap filling and whole-person absence,
+see the [trajectory preparation contract](skellyforge/core/trajectories/README.md).
+
+## What is in here
+
+```
+skellyforge/
+├── core/
+│   ├── math/
+│   │   ├── geometry/            the affine algebra and reference frames
+│   │   └── kinematics/          closed-form solvers: Kabsch, shortest-arc rotation
+│   ├── skeleton/                the typed model: landmarks, segments, skeleton, pose
+│   └── biomechanics/            the derived layer: mass, center of mass, inertia
+├── definitions/human_skeleton/  the authored YAML — the static source of truth
+└── tests/
+```
+
+### Vocabulary
+
+A **keypoint** is tracker-side: a point measured by a detector and triangulated to 3D. A
+**landmark** is model-side: a named point in a segment's local frame, with a static rest
+definition and a per-frame world position. A **segment** is a rigid body —
+origin, orientation, length — whose landmarks are declared explicitly.
+
+### Coordinate system
+
+Blender convention, right-handed, millimetres, 50th-percentile adult:
+`+x` is the subject's **right**, `+y` is **forward**, `+z` is **up** (ground plane at `z = 0`).
+
+Other conventions (VRM/glTF, ROS, ISB, Unreal, Unity) are declared in
+`definitions/coordinate_systems/coordinate_systems.yaml`; `CoordinateSystemTransform`
+converts between them at I/O boundaries.
+
+Sided structures are authored once for the left side; the loader emits `left_*` and
+`right_*`, mirrors x, and negates x-axis declarations on the right so both sides' local
+frames mean the same thing. Sidedness is a prefix, never a `.L`/`.R` suffix.
+
+## The three types every value is one of
+
+`Point`, `Displacement` and `UnitVector` wrap the same `(..., 3)` float64 array and are
+deliberately not interchangeable, because they obey different algebras:
+
+```
+Point        - Point        -> Displacement
+Point        + Displacement -> Point
+Displacement + Displacement -> Displacement
+Point        + Point        -> TypeError
+```
+
+Rotating a displacement just rotates it; rotating a point requires centering it first,
+and that is the bug the distinction exists to catch. Leading dimensions are free, so one
+landmark is `(3,)`, a trajectory is `(num_frames, 3)`, and every operation is vectorized
+over whatever is in front — batching is the normal case here, not a special one.
+
+## Hydration
+
+`hydrate_skeleton` recovers each segment's pose from observed landmark positions, in
+closed form, one frame at a time.
+
+- A segment whose own landmarks **span a plane** is fit as a rigid body with Kabsch over
+  every one of them that is observed, which pins the full orientation. On the shipped
+  human that is 5 segments of 61.
+- Every other segment yields a **direction** — two landmarks fix the long axis and leave
+  roll about it free. `ContinuousRollResolver` supplies that roll by parallel transport,
+  carrying the previous frame's secondary axis forward so the result is continuous across
+  frames and lag-free.
+
+Every `SegmentPose` records which of the two produced it, because "measured" and
+"well-behaved" are different claims about the world.
+
+## Conventions
+
+- Frozen dataclasses that validate in `__post_init__` and raise. **The loader repairs
+  nothing** — unknown keys, malformed geometry, missing origins, half-specified axes and
+  segments with no reference geometry all fail loudly, at load, naming what was wrong.
+- Data entering the type system is validated; data derived within it is trusted
+  (`from_array` versus `from_prevalidated_array`). That split is what keeps a streaming
+  rolling window O(1) per frame instead of O(window).
+- Numeric tolerances live in one file, `numeric_tolerances.py`, each derived from one base.
+- The authored YAML carries **provenance**: what a number is, and whether it was sourced
+  or estimated.
+
+## Viewer
+
+```bash
+python scripts/generate_skeleton_viewer.py   # writes .test-artifacts/viewers/skeleton_viewer.html
+```
+
+Synthesizes a looped upper-limb motion, projects it to landmarks, adds noise, hydrates it
+back, and plays the result next to time-series of landmark noise, bone-direction error,
+joint angles and rigid-fit orientation error — so solver error can be told apart from the
+noise it was given. The output is self-contained (three.js is vendored and inlined) and
+gitignored; regenerate it rather than committing it.
+
+## License
+
+AGPL-3.0-or-later. See [LICENSE](LICENSE).
+
+
+### Foot-support alignment and tracking jitter
+
+Foot contacts require sustained, good-quality observations. The estimator fits
+motion over `minimum_dwell_seconds`, rather than differentiating adjacent frames:
+a stationary marker with millimeter-scale tracking jitter can otherwise appear to
+move rapidly, especially at high frame rates. A window must also remain within
+`maximum_speed * minimum_dwell_seconds` of its median position, rejecting large
+out-and-back excursions. Overlapping accepted windows form one contact episode.
+Low-quality samples and long timestamp gaps split episodes; they are not filled.
+
+The existing floor consensus, spatial spread, residual, and body-orientation
+checks still apply. If they reject the floor, reference alignment can fall back
+to a body anchor; this does not imply that the feet lie on the ground plane.

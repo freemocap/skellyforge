@@ -1,0 +1,16 @@
+# Independent anatomical references. Tracking quality and stability determine selection;
+# array order is only a deterministic tie-break, with the head first.
+body_regions:
+  - skull
+  - thoracic
+  - pelvis
+
+# Approximate support landmarks, not exact measurements of the sole surface.
+# Ankle centers are deliberately not contact points.
+foot_contacts:
+  - left_calcaneus
+  - right_calcaneus
+  - left_ball
+  - right_ball
+  - left_toe_tip
+  - right_toe_tip
