@@ -42,8 +42,8 @@ dev = ["poethepoet", "pytest>=9.1.1", "coverage", "black", "bumpver", "isort", "
 default-groups = ["dev"]
 
 [tool.uv.sources]
-skellylogs = { git = "https://github.com/freemocap/skellylogs", branch = "main" }
-skellytracker = { git = "https://github.com/freemocap/skellytracker", branch = "development-streaming" }
+skellylogs = { path = "../utils/skellylogs", editable = true }
+skellytracker = { path = "../skellytracker", editable = true }
 
 [tool.pytest.ini_options]
 # Core geometry tests use synthetic fixtures. Explicit reference-recording tests
