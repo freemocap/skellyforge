@@ -12,6 +12,7 @@ independent hand evidence supplies twist without confusing wrist flexion with it
 """
 
 from __future__ import annotations
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -60,7 +61,8 @@ def test_twist_evidence_is_expressed_in_parent_frame_with_nonidentity_rest():
 
 
 def _resolved_pose_with_rotated_carpals(
-    *, twist_degrees: float, axis_choice: str = "forearm"
+    *, twist_degrees: float, axis_choice: str = "forearm",
+    terminal_solution: PoseSolution = PoseSolution.RIGID_FIT,
 ):
     """Resolved full-skeleton pose with the left carpals' landmarks rotated
     about an axis through the wrist.
@@ -71,6 +73,12 @@ def _resolved_pose_with_rotated_carpals(
     i.e. the production configuration including the backfill pass.
     """
     skeleton = SkeletonDefinition.from_default_yaml()
+    if terminal_solution is PoseSolution.RIGID_FIT:
+        # This scenario explicitly tests a rigid terminal. The standard human
+        # now declares an observation frame for carpals, which has different
+        # backfill eligibility and must not silently replace this premise.
+        skeleton = replace(skeleton, segments=dict(skeleton.segments) | {
+            "left_carpals": replace(skeleton.segments["left_carpals"], observation_frame=None)})
     rest_pose = RestPose.from_default_yaml(skeleton=skeleton)
     landmark_positions = {
         name: point.array.copy() for name, point in rest_pose.landmark_positions.items()
@@ -108,6 +116,7 @@ def _resolved_pose_with_rotated_carpals(
         skeleton=skeleton,
         rest_relative_orientations=rest_pose.relative_orientations,
     )
+    assert pose.segment_poses["left_carpals"].solved_by is terminal_solution
     resolved = resolver.resolve_pose(pose=pose)
     return skeleton, resolved
 
@@ -157,6 +166,13 @@ def test_pure_wrist_flexion_does_not_roll_the_forearm() -> None:
     assert abs(applied) < 2.0, (
         "wrist flexion must not be misread as forearm roll"
     )
+
+
+def test_observation_frame_terminal_does_not_activate_rigid_backfill():
+    _, first = _resolved_pose_with_rotated_carpals(twist_degrees=0., terminal_solution=PoseSolution.OBSERVATION_FRAME)
+    _, second = _resolved_pose_with_rotated_carpals(twist_degrees=60., terminal_solution=PoseSolution.OBSERVATION_FRAME)
+    assert abs(_signed_twist_between(first.segment_poses["left_lower_arm"].orientation,
+                                    second.segment_poses["left_lower_arm"].orientation)) < 1e-6
 
 
 def test_backfill_is_a_pure_function_of_the_frame() -> None:

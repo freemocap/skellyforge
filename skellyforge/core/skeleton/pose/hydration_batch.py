@@ -12,7 +12,7 @@ from skellyforge.core.math.kinematics.coordinate_frame_ops import direction_pair
 from skellyforge.core.math.kinematics.rigid_point_set import align_point_sets_batch
 from skellyforge.core.skeleton.pose.hydration import MissingLandmarkObservations, DegenerateObservations
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
-from skellyforge.core.skeleton.skeleton_pose import PoseSolution
+from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor, SolutionCode, decode_solutions
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,13 @@ class LandmarkPoseGeometry:
 
     def recover(self, *, positions: np.ndarray, landmark_present: np.ndarray,
                 require_all: bool = False) -> HydratedPoseBatch:
+        """Adapt existing object-provenance callers to the shared tensor solver."""
+        tensor = self.recover_tensor(positions=positions, landmark_present=landmark_present, require_all=require_all)
+        return HydratedPoseBatch(tensor.origins, tensor.orientations, tensor.scale_estimates,
+                                 decode_solutions(tensor.solution_codes), tensor.hydration_status)
+
+    def recover_tensor(self, *, positions: np.ndarray, landmark_present: np.ndarray,
+                       require_all: bool = False) -> PoseTensor:
         """Batch frames for each solver; group rigid fits by visible landmarks.
 
         Input (F,L,3) and boolean (F,L). Present positions must be finite. Missing
@@ -68,7 +75,7 @@ class LandmarkPoseGeometry:
         origins = np.full((frames, segments, 3), np.nan)
         rotations = np.full((frames, segments, 4), np.nan)
         scales = np.full((frames, segments), np.nan)
-        solutions = np.full((frames, segments), None, dtype=object)
+        solutions = np.zeros((frames, segments), dtype=np.uint8)
         status = np.zeros((frames, segments), dtype=np.uint8)
         for column, name in enumerate(self.segment_names):
             segment = self.skeleton.segments[name]
@@ -102,7 +109,7 @@ class LandmarkPoseGeometry:
                 rotations[chosen, column] = rotation_matrices_to_quaternions(matrices=basis.world_from_local_matrix)
                 origins[chosen, column] = p[origin_name][valid]
                 scales[chosen, column] = length[valid] / segment.length
-                solutions[chosen, column] = PoseSolution.OBSERVATION_FRAME
+                solutions[chosen, column] = SolutionCode.OBSERVATION_FRAME
                 status[chosen, column] = 1
                 continue
             direction_rows = np.ones(frames, dtype=bool)
@@ -126,7 +133,7 @@ class LandmarkPoseGeometry:
                         rotations[valid_rows, column] = rotation_matrices_to_quaternions(matrices=matrices[valid])
                         origins[valid_rows, column] = translations[valid]
                         scales[valid_rows, column] = fitted_scales[valid]
-                        solutions[valid_rows, column] = PoseSolution.RIGID_FIT
+                        solutions[valid_rows, column] = SolutionCode.RIGID_FIT
                         status[valid_rows, column] = 1
             if origin_name not in self.landmark_indices or primary_name not in self.landmark_indices:
                 continue
@@ -149,10 +156,10 @@ class LandmarkPoseGeometry:
                 to_directions=UnitVector.from_array(values=sign * displacement[valid] / length[valid, None]))
             origins[chosen, column] = points[chosen, oi]
             scales[chosen, column] = length[valid] / segment.length
-            solutions[chosen, column] = PoseSolution.DIRECTION
+            solutions[chosen, column] = SolutionCode.DIRECTION
             status[chosen, column] = 1
         if require_all and np.any(status != 1):
             frame, column = np.argwhere(status != 1)[0]
             error = MissingLandmarkObservations if status[frame, column] == 0 else DegenerateObservations
             raise error(f"Frame {frame}, segment {self.segment_names[column]}: cannot recover pose")
-        return HydratedPoseBatch(origins, rotations, scales, solutions, status)
+        return PoseTensor(self.segment_names, origins, rotations, scales, solutions, status)

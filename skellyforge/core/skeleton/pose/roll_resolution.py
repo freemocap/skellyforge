@@ -20,12 +20,10 @@ from skellyforge.core.math.geometry.numeric_tolerances import (
 from skellyforge.core.math.geometry.rotation_quaternion import RotationQuaternion
 from skellyforge.core.math.kinematics.coordinate_frame_ops import (
     default_perpendicular,
-    rotation_between_vectors,
 )
-from skellyforge.core.math.geometry.spatial_vectors import UnitVector
+from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition
 from skellyforge.core.skeleton.skeleton_pose import (
-    PoseSolution,
     SegmentPose,
     SkeletonPose,
 )
@@ -92,9 +90,7 @@ class ContinuousRollResolver:
     references_by_segment_name: dict[RigidBodySegmentName, SegmentRollReference]
     skeleton: SkeletonDefinition
     rest_relative_orientations: Mapping[RigidBodySegmentName, RotationQuaternion]
-    _previous: dict[RigidBodySegmentName, RotationQuaternion] = field(
-        init=False, repr=False, default_factory=dict
-    )
+    _tensor_state: object = field(init=False, repr=False)
     _parent_of: dict[RigidBodySegmentName, RigidBodySegmentName] = field(
         init=False, repr=False, default_factory=dict
     )
@@ -130,6 +126,10 @@ class ContinuousRollResolver:
 
         for name in self.skeleton.segments:
             resolve_rest(name)
+        from skellyforge.core.skeleton.pose.roll_tensor import RollTensorState
+        self._tensor_state = RollTensorState(skeleton=self.skeleton,
+            references=self.references_by_segment_name,
+            rest_relative=self.rest_relative_orientations, rest_world=self._rest_world)
 
     @classmethod
     def for_skeleton(
@@ -151,82 +151,30 @@ class ContinuousRollResolver:
         )
 
     def reset(self) -> None:
-        """Forget the previous take's orientations."""
-        self._previous.clear()
+        """Forget the previous take's numerical orientation history."""
+        self._tensor_state.reset()
+
+    def resolve_tensor(self, *, poses: PoseTensor, reset_before: np.ndarray | None = None) -> PoseTensor:
+        """Resolve chronological samples with numeric provenance and explicit resets.
+
+        Absent samples do not imply a new take. Set reset_before on the source
+        events that reset the existing pipeline; splitting a batch retains state.
+        Inputs are borrowed and never mutated; resolved rotations/codes are new.
+        """
+        return self._tensor_state.resolve(poses=poses, reset_before=reset_before)
 
     def resolve_pose(self, *, pose: SkeletonPose) -> SkeletonPose:
-        """Resolve parents before children, then apply declared terminal twist evidence."""
-        if not set(pose.segment_poses).issubset(self.skeleton.segments):
-            raise ValueError("Pose contains unknown segments")
-        resolved: dict[RigidBodySegmentName, SegmentPose] = {}
-
-        def resolve(name):
-            if name in resolved:
-                return resolved[name]
-            source = pose.segment_poses[name]
-            parent = self._parent_of.get(name)
-            reference = self._previous.get(name, self._rest_world[name])
-            if parent in pose.segment_poses:
-                parent_rotation = resolve(parent).orientation
-                if name not in self._previous:
-                    reference = parent_rotation * self.rest_relative_orientations[name]
-                elif parent in self._previous:
-                    reference = (
-                        parent_rotation * self._previous[parent].inverse() * reference
-                    )
-            resolved[name] = self._aim(pose=source, reference=reference)
-            return resolved[name]
-
-        for name in pose.segment_poses:
-            resolve(name)
-
-        from skellyforge.core.skeleton.chain.twist_backfill import (
-            apply_terminal_twist_backfills,
-        )
-
-        result = apply_terminal_twist_backfills(
-            skeleton=self.skeleton,
-            pose=SkeletonPose(segment_poses=resolved),
-            rest_relative_orientations=self.rest_relative_orientations,
-        )
-        # Carry the final orientations, including any distal evidence correction.
-        self._previous = {
-            name: segment.orientation for name, segment in result.segment_poses.items()
-        }
-        return result
+        """Adapt existing object callers to the same numerical pose operation."""
+        from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor
+        if not pose.segment_poses:
+            self.reset()
+            return pose
+        tensor = PoseTensor.from_pose(pose=pose, segment_names=tuple(self.skeleton.segments))
+        return self.resolve_tensor(poses=tensor).to_pose()
 
     def resolve_segment_pose(self, *, pose: SegmentPose) -> SegmentPose:
-        """Apply the same minimum swing without a parent observation (world frame)."""
-        result = self._aim(
-            pose=pose,
-            reference=self._previous.get(
-                pose.segment_name, self._rest_world[pose.segment_name]
-            ),
-        )
-        self._previous[pose.segment_name] = result.orientation
-        return result
-
-    def _aim(self, *, pose: SegmentPose, reference: RotationQuaternion) -> SegmentPose:
-        if pose.solved_by is not PoseSolution.DIRECTION:
-            return pose
-        axes = self.references_by_segment_name[pose.segment_name]
-        before = reference.rotate_vector(vector=axes.primary_local)
-        after = pose.orientation.rotate_vector(vector=axes.primary_local)
-        if (
-            np.linalg.norm(np.cross(before, after)) < MINIMUM_VECTOR_NORM
-            and np.dot(before, after) < 0
-        ):
-            # Exact half-turn: infinitely many swings exist. Use the reference's
-            # transverse axis, so the choice rotates with the reference frame.
-            swing = RotationQuaternion.from_rotation_vector(
-                rotation_vector=reference.rotate_vector(vector=axes.secondary_local)
-                * np.pi
-            )
-        else:
-            swing = rotation_between_vectors(
-                from_direction=UnitVector.from_array(values=before),
-                to_direction=UnitVector.from_array(values=after),
-            )
-        return pose.with_orientation(
-            orientation=swing * reference, solved_by=PoseSolution.TRANSPORTED_ROLL
-        )
+        """Adapt an independent segment without replacing other segment histories."""
+        from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor
+        tensor = PoseTensor.from_pose(pose=SkeletonPose(segment_poses={pose.segment_name: pose}),
+                                     segment_names=tuple(self.skeleton.segments))
+        return self._tensor_state.resolve_independent(poses=tensor).to_pose().segment_poses[pose.segment_name]

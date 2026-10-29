@@ -66,9 +66,10 @@ import math
 
 import numpy as np
 
-from skellyforge.core.skeleton.loading.sided_expansion import unsided_name_of
 from skellyforge.core.skeleton.skeleton_definition import SkeletonDefinition  # noqa: TC001 - runtime type checking
 from skellyforge.core.skeleton.skeleton_pose import SkeletonPose  # noqa: TC001 - runtime type checking
+from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor
+from skellyforge.core.skeleton.pose.scale_tensor import ScaleTensor
 from skellyforge.type_overloads import LandmarkNameString, RigidBodySegmentName
 
 DEFAULT_SCALE_WINDOW_FRAMES: int = 30
@@ -214,8 +215,8 @@ def fit_model_scale_arrays(*, skeleton: SkeletonDefinition, segment_names: tuple
                           voting_segment_names: Set[RigidBodySegmentName]) -> ModelScaleFit:
     """Fit full-recording array evidence once; no per-frame streaming-fitter calls.
 
-    Preserve the scalar fitter's first-observation segment order and temporal
-    sample order. Missing values never become scale evidence. This is for a
+    Preserve authored segment order and each segment's input sample order.
+    Missing values never become scale evidence. This is for a
     whole-recording fit, not a replacement for a live rolling window.
     """
     values = np.asarray(scales, dtype=float)
@@ -226,12 +227,10 @@ def fit_model_scale_arrays(*, skeleton: SkeletonDefinition, segment_names: tuple
         raise ValueError("Expected scales and boolean presence (frames, segments)")
     if not np.isfinite(values[present]).all() or np.any(values[present] <= 0):
         raise ValueError("Present scale evidence must be finite and positive")
-    columns = np.flatnonzero(present.any(axis=0))
-    if len(columns):
-        columns = columns[np.argsort(np.argmax(present[:, columns], axis=0), kind="stable")]
-    return fit_model_scale(skeleton=skeleton,
-        scale_samples={segment_names[i]: values[present[:, i], i] for i in columns},
-        voting_segment_names=voting_segment_names)
+    from skellyforge.core.skeleton.pose.scale_tensor import ScaleGeometry
+    return ScaleGeometry(skeleton=skeleton, voting_segment_names=voting_segment_names).fit(
+        scales=values, segment_present=present).to_fit()
+
 
 
 def fit_model_scale(
@@ -240,7 +239,7 @@ def fit_model_scale(
     scale_samples: Mapping[RigidBodySegmentName, Sequence[float] | np.ndarray],
     voting_segment_names: Set[RigidBodySegmentName],
 ) -> ModelScaleFit:
-    """Fit one scale and a per-segment scale field from per-segment scale readings.
+    """Adapt ragged per-segment readings to the shared numerical scale fitter.
 
     Args:
         skeleton: the skeleton being fitted; supplies each segment's authored proportion.
@@ -265,39 +264,24 @@ def fit_model_scale(
             f"{unknown}"
         )
 
-    readings = _summarize_scale_groups(scale_samples=scale_samples)
+    # Ragged mappings are accepted only at this public boundary. Each column
+    # contributes its own observations; unused rows are explicitly absent.
+    segment_names = tuple(skeleton.segments)
+    row_count = max((len(samples) for samples in scale_samples.values()), default=0)
+    values = np.full((row_count, len(segment_names)), np.nan, dtype=np.float64)
+    present = np.zeros(values.shape, dtype=bool)
+    for column, name in enumerate(segment_names):
+        samples = np.asarray(scale_samples.get(name, ()), dtype=np.float64)
+        if samples.ndim != 1:
+            raise ValueError(f"segment {name!r}: scale readings must have one sample axis")
+        if not np.isfinite(samples).all() or np.any(samples <= 0):
+            raise ValueError(f"segment {name!r}: scale readings must be finite and positive")
+        values[:len(samples), column] = samples
+        present[:len(samples), column] = True
+    from skellyforge.core.skeleton.pose.scale_tensor import ScaleGeometry
+    return ScaleGeometry(skeleton=skeleton, voting_segment_names=voting_segment_names).fit(
+        scales=values, segment_present=present).to_fit()
 
-    fitted_scale = _pooled_body_height(
-        skeleton=skeleton,
-        readings=readings,
-        voting_segment_names=voting_segment_names,
-    )
-
-    segment_scales: dict[RigidBodySegmentName, float] = {}
-    segment_lengths: dict[RigidBodySegmentName, float] = {}
-    for name, segment in skeleton.segments.items():
-        reading = readings.get(name)
-        if reading is None:
-            scale = fitted_scale
-        else:
-            # The template is a prior worth `prior_weight` clean readings; a segment whose
-            # own readings disagree with each other has to bring proportionally more of
-            # them before it outweighs it.
-            prior_weight = SHRINKAGE_PRIOR_SAMPLES * (
-                1.0 + reading.relative_dispersion / DISPERSION_HALF_TRUST
-            )
-            own_share = reading.sample_count / (reading.sample_count + prior_weight)
-            scale = own_share * reading.median_scale + (1.0 - own_share) * fitted_scale
-        segment_scales[name] = scale
-        segment_lengths[name] = segment.length * scale
-
-    return ModelScaleFit(
-        fitted_scale=fitted_scale,
-        segment_scales=segment_scales,
-        segment_lengths=segment_lengths,
-        measured_segment_names=frozenset(readings),
-        voting_segment_names=frozenset(readings) & frozenset(voting_segment_names),
-    )
 
 
 def _summarize_scale_groups(*, scale_samples: Mapping[RigidBodySegmentName, Sequence[float] | np.ndarray]) -> dict[RigidBodySegmentName, SegmentScaleReading]:
@@ -348,61 +332,7 @@ def _summarize_scale_samples(
     )
 
 
-def _pooled_body_height(
-    *,
-    skeleton: SkeletonDefinition,
-    readings: Mapping[RigidBodySegmentName, SegmentScaleReading],
-    voting_segment_names: Set[RigidBodySegmentName],
-) -> float:
-    """The subject's height: a weighted median over the segments entitled to say.
-
-    Left and right pool into one vote per anatomical segment. Their readings measure the
-    same bone, so pooling doubles the evidence and covers the very ordinary case of one side
-    being turned away from every camera - and stature, unlike a limb length, is not sided.
-    """
-    pooled_medians: dict[str, list[float]] = {}
-    pooled_counts: dict[str, int] = {}
-    pooled_dispersions: dict[str, list[float]] = {}
-    pooled_proportions: dict[str, list[float]] = {}
-    for name in sorted(voting_segment_names):
-        reading = readings.get(name)
-        if reading is None:
-            continue
-        group = unsided_name_of(name=name)
-        pooled_medians.setdefault(group, []).append(reading.median_scale)
-        pooled_counts[group] = pooled_counts.get(group, 0) + reading.sample_count
-        pooled_dispersions.setdefault(group, []).append(reading.relative_dispersion)
-        pooled_proportions.setdefault(group, []).append(skeleton.segments[name].length)
-
-    if not pooled_medians:
-        raise InsufficientScaleEvidence(
-            "no segment entitled to vote has a scale reading, so the model has no "
-            f"measured size. {len(readings)} segment(s) have readings "
-            f"({sorted(readings)[:8]}...) and {len(voting_segment_names)} are entitled to "
-            "vote, but the two do not overlap - either nobody is in view yet, or every "
-            "visible segment is built from landmarks the caller declared synthetic."
-        )
-
-    values: list[float] = []
-    weights: list[float] = []
-    for group, medians in pooled_medians.items():
-        proportion = float(np.mean(pooled_proportions[group]))
-        dispersion = float(np.max(pooled_dispersions[group]))
-        # `proportion**2` is the inverse-variance weight: a fixed absolute error on the
-        # observed distance becomes an error on `d / p` that grows as `1 / p`, so a short
-        # segment's reading is genuinely and quadratically less informative than a femur's.
-        # No hand-written table of which bones to trust - the geometry says.
-        weights.append(
-            proportion**2
-            * pooled_counts[group]
-            / (1.0 + dispersion / DISPERSION_HALF_TRUST)
-        )
-        values.append(float(np.median(medians)))
-
-    return _weighted_median(values=values, weights=weights)
-
-
-def _weighted_median(*, values: Sequence[float], weights: Sequence[float]) -> float:
+def _weighted_median(*, values: Sequence[float] | np.ndarray, weights: Sequence[float] | np.ndarray) -> float:
     """The value at which half the weight lies below and half above.
 
     A median rather than a mean because a limb that is being mistracked should not move the
@@ -456,10 +386,11 @@ class StreamingModelScaleFitter:
         self._skeleton = skeleton
         self._voting_segment_names = frozenset(voting_segment_names)
         self._window_frames = window_frames
-        # A plain list used as a ring: the fit reads the whole window every frame anyway, so
-        # a deque's cheap ends buy nothing, and this avoids reallocating 61 deques on reset.
-        self._windows: dict[RigidBodySegmentName, list[float]] = {}
-        self._next_slot: dict[RigidBodySegmentName, int] = {}
+        from skellyforge.core.skeleton.pose.scale_tensor import ScaleGeometry
+        self._geometry = ScaleGeometry(skeleton=skeleton, voting_segment_names=voting_segment_names)
+        self._scale_values = np.full((window_frames, len(self._geometry.segment_names)), np.nan)
+        self._sample_counts = np.zeros(len(self._geometry.segment_names), np.int64)
+        self._next_slots = np.zeros_like(self._sample_counts)
 
     @property
     def voting_segment_names(self) -> frozenset[RigidBodySegmentName]:
@@ -474,24 +405,35 @@ class StreamingModelScaleFitter:
         of the cameras has to answer, and answering it is not the same as being handed a
         plausible default.
         """
-        return any(
-            self._windows.get(name) for name in self._voting_segment_names
-        )
+        return bool(np.any((self._sample_counts > 0) & self._geometry.voting_mask))
 
     def observe_pose(self, *, pose: SkeletonPose) -> None:
-        """Record every hydrated segment's reading of how big the model is."""
-        for name, segment_pose in pose.segment_poses.items():
-            window = self._windows.get(name)
-            if window is None:
-                window = []
-                self._windows[name] = window
-                self._next_slot[name] = 0
-            if len(window) < self._window_frames:
-                window.append(segment_pose.scale_estimate)
-            else:
-                slot = self._next_slot[name]
-                window[slot] = segment_pose.scale_estimate
-                self._next_slot[name] = (slot + 1) % self._window_frames
+        """Adapt an existing object caller to the shared dense evidence operation."""
+        from skellyforge.core.skeleton.pose.pose_tensor import PoseTensor
+        self.observe_tensor(poses=PoseTensor.from_pose(pose=pose, segment_names=self._geometry.segment_names))
+
+    def observe_tensor(self, *, poses: PoseTensor) -> None:
+        """Append each segment's observed scales; gaps consume no ring positions.
+
+        A chunk larger than the ring discards only readings superseded within
+        that same chunk. Every retained scatter target is unique.
+        """
+        if poses.segment_names != self._geometry.segment_names:
+            raise ValueError("Pose segment identities must match the scale fitter")
+        present = poses.segment_present
+        additions = present.sum(axis=0)
+        ordinals = np.cumsum(present, axis=0) - 1
+        retained = present & (ordinals >= (additions - self._window_frames)[None, :])
+        samples, columns = np.nonzero(retained)
+        slots = (self._next_slots[columns] + ordinals[samples, columns]) % self._window_frames
+        self._scale_values[slots, columns] = poses.scale_estimates[samples, columns]
+        self._next_slots[:] = (self._next_slots + additions) % self._window_frames
+        self._sample_counts[:] = np.minimum(self._window_frames, self._sample_counts + additions)
+
+    def current_tensor(self) -> ScaleTensor:
+        """Return the same fit as current_fit with dense named numerical fields."""
+        present = np.arange(self._window_frames)[:, None] < self._sample_counts[None, :]
+        return self._geometry.fit(scales=self._scale_values, segment_present=present)
 
     def current_fit(self) -> ModelScaleFit:
         """The fit over everything observed so far.
@@ -500,13 +442,10 @@ class StreamingModelScaleFitter:
             InsufficientScaleEvidence: no voting segment has been seen. Guard with
                 `has_model_scale`.
         """
-        return fit_model_scale(
-            skeleton=self._skeleton,
-            scale_samples=self._windows,
-            voting_segment_names=self._voting_segment_names,
-        )
+        return self.current_tensor().to_fit()
 
     def reset(self) -> None:
         """Forget every reading - a new body, or a new coordinate frame to measure it in."""
-        self._windows.clear()
-        self._next_slot.clear()
+        self._scale_values.fill(np.nan)
+        self._sample_counts.fill(0)
+        self._next_slots.fill(0)
