@@ -5,7 +5,7 @@ reference frames they realize — authored in YAML and compiled into typed objec
 closed-form math that hydrates it from observed 3D positions.
 
 Part of the [FreeMoCap](https://freemocap.org) project. skellyforge never imports
-skellytracker or freemocap: it stands alone, and freemocap consumes it.
+skellytracker, skellycam or freemocap: it stands alone, and freemocap consumes it.
 
 ```bash
 uv sync
