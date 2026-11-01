@@ -1,6 +1,36 @@
 name: human
 coordinate_system: blender
 
+# Display only; the scientific segment hierarchy and landmarks remain intact.
+presentation:
+  contours:
+    - segment: skull
+      crown: head_vertex
+      chin: chin
+      left_ear: left_ear
+      right_ear: right_ear
+      left_eye: left_eye
+      right_eye: right_eye
+      vertical_exponent: 1.0
+      horizontal_exponent: 0.85
+      posterior_depth: 0.8
+      samples: 64
+      nose: nose
+      line_material: {color: '#73747a', opacity: 0.75}
+      shell_material: {color: '#444b61', opacity: 0.21}
+      side_material: {color: '#5f6063', opacity: 0.25}
+  connection_materials:
+    - group: pelvis_rim_and_struts
+      material: {color: '#73747a', opacity: 0.75}
+    - group: thorax_bridge
+      material: {color: '#73747a', opacity: 0.75}
+  excluded_bones: [skull, pelvis]
+  excluded_origin_edges:
+    - [thoracic, left_clavicle]
+    - [thoracic, right_clavicle]
+    - [pelvis, left_upper_leg]
+    - [pelvis, right_upper_leg]
+
 # The computed properties this skeleton opts into. Centre of mass is NOT listed: every
 # skeleton has one (unweighted mean of each segment's landmarks by default, overridden
 # here by center_of_mass.yaml's de Leva weighted sums). These are the ones that need

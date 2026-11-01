@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+from skellyforge.core.skeleton.presentation import Presentation, AttachedLines
 
 from skellyforge.core.math.geometry.coordinate_systems.coordinate_system_registry import (
     CoordinateSystemRegistry,
@@ -112,12 +113,19 @@ class SkeletonDefinition:
     )
     derived_quantities: frozenset[str] = frozenset()
     coordinate_system: str = "blender"
+    presentation: Presentation | None = None
+    presentation_lines: tuple[AttachedLines, ...] = field(init=False, repr=False, default=())
     _landmark_name_resolver: LandmarkNameResolver = field(init=False, repr=False)
     _canonical_segment_name_by_known_name: Mapping[
         RigidBodySegmentName, RigidBodySegmentName
     ] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.presentation is not None:
+            groups = [item.group for item in self.presentation.connection_materials]
+            if len(set(groups)) != len(groups) or any(name not in self.landmark_connections for name in groups):
+                raise ValueError('Presentation materials must name unique existing landmark connection groups')
+            object.__setattr__(self, 'presentation_lines', self.presentation.compile(self.segments))
         if not self.name:
             raise ValueError("skeleton name must be non-empty")
         if not self.coordinate_system:
@@ -528,6 +536,7 @@ class SkeletonDefinition:
             landmark_connections=landmark_connections,
             derived_quantities=derived_quantities,
             coordinate_system=coordinate_system,
+            presentation=Presentation.from_dict(document['presentation']) if document.get('presentation') is not None else None,
         )
 
     @classmethod

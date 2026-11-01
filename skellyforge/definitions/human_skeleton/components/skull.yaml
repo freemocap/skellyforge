@@ -109,30 +109,22 @@ landmarks:
 #
 # Groups carry TAGS, not colours — `definitions/color_palette.yaml` turns a tag into a
 # colour, so a user recolours by editing that one file rather than every component. Tags
-# are ordered most-specific-first: EYE_LINE asks for the `eye` colour if the palette has
-# one and falls back to `face` if it does not.
+# are ordered most-specific-first. Sided skull landmarks use the same standard
+# left/right styling as the body's sided landmarks, without a face-color override.
 #
-# The sided landmarks are named explicitly with their `left_`/`right_` prefixes because a
-# group is a set of specific points, not a rule that mirrors.
+# The midline group lists specific points; it does not override sided landmarks.
 landmark_groups:
-  FACE_SURFACE:
-    tags: [face]
+  SKULL_MIDLINE:
+    tags: [axial_landmark, skull, face]
     landmark_names:
+      - HEAD_CENTER
       - HEAD_VERTEX
       - NOSE
       - CHIN
-      - LEFT_EYE
-      - RIGHT_EYE
-      - LEFT_EYE_INNER
-      - RIGHT_EYE_INNER
-      - LEFT_EYE_OUTER
-      - RIGHT_EYE_OUTER
-      - LEFT_EAR
-      - RIGHT_EAR
 
 # No `landmark_connections`: the skull's markers are sparse anatomical points on a
 # smooth surface, and drawing edges between them reads as a scribbled polygon over
-# the face. The FACE_SURFACE group is the model's declaration of what these points
+# the face. The SKULL_MIDLINE group is the model's declaration of what these points
 # ARE; whether to draw them and how is the renderer's business.
 
 joints:

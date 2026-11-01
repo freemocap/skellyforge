@@ -25,6 +25,8 @@ eye: "#8ecae6"            # pale blue
 # Midline structures belong to neither side.
 center: "#00aa00"         # green
 face: "#ffd166"           # amber
+skull: "#76558f"          # muted purple for sparse skull landmarks
+axial_landmark: "#84609f" # slightly brighter purple for midline landmarks
 spine: "#00aa00"          # green
 
 # Calibration targets. These recreate what the 2D overlay and the old 3D viewer drew:

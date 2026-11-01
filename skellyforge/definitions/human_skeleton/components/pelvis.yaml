@@ -110,3 +110,40 @@ landmarks:
     - -0.027334
     - 0.048593
     sided: true
+
+landmark_groups:
+  PELVIS_MIDLINE:
+    tags: [axial_landmark, center]
+    landmark_names:
+      - PELVIS_ORIGIN
+      - SACRUM_TOP
+      - SACRUM
+      - COCCYX_TIP
+      - PUBIC_SYMPHYSIS
+
+landmark_connections:
+  pelvis_rim_and_struts:
+    tags: [bone]
+    pairs:
+      - [left_anterior_superior_iliac_spine, left_iliac_crest]
+      - [left_iliac_crest, left_posterior_superior_iliac_spine]
+      - [left_posterior_superior_iliac_spine, left_sacroiliac_joint]
+      - [left_sacroiliac_joint, sacrum_top]
+      - [left_anterior_superior_iliac_spine, pubic_symphysis]
+      - [left_anterior_superior_iliac_spine, left_hip_socket]
+      - [left_sacroiliac_joint, left_hip_socket]
+      - [left_hip_socket, pubic_symphysis]
+      - [right_anterior_superior_iliac_spine, right_iliac_crest]
+      - [right_iliac_crest, right_posterior_superior_iliac_spine]
+      - [right_posterior_superior_iliac_spine, right_sacroiliac_joint]
+      - [right_sacroiliac_joint, sacrum_top]
+      - [right_anterior_superior_iliac_spine, pubic_symphysis]
+      - [right_anterior_superior_iliac_spine, right_hip_socket]
+      - [right_sacroiliac_joint, right_hip_socket]
+      - [right_hip_socket, pubic_symphysis]
+      - [sacrum_top, sacrum]
+      - [sacrum, coccyx_tip]
+      - [pelvis_origin, left_hip_socket]
+      - [pelvis_origin, right_hip_socket]
+      - [left_sacroiliac_joint, coccyx_tip]
+      - [right_sacroiliac_joint, coccyx_tip]

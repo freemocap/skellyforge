@@ -89,7 +89,7 @@ landmarks:
     reference_frame: thoracic
     local_position:
     - 0.0
-    - 0.048593
+    - 0.0340151 # Same selected 70% anterior depth as the paired SC joints.
     - 0.127557
   STERNOCLAVICULAR:
     sided: true
@@ -101,7 +101,7 @@ landmarks:
     reference_frame: thoracic
     local_position:
     - -0.012148
-    - 0.048593
+    - 0.0340151 # Selected 70% anterior SC offset; other local geometry unchanged.
     - 0.127557
   ACROMION:
     sided: true
@@ -123,7 +123,7 @@ landmarks:
     reference_frame: thoracic
     local_position:
     - 0.0
-    - 0.078964
+    - 0.0473784 # Selected 60% anterior xiphoid offset; height unchanged.
     - 0.033408
 
 # ── Joints and chains ──────────────────────────────────────────────────────
@@ -145,3 +145,24 @@ chains:
     - thoracic
     - cervical_spine
     - skull
+
+landmark_groups:
+  SPINE_MIDLINE:
+    tags: [axial_landmark, spine, center]
+    landmark_names:
+      - CHEST_CENTER
+      - NECK_CENTER
+      - CRANIOCERVICAL_JUNCTION
+      - STERNOCLAVICULAR_NOTCH
+      - XIPHOID_PROCESS
+
+landmark_connections:
+  thorax_bridge:
+    tags: [bone]
+    pairs:
+      - [chest_center, xiphoid_process]
+      - [xiphoid_process, left_sternoclavicular]
+      - [xiphoid_process, right_sternoclavicular]
+      - [left_acromion, chest_center]
+      - [right_acromion, chest_center]
+      - [chest_center, sacrum_top]

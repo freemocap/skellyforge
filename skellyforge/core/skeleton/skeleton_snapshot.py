@@ -1,6 +1,7 @@
 """Portable authored skeleton values, excluding derived indices and numeric caches."""
 
 from dataclasses import dataclass
+from skellyforge.core.skeleton.presentation import Presentation
 
 from skellyforge.core.math.geometry.orthonormal_basis.handedness import Handedness
 from skellyforge.core.math.geometry.orthonormal_basis.reference_frame_definition import (
@@ -132,6 +133,7 @@ class SkeletonSnapshot:
     landmark_connections: tuple[LandmarkConnectionGroup, ...]
     derived_quantities: tuple[str, ...]
     coordinate_system: str
+    presentation: Presentation | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "SkeletonSnapshot":
@@ -234,6 +236,7 @@ class SkeletonSnapshot:
                     for v in data["landmark_connections"]
                 ),
                 "derived_quantities": tuple(data["derived_quantities"]),
+                "presentation": Presentation.from_dict(data['presentation']) if data.get('presentation') is not None else None,
             }
         )
 
@@ -295,6 +298,7 @@ class SkeletonSnapshot:
             landmark_connections=tuple(skeleton.landmark_connections.values()),
             derived_quantities=tuple(sorted(skeleton.derived_quantities)),
             coordinate_system=skeleton.coordinate_system,
+            presentation=skeleton.presentation,
         )
 
     def restore(self) -> SkeletonDefinition:
@@ -345,6 +349,7 @@ class SkeletonSnapshot:
             },
             derived_quantities=frozenset(self.derived_quantities),
             coordinate_system=self.coordinate_system,
+            presentation=self.presentation,
         )
 
 
