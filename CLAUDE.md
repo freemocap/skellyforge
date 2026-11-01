@@ -2,7 +2,8 @@
 
 Guidance for Claude Code working in **skellyforge** (skeleton definitions + kinematics, a
 sub-skelley of the FreeMoCap polyrepo). Workspace orientation, repo boundaries, and the
-cross-repo model live in [`../CLAUDE.md`](../CLAUDE.md) — read it first. **Never touch
+cross-repo model follow [AGENTS.md](AGENTS.md) and the containing workspace's
+instructions when present. **Never touch
 git** — the user owns commits; make changes on disk and report stopping points.
 
 ## What this repo is (current architecture)
@@ -21,7 +22,9 @@ and compiled into typed objects whose references are objects, not strings. It sp
 Layers a skeleton does not use are absent, not stubbed, and what it does not declare it gets by
 **sensible default** (see Conventions below). Read "the human" throughout this file as the worked
 example, never as the contract — conflating the two is how single-human assumptions accumulate.
-See `freemocap/current-work-plans/ontology.md` first. Layout:
+For cross-repository work in the polyrepo, consult
+`../freemocap/current-work-plans/01-data-model/ontology.md` for shared vocabulary;
+standalone Forge work uses this repository's definitions and contracts. Layout:
 
 ```
 skellyforge/
@@ -115,14 +118,16 @@ Next work: the pelvis split, the face component, and finger coupling ratios.
 ## Commands
 
 ```bash
-uv sync                                                            # install (incl. dev deps)
-uv run --with pytest pytest skellyforge/tests/ -q -o addopts=""     # full suite (~3 s)
-uv run python -m skellyforge                                        # smoke test: load and describe
+uv run --no-sync poe test                                           # existing environment
+uv run --no-sync python -m skellyforge                               # smoke test: load and describe
 python scripts/generate_skeleton_viewer.py                          # regenerate the viewer
 ```
 
-`pytest` is NOT in the default env — always `uv run --with pytest`. `ruff` is not
-installed in the default env either (no lint gate here yet).
+The current `pyproject.toml` includes pytest in the default dev group. Verify the
+existing environment rather than installing test tools implicitly. See
+[TESTING.md](TESTING.md) and inspect task bodies before running them; installation
+and environment changes require task authorization. Historical timings and
+status counts below do not establish current test results.
 
 ## Conventions
 
