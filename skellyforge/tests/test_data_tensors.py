@@ -7,7 +7,7 @@ import numpy as np
 
 from skellyforge.core.data_tensors import (
     AxisDefinition, CompanionTensor, DataTensor, SampleTiming,
-    ScientificProvenance, SourceIdentity, TensorLayout, TimeSeries,
+    DataProvenance, SourceIdentity, TensorLayout, TimeSeries,
 )
 
 
@@ -21,7 +21,7 @@ class DataTensorTests(unittest.TestCase):
         )
         self.layout = TensorLayout(self.axes, "float64", source_identity=self.source)
         self.values = np.arange(np.prod(self.layout.shape), dtype=np.float64).reshape(self.layout.shape)
-        self.provenance = ScientificProvenance("model_prediction", "test_predictor", ("input_series",), "test_model")
+        self.provenance = DataProvenance("model_prediction", "test_predictor", ("input_series",), "test_model")
 
     def companion(self, name, values, axes=None):
         layout = TensorLayout(self.axes if axes is None else axes, values.dtype, source_identity=self.source)
@@ -41,7 +41,7 @@ class DataTensorTests(unittest.TestCase):
         tensor = self.data_tensor()
         self.assertIs(tensor.data_values, self.values)
         self.assertIs(tensor.tensor_layout, self.layout)
-        self.assertEqual(tensor.scientific_provenance.meaning, "model_prediction")
+        self.assertEqual(tensor.data_provenance.meaning, "model_prediction")
         self.assertEqual(tensor.tensor_layout.source_identity.instance_id, 0)
         self.values[0, 0, 0] = 99.
         self.assertEqual(tensor.data_values[0, 0, 0], 99.)
@@ -167,7 +167,7 @@ class DataTensorTests(unittest.TestCase):
     def test_scientific_meaning_and_producing_operation_are_required(self):
         for meaning, operation in (("", "operation"), ("prediction", "")):
             with self.assertRaises(ValueError):
-                ScientificProvenance(meaning, operation)
+                DataProvenance(meaning, operation)
 
 
 if __name__ == "__main__":

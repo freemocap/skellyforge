@@ -10,7 +10,7 @@ from unittest.mock import patch
 import numpy as np
 
 from skellyforge.core.data_tensors import (
-    AxisDefinition, CompanionTensor, DataTensor, SampleTiming, ScientificProvenance,
+    AxisDefinition, CompanionTensor, DataTensor, SampleTiming, DataProvenance,
     SourceIdentity, TensorLayout, TimeSeries,
 )
 
@@ -32,7 +32,7 @@ class TensorOwnershipTests(unittest.TestCase):
         confidence = CompanionTensor("confidence_scores", np.full(confidence_layout.shape, .75, dtype=np.float32), confidence_layout)
         static_layout = TensorLayout((entity,), "uint8")
         static_status = CompanionTensor("solver_status", np.array([1, 2], dtype=np.uint8), static_layout)
-        tensor = DataTensor(values, layout, ScientificProvenance("detector estimates", "test_tracker"),
+        tensor = DataTensor(values, layout, DataProvenance("detector estimates", "test_tracker"),
                             (presence, confidence, static_status))
         timeline = SampleTiming(timeline_id="camera_samples", clock_id="camera_clock",
             source_identity=SourceIdentity("camera"), sample_ids=(10, 12, 18), timestamps_s=(.1, .2, .5))
@@ -75,13 +75,13 @@ class TensorOwnershipTests(unittest.TestCase):
             source.slice_samples(0, 1)
         with self.assertRaises(TypeError):
             DataTensor(source.data_tensor.data_values, source.data_tensor.tensor_layout,
-                       source.data_tensor.scientific_provenance, storage_mode="immutable")
+                       source.data_tensor.data_provenance, storage_mode="immutable")
 
     def test_admission_revalidates_mutated_borrowed_metadata(self):
         source = self.make_series().data_tensor
         validity = CompanionTensor("value_validity", np.ones(source.data_values.shape, dtype=bool),
                                    replace(source.tensor_layout, dtype=bool))
-        borrowed = DataTensor(source.data_values, source.tensor_layout, source.scientific_provenance,
+        borrowed = DataTensor(source.data_values, source.tensor_layout, source.data_provenance,
                               (*source.companion_tensors, validity))
         borrowed.companion_values("entry_presence")[0, 0, 0] = False
         with self.assertRaisesRegex(ValueError, "entry presence"):
@@ -105,7 +105,7 @@ class TensorOwnershipTests(unittest.TestCase):
                 self.assertTrue(np.shares_memory(frame.data_tensor.companion_values("confidence_scores"),
                                                  source.data_tensor.companion_values("confidence_scores")))
                 self.assertIs(frame.data_tensor.companion_tensors[-1], source.data_tensor.companion_tensors[-1])
-                self.assertIs(frame.data_tensor.scientific_provenance, source.data_tensor.scientific_provenance)
+                self.assertIs(frame.data_tensor.data_provenance, source.data_tensor.data_provenance)
 
     def test_custom_sample_axis_and_negative_or_empty_slices(self):
         source = self.make_series(sample_position=1, sample_name="capture_sample").immutable_copy()
@@ -135,7 +135,7 @@ class TensorOwnershipTests(unittest.TestCase):
             mapped = np.lib.format.open_memmap(Path(temporary) / "values.npy", mode="w+",
                 dtype=source.data_values.dtype, shape=source.data_values.shape)
             mapped[:] = source.data_values
-            borrowed = DataTensor(mapped, source.tensor_layout, source.scientific_provenance,
+            borrowed = DataTensor(mapped, source.tensor_layout, source.data_provenance,
                                   source.companion_tensors)
             published = borrowed.immutable_copy()
             mapped._mmap.close()

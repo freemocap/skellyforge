@@ -1,4 +1,4 @@
-"""Versioned scientific metadata for the NumPy dataset format."""
+"""Versioned metadata for the NumPy dataset format."""
 from dataclasses import asdict
 import json
 import math
@@ -6,19 +6,19 @@ import re
 
 import numpy as np
 
-from skellyforge.core.data_tensors.data_tensor import DataTensor, ScientificProvenance
+from skellyforge.core.data_tensors.data_tensor import DataTensor, DataProvenance
 from skellyforge.core.data_tensors.layout_definitions import AxisDefinition, SourceIdentity, TensorLayout
 from skellyforge.core.data_tensors.recording_dataset import DefinitionDocument
 
 FORMAT_NAME = "skellyforge.numpy_dataset"
-FORMAT_VERSION = 1
-SCIENTIFIC_COMPANIONS = frozenset(("entry_presence", "value_validity", "confidence_scores",
+FORMAT_VERSION = 2
+DATA_COMPANIONS = frozenset(("entry_presence", "value_validity", "confidence_scores",
                                   "measured_support", "voting_support"))
 ROOT_FIELDS = {"format", "version", "recording_id", "run_id", "definition_documents", "timings", "channels"}
 SOURCE_FIELDS = {"source_id", "instance_id", "sensor_group", "camera_id", "model_id"}
 LAYOUT_FIELDS = {"axes", "dtype", "component_units", "reference_id", "source_identity", "channel_kind"}
 TIMING_FIELDS = {"timing_key", "timeline_id", "clock_id", "clock_epoch", "source_identity", "sample_ids_file", "timestamps_s_file"}
-CHANNEL_FIELDS = {"storage_kind", "values_file", "tensor_layout", "scientific_provenance", "companion_tensors", "sample_axis_name", "timing_ref"}
+CHANNEL_FIELDS = {"storage_kind", "values_file", "tensor_layout", "data_provenance", "companion_tensors", "sample_axis_name", "timing_ref"}
 PROVENANCE_FIELDS = {"meaning", "operation_id", "input_refs", "model_id"}
 
 
@@ -162,29 +162,29 @@ def layout_from_data(value, *, timings, timing_key=None, sample_axis_name=None):
 
 def provenance_from_data(value):
     value = json_object(value, PROVENANCE_FIELDS)
-    return ScientificProvenance(text_value(value["meaning"]), text_value(value["operation_id"]),
+    return DataProvenance(text_value(value["meaning"]), text_value(value["operation_id"]),
                                 tuple(text_value(item) for item in json_list(value["input_refs"])),
                                 text_value(value["model_id"], nullable=True))
 
 
-def validate_scientific_tensor(tensor):
+def validate_data_tensor(tensor):
     if not isinstance(tensor, DataTensor):
-        raise TypeError("Scientific channels must contain DataTensor instances")
+        raise TypeError("Channels must contain DataTensor instances")
     # Borrowed inputs may have changed since construction; validate before writing.
     tensor.__post_init__()
     for companion in tensor.companion_tensors:
-        if companion.metadata_name not in SCIENTIFIC_COMPANIONS:
-            raise ValueError(f"Unsupported scientific companion {companion.metadata_name!r}")
+        if companion.metadata_name not in DATA_COMPANIONS:
+            raise ValueError(f"Unsupported companion {companion.metadata_name!r}")
         companion.tensor_layout.validate_array(companion.data_values)
         expected = "f" if companion.metadata_name == "confidence_scores" else "b"
         if companion.data_values.dtype.kind != expected:
-            raise ValueError(f"Incorrect scientific companion dtype for {companion.metadata_name!r}")
+            raise ValueError(f"Incorrect companion dtype for {companion.metadata_name!r}")
 
 
 def manifest_inventory(manifest):
     """Validate the outer schema and collect unique payload filenames before IO."""
     json_object(manifest, ROOT_FIELDS)
-    if manifest["format"] != FORMAT_NAME or type(manifest["version"]) is not int or manifest["version"] != FORMAT_VERSION:
+    if manifest["format"] != FORMAT_NAME or type(manifest["version"]) is not int or manifest["version"] not in (1, FORMAT_VERSION):
         raise ValueError("Unsupported NumPy dataset format/version")
     text_value(manifest["recording_id"])
     integer_value(manifest["run_id"])
@@ -201,7 +201,8 @@ def manifest_inventory(manifest):
         retain(timing["timestamps_s_file"])
     static_started = False
     for channel in json_list(manifest["channels"]):
-        json_object(channel, CHANNEL_FIELDS)
+        json_object(channel, (CHANNEL_FIELDS - {"data_provenance"}) | {"scientific_provenance"}
+                    if manifest["version"] == 1 else CHANNEL_FIELDS)
         kind = channel["storage_kind"]
         if kind not in ("time_series", "static_tensor"):
             raise ValueError("Unknown channel storage kind")

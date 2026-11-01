@@ -1,4 +1,4 @@
-"""Numerical payloads and explicitly aligned scientific metadata.
+"""Numerical payloads and explicitly aligned metadata.
 
 Admission borrows arrays explicitly. Published copies use immutable numerical
 backing, and safe views require published input. Frozen attributes alone do not
@@ -40,7 +40,7 @@ def _trusted_companion(companion: "CompanionTensor", values: NDArray, layout: Te
 
 
 @dataclass(frozen=True, slots=True)
-class ScientificProvenance:
+class DataProvenance:
     """Meaning and derivation, independent of numerical storage organization."""
 
     meaning: str
@@ -49,7 +49,7 @@ class ScientificProvenance:
     model_id: str | None = None
 
     def __post_init__(self) -> None:
-        _require_text(self.meaning, "Scientific meaning")
+        _require_text(self.meaning, "Meaning")
         _require_text(self.operation_id, "Producing operation")
         references = tuple(self.input_refs)
         for reference in references:
@@ -111,14 +111,14 @@ class DataTensor:
 
     data_values: NDArray
     tensor_layout: TensorLayout
-    scientific_provenance: ScientificProvenance
+    data_provenance: DataProvenance
     companion_tensors: tuple[CompanionTensor, ...] = ()
     storage_mode: Literal["borrowed", "mutable", "immutable"] = field(default="borrowed", init=False)
 
     def __post_init__(self) -> None:
         self.tensor_layout.validate_array(self.data_values)
-        if not isinstance(self.scientific_provenance, ScientificProvenance):
-            raise TypeError("Scientific provenance must be explicitly declared")
+        if not isinstance(self.data_provenance, DataProvenance):
+            raise TypeError("Provenance must be explicitly declared")
         companions = tuple(self.companion_tensors)
         if len({item.metadata_name for item in companions}) != len(companions):
             raise ValueError("Companion metadata names must be unique")
@@ -156,7 +156,7 @@ class DataTensor:
         companions = tuple(CompanionTensor(item.metadata_name, _immutable_values(item.data_values), item.tensor_layout)
                            for item in self.companion_tensors)
         result = DataTensor(_immutable_values(self.data_values), self.tensor_layout,
-                            self.scientific_provenance, companions)
+                            self.data_provenance, companions)
         object.__setattr__(result, "storage_mode", "immutable")
         return result
 
@@ -165,7 +165,7 @@ class DataTensor:
         companions = tuple(CompanionTensor(item.metadata_name, np.array(item.data_values, copy=True), item.tensor_layout)
                            for item in self.companion_tensors)
         result = DataTensor(np.array(self.data_values, copy=True), self.tensor_layout,
-                            self.scientific_provenance, companions)
+                            self.data_provenance, companions)
         object.__setattr__(result, "storage_mode", "mutable")
         return result
 
@@ -179,7 +179,7 @@ class DataTensor:
         result = object.__new__(DataTensor)
         object.__setattr__(result, "data_values", values)
         object.__setattr__(result, "tensor_layout", layout)
-        object.__setattr__(result, "scientific_provenance", self.scientific_provenance)
+        object.__setattr__(result, "data_provenance", self.data_provenance)
         object.__setattr__(result, "companion_tensors", companions)
         object.__setattr__(result, "storage_mode", "immutable")
         return result
