@@ -1,6 +1,6 @@
 # NumPy dataset format
 
-Version 1 serializes the selected scientific contents of `RecordingDataset`.
+Version 1 serializes the selected contents of `RecordingDataset`.
 It preserves values, declared layouts, identities, timing, quality/evidence,
 units, references, provenance and definition documents. It does not dump
 arbitrary Python objects. Parquet remains FreeMoCap's durable recording; this
@@ -52,7 +52,7 @@ its original valid JSON content; it is not parsed and reformatted on save.
 
 | Object | Fields |
 | --- | --- |
-| Root | `format: "skellyforge.numpy_dataset"`, `version: 1`, `recording_id: string`, `run_id: nonnegative integer`, `definition_documents: Definition[]`, `timings: Timing[]`, `channels: Channel[]` |
+| Root | `format: "skellyforge.numpy_dataset"`, `version: 2`, `recording_id: string`, `run_id: nonnegative integer`, `definition_documents: Definition[]`, `timings: Timing[]`, `channels: Channel[]` |
 | Definition | `definition_id: string`, `content_json: string` |
 | Source | `source_id: string`, `instance_id: nonnegative integer`, `sensor_group: string or null`, `camera_id: string or null`, `model_id: string or null` |
 | Timing | `timing_key: string`, `timeline_id: string`, `clock_id: string`, `clock_epoch: nonnegative integer`, `source_identity: Source`, `sample_ids_file: basename`, `timestamps_s_file: basename` |
@@ -60,10 +60,10 @@ its original valid JSON content; it is not parsed and reformatted on save.
 | Axis | Exactly `axis_name: string` plus either `identifiers: string[] or integer[]` or `timing_ref: string` |
 | Provenance | `meaning: string`, `operation_id: string`, `input_refs: string[]`, `model_id: string or null` |
 | Companion | `metadata_name: string`, `values_file: basename`, `tensor_layout: Layout` |
-| Channel | `storage_kind: "time_series" or "static_tensor"`, `values_file: basename`, `tensor_layout: Layout`, `scientific_provenance: Provenance`, `companion_tensors: Companion[]`, `sample_axis_name: string or null`, `timing_ref: string or null` |
+| Channel | `storage_kind: "time_series" or "static_tensor"`, `values_file: basename`, `tensor_layout: Layout`, `data_provenance: Provenance`, `companion_tensors: Companion[]`, `sample_axis_name: string or null`, `timing_ref: string or null` |
 
 `timing_key` is an archive-local identifier such as `timing_000000`; it is distinct
-from the retained scientific `timeline_id`. Channels retain time-series order
+from the retained `timeline_id`. Channels retain time-series order
 followed by static-tensor order. Definition and companion order are preserved.
 Channel identity is derived from source identity, channel kind, reference and
 static/dynamic status using `RecordingDataset` rules, not array filenames.
@@ -91,7 +91,7 @@ times. Conflicts fail. Different timeline identities remain separate even when
 their numerical arrays are equal. There is no resampling, clock synchronization
 or requirement that channels have equal frame counts.
 
-## Scientific selection and round trips
+## Selection and round trips
 
 Version 1 allows `entry_presence`, `value_validity`, `confidence_scores`,
 `measured_support` and `voting_support` companions. All except confidence are
@@ -99,9 +99,9 @@ boolean; confidence is floating point. Parent/companion axis associations and
 validity constraints follow `DataTensor`; presence and validity use the complete
 parent layout, while confidence/evidence may use matching subset axes.
 Unknown companions, including `solver_status` or hydration execution state,
-raise an error. Callers select scientific content before writing; the writer
+raise an error. Callers select content before writing; the writer
 never silently discards fields. Storage-row presence is not inferred to mean
-scientific validity, and unavailable evidence is not invented on reload.
+validity, and unavailable evidence is not invented on reload.
 
 Round trips preserve dtype, shape, logical values, NaN positions, signed zero,
 all declared identities/context and explicit companions. They do not promise
@@ -182,3 +182,12 @@ with ZipFile("recording_numpy.npz") as archive:
 These examples assume a trusted export; `read_numpy_dataset` performs the full
 contract validation described above. Plain NPY consumers may explicitly choose
 memory mapping, independently of the owned-object loader.
+
+## Provenance migration
+
+Writers emit version 2 with `data_provenance`. Readers also accept version 1,
+whose channel field is `scientific_provenance`, and construct `DataProvenance`
+objects. Saving a loaded version-1 dataset writes version 2. The source dataset
+is never rewritten during loading. Each version requires its exact field set;
+mixed or duplicate provenance keys are rejected. Array values, identities,
+timelines, units, and companion tensors keep the same representation.

@@ -7,7 +7,7 @@ import numpy as np
 
 from skellyforge.core.data_tensors import (
     AxisDefinition, ChannelIdentity, CompanionTensor, DataTensor, DefinitionDocument,
-    RecordingDataset, SampleTiming, ScientificProvenance, SourceIdentity, TensorLayout,
+    RecordingDataset, SampleTiming, DataProvenance, SourceIdentity, TensorLayout,
     TimeSeries,
 )
 from skellyforge.tools.recording_data import digest, read_recording, recording_path
@@ -49,7 +49,7 @@ def test_reference_dataset_preserves_values_timing_masks_and_shared_views(reques
                           channel_kind=channel["kind"])
     mask_layout = TensorLayout(axes, presence.dtype, source_identity=source)
     tensor = DataTensor(values, layout,
-                        ScientificProvenance("saved_model_estimate", "reference_tensor_admission",
+                        DataProvenance("saved_model_estimate", "reference_tensor_admission",
                                              (metadata["sha256"],), "standard_human"),
                         (CompanionTensor("entry_presence", presence, mask_layout),))
     assert tensor.data_values is values
@@ -62,7 +62,7 @@ def test_reference_dataset_preserves_values_timing_masks_and_shared_views(reques
         channel_kind="SEGMENT_LENGTHS",
     )
     static = DataTensor(lengths[:, None], static_layout,
-                        ScientificProvenance("fitted_lengths", "saved_scale_fit",
+                        DataProvenance("fitted_lengths", "saved_scale_fit",
                                              (metadata["sha256"],), "standard_human")).immutable_copy()
     definition = DefinitionDocument("model:standard_human", json.dumps(metadata["model"], allow_nan=False))
     dataset = RecordingDataset(path.stem, metadata["run_id"], (series,), (static,), (definition,))
@@ -95,7 +95,7 @@ def test_reference_dataset_preserves_values_timing_masks_and_shared_views(reques
         assert restored.definition_documents == dataset.definition_documents
         restored_series = restored.time_series[0]
         assert restored_series.data_tensor.tensor_layout == layout
-        assert restored_series.data_tensor.scientific_provenance == tensor.scientific_provenance
+        assert restored_series.data_tensor.data_provenance == tensor.data_provenance
         np.testing.assert_array_equal(restored_series.data_tensor.data_values, values)
         np.testing.assert_array_equal(restored_series.data_tensor.companion_values("entry_presence"), presence)
         np.testing.assert_array_equal(restored_series.sample_timing.sample_ids, sample_ids)

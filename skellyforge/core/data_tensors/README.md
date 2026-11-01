@@ -3,7 +3,7 @@
 SkellyForge owns these reusable numerical data types. They depend on NumPy and
 the standard library; they do not import FreeMoCap or SkellyTracker.
 
-- `DataTensor` composes a numerical array, `TensorLayout`, `ScientificProvenance`,
+- `DataTensor` composes a numerical array, `TensorLayout`, `DataProvenance`,
   and explicitly aligned `CompanionTensor` arrays. Components come from the
   declared layout, not a universal coordinate count.
 - `SampleTiming` associates original sample IDs with timestamps, source identity,
@@ -24,11 +24,11 @@ the package move.
 
 FreeMoCap owns its pipeline composition, adapters from tracker/reconstruction
 results, and publication into its Parquet recording schema. Those adapters must
-supply actual timing, identities, units, references and scientific provenance;
-these classes do not infer missing scientific context.
+supply actual timing, identities, units, references and provenance;
+these classes do not infer missing context.
 
 The [NumPy format contract](NUMPY_FORMAT.md) defines standalone NPY directories and
-NPZ archives for selected scientific datasets. `write_numpy_dataset`,
+NPZ archives for selected datasets. `write_numpy_dataset`,
 `read_numpy_dataset`, and `NumpyDatasetWriter` preserve the declared arrays and
 metadata without importing producer packages. `RecordingDataset.save_numpy` and
 `RecordingDataset.load_numpy` provide convenience access. Writers verify each

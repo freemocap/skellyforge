@@ -1,4 +1,4 @@
-"""Collect existing scientific tensors without rebuilding or copying their values."""
+"""Collect existing tensors without rebuilding or copying their values."""
 
 from dataclasses import dataclass, field
 import json
@@ -15,7 +15,7 @@ from skellyforge.core.data_tensors.time_series import TimeSeries
 
 @dataclass(frozen=True, slots=True)
 class ChannelIdentity:
-    """One scientific channel within a recording run, independent of array shape."""
+    """One channel within a recording run, independent of array shape."""
 
     source_identity: SourceIdentity
     channel_kind: str
@@ -49,7 +49,7 @@ def _reject_constant(value: str) -> None:
 class DefinitionDocument:
     """One immutable serialized model, reference or provenance definition.
 
-    The owning scientific schema remains responsible for its contents. JSON is
+    The owning schema remains responsible for its contents. JSON is
     validated here without retaining mutable dictionaries or per-frame copies.
     """
 
@@ -101,7 +101,7 @@ class RecordingDataset:
             identity = ChannelIdentity.from_data(item)
             scientific_key = (identity.source_identity, identity.channel_kind, identity.reference_id)
             if scientific_key in scientific_keys:
-                raise ValueError("Duplicate scientific channel, including static/dynamic ambiguity")
+                raise ValueError("Duplicate channel, including static/dynamic ambiguity")
             scientific_keys.add(scientific_key)
             channels[identity] = item
             if isinstance(item, DataTensor):
@@ -150,12 +150,12 @@ class RecordingDataset:
         )
 
     def save_numpy(self, path, *, format="npy", compressed=True, verify=True):
-        """Save selected scientific contents using the versioned NumPy contract."""
+        """Save selected contents using the versioned NumPy contract."""
         from skellyforge.core.data_tensors.numpy_io import write_numpy_dataset
         return write_numpy_dataset(self, path, format=format, compressed=compressed, verify=verify)
 
     @classmethod
     def load_numpy(cls, path) -> "RecordingDataset":
-        """Restore owned immutable scientific tensors without an open reader."""
+        """Restore owned immutable tensors without an open reader."""
         from skellyforge.core.data_tensors.numpy_io import read_numpy_dataset
         return read_numpy_dataset(path)

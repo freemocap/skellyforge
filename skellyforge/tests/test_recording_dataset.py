@@ -8,7 +8,7 @@ import numpy as np
 
 from skellyforge.core.data_tensors import (
     AxisDefinition, ChannelIdentity, DataTensor, DefinitionDocument, RecordingDataset,
-    SampleTiming, ScientificProvenance, SourceIdentity, TensorLayout, TimeSeries,
+    SampleTiming, DataProvenance, SourceIdentity, TensorLayout, TimeSeries,
 )
 
 
@@ -25,7 +25,7 @@ class RecordingDatasetTests(unittest.TestCase):
                               dtype="float64", component_units=("px", "px"), reference_id="image",
                               source_identity=identity, channel_kind=channel)
         tensor = DataTensor(np.arange(np.prod(layout.shape), dtype=np.float64).reshape(layout.shape), layout,
-                            ScientificProvenance("detector_estimates", "tracking")).immutable_copy()
+                            DataProvenance("detector_estimates", "tracking")).immutable_copy()
         return TimeSeries(tensor, timeline)
 
     def static(self, *, source="model:human", channel="SEGMENT_LENGTHS", instance_id=0):
@@ -35,7 +35,7 @@ class RecordingDatasetTests(unittest.TestCase):
                               source_identity=SourceIdentity(source_id=source, instance_id=instance_id),
                               channel_kind=channel)
         return DataTensor(np.array([[300.], [500.]]), layout,
-                          ScientificProvenance("fitted_lengths", "scale_fit")).immutable_copy()
+                          DataProvenance("fitted_lengths", "scale_fit")).immutable_copy()
 
     def test_dataset_and_selection_retain_exact_payload_and_metadata_objects(self):
         series = self.series()
@@ -107,17 +107,17 @@ class RecordingDatasetTests(unittest.TestCase):
         dataset = RecordingDataset("recording", 0, static_tensors=(first, second))
         self.assertEqual([identity.source_identity.instance_id for identity in dataset.channel_identities], [0, 1])
 
-    def test_duplicate_scientific_channels_and_selection_duplicates_fail(self):
+    def test_duplicate_data_channels_and_selection_duplicates_fail(self):
         series = self.series()
-        with self.assertRaisesRegex(ValueError, "Duplicate scientific"):
+        with self.assertRaisesRegex(ValueError, "Duplicate channel"):
             RecordingDataset("recording", 0, (series, series))
         dataset = RecordingDataset("recording", 0, (series,))
         identity = ChannelIdentity.from_data(series)
-        with self.assertRaisesRegex(ValueError, "Duplicate scientific"):
+        with self.assertRaisesRegex(ValueError, "Duplicate channel"):
             dataset.select_channels((identity, identity))
         static_layout = replace(series.data_tensor.tensor_layout, axes=series.data_tensor.tensor_layout.axes[1:])
         static = DataTensor(series.data_tensor.data_values[0], static_layout,
-                            series.data_tensor.scientific_provenance).immutable_copy()
+                            series.data_tensor.data_provenance).immutable_copy()
         with self.assertRaisesRegex(ValueError, "static/dynamic"):
             RecordingDataset("recording", 0, (series,), (static,))
 
@@ -134,7 +134,7 @@ class RecordingDatasetTests(unittest.TestCase):
         static = self.static()
         for field in ("source_identity", "channel_kind"):
             layout = replace(static.tensor_layout, **{field: None})
-            missing = DataTensor(static.data_values, layout, static.scientific_provenance).immutable_copy()
+            missing = DataTensor(static.data_values, layout, static.data_provenance).immutable_copy()
             with self.assertRaisesRegex(ValueError, "source identity and channel kind"):
                 RecordingDataset("recording", 0, static_tensors=(missing,))
 

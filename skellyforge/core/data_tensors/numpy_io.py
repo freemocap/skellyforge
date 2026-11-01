@@ -1,4 +1,4 @@
-"""Stream scientific tensor channels to portable NPY directories or NPZ archives."""
+"""Stream tensor channels to portable NPY directories or NPZ archives."""
 from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
@@ -12,7 +12,7 @@ from skellyforge.core.data_tensors.data_tensor import CompanionTensor, DataTenso
 from skellyforge.core.data_tensors.numpy_manifest import (
     FORMAT_NAME, FORMAT_VERSION, definition_data, definitions_from_data, integer_value,
     layout_data, layout_from_data, manifest_inventory, parse_json, provenance_from_data,
-    source_data, source_from_data, text_value, validate_scientific_tensor,
+    source_data, source_from_data, text_value, validate_data_tensor,
 )
 from skellyforge.core.data_tensors.recording_dataset import ChannelIdentity, RecordingDataset
 from skellyforge.core.data_tensors.sample_timing import SampleTiming
@@ -161,11 +161,11 @@ class NumpyDatasetWriter:
             raise
 
     def _add_channel(self, tensor, *, series=None):
-        validate_scientific_tensor(tensor)
+        validate_data_tensor(tensor)
         identity = ChannelIdentity.from_data(tensor if series is None else series)
         scientific_key = (identity.source_identity, identity.channel_kind, identity.reference_id)
         if scientific_key in self._channel_keys:
-            raise ValueError("Duplicate scientific channel, including static/dynamic ambiguity")
+            raise ValueError("Duplicate channel, including static/dynamic ambiguity")
         sample_axis = None if series is None else series.sample_axis_name
         axes = {axis.axis_name for axis in tensor.tensor_layout.axes}
         if series is None:
@@ -188,10 +188,10 @@ class NumpyDatasetWriter:
                 tensor_layout=layout_data(companion.tensor_layout, timing_key=timing_key, sample_axis_name=sample_axis)))
         entry = dict(storage_kind="static_tensor" if series is None else "time_series", values_file=filename,
             tensor_layout=layout_data(tensor.tensor_layout, timing_key=timing_key, sample_axis_name=sample_axis),
-            scientific_provenance=asdict(tensor.scientific_provenance), companion_tensors=companions,
+            data_provenance=asdict(tensor.data_provenance), companion_tensors=companions,
             sample_axis_name=sample_axis, timing_ref=timing_key)
         # asdict retains tuples, while the public manifest schema uses JSON lists.
-        entry["scientific_provenance"]["input_refs"] = list(tensor.scientific_provenance.input_refs)
+        entry["data_provenance"]["input_refs"] = list(tensor.data_provenance.input_refs)
         self._manifest["channels"].append(entry)
         self._channel_keys.add(scientific_key)
         return deepcopy(entry)
@@ -252,7 +252,7 @@ class NumpyDatasetWriter:
 
 
 def write_numpy_dataset(dataset, path, *, format="npy", compressed=True, verify=True):
-    """Serialize an already selected scientific dataset without retaining copies."""
+    """Serialize an already selected dataset without retaining copies."""
     if not isinstance(dataset, RecordingDataset):
         raise TypeError("Expected RecordingDataset")
     with NumpyDatasetWriter(path, recording_id=dataset.recording_id, run_id=dataset.run_id,
@@ -306,7 +306,7 @@ class _DatasetReader:
 
 
 def read_numpy_dataset(path):
-    """Validate and restore owned immutable scientific objects, then close all IO."""
+    """Validate and restore owned immutable objects, then close all IO."""
     with _DatasetReader(path) as reader:
         if "dataset.json" not in reader.inventory:
             raise ValueError("Missing dataset.json")
@@ -346,8 +346,8 @@ def read_numpy_dataset(path):
             companions = tuple(CompanionTensor(companion["metadata_name"], reader.array(companion["values_file"]),
                 decode_layout(companion["tensor_layout"])) for companion in item["companion_tensors"])
             tensor = DataTensor(reader.array(item["values_file"]), decode_layout(item["tensor_layout"]),
-                provenance_from_data(item["scientific_provenance"]), companions)
-            validate_scientific_tensor(tensor)
+                provenance_from_data(item["scientific_provenance" if manifest["version"] == 1 else "data_provenance"]), companions)
+            validate_data_tensor(tensor)
             tensor = tensor.immutable_copy()
             if is_series:
                 series_items.append(TimeSeries(tensor, timings[key], sample_axis_name=axis))

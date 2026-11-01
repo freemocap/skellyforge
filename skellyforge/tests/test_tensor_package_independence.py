@@ -19,7 +19,7 @@ sys.meta_path.insert(0, RejectProducerImports())
 import numpy as np
 from skellyforge.core.data_tensors import (
     AxisDefinition, ChannelValues, DataTensor, RecordingDataset, SampleTiming,
-    ScientificProvenance, SourceIdentity, TensorLayout, TimeSeries,
+    DataProvenance, SourceIdentity, TensorLayout, TimeSeries,
 )
 identity = SourceIdentity('independent_sensor')
 timing = SampleTiming(timeline_id='capture', clock_id='sensor_clock',
@@ -27,7 +27,7 @@ timing = SampleTiming(timeline_id='capture', clock_id='sensor_clock',
 layout = TensorLayout((timing.sample_axis,), 'float64', source_identity=identity,
     channel_kind='independent_signal')
 series = TimeSeries(DataTensor(np.array([2., 4.]), layout,
-    ScientificProvenance('model_prediction', 'standalone_test')).immutable_copy(), timing)
+    DataProvenance('model_prediction', 'standalone_test')).immutable_copy(), timing)
 dataset = RecordingDataset('independent_recording', 0, (series,))
 assert dataset.time_series[0].frame_view(1).sample_timing.sample_ids[0] == 9
 for output_format in ('npy', 'npz'):

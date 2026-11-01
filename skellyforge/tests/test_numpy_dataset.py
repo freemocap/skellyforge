@@ -10,12 +10,12 @@ import pytest
 
 from skellyforge.core.data_tensors import (
     AxisDefinition, CompanionTensor, DataTensor, DefinitionDocument, NumpyDatasetWriter,
-    RecordingDataset, SampleTiming, ScientificProvenance, SourceIdentity, TensorLayout,
+    RecordingDataset, SampleTiming, DataProvenance, SourceIdentity, TensorLayout,
     TimeSeries, read_numpy_dataset, write_numpy_dataset,
 )
 
 
-def scientific_dataset():
+def example_dataset():
     source = SourceIdentity("model:fixture", instance_id=2, sensor_group="group", model_id="fixture")
     timing = SampleTiming(timeline_id="camera_capture", clock_id="camera_clock", source_identity=source,
                           sample_ids=[4, 9], timestamps_s=[-0., .25], clock_epoch=3)
@@ -34,7 +34,7 @@ def scientific_dataset():
         CompanionTensor("confidence_scores", np.array([[.3, .4], [.5, .6]], dtype=np.float32), TensorLayout(axes[:2], np.float32)),
         CompanionTensor("measured_support", np.array([True, False]), TensorLayout(axes[:1], bool)),
     )
-    provenance = ScientificProvenance("model_prediction", "fixture_operation", ("input_a",), "fixture")
+    provenance = DataProvenance("model_prediction", "fixture_operation", ("input_a",), "fixture")
     first = TimeSeries(DataTensor(values, layout, provenance, companions), timing, "capture_samples")
     complex_layout = TensorLayout((timing.sample_axis,), "complex128", source_identity=source, channel_kind="complex_signal")
     shared = TimeSeries(DataTensor(np.array([1 + 2j, -3 + 4j]), complex_layout, provenance), timing)
@@ -54,7 +54,7 @@ def scientific_dataset():
 
 def assert_tensor_equal(actual, expected):
     assert actual.tensor_layout == expected.tensor_layout
-    assert actual.scientific_provenance == expected.scientific_provenance
+    assert actual.data_provenance == expected.data_provenance
     assert actual.data_values.dtype.str == expected.data_values.dtype.str
     np.testing.assert_array_equal(actual.data_values, expected.data_values)
     if expected.data_values.dtype.kind == "f":
@@ -72,8 +72,8 @@ def assert_tensor_equal(actual, expected):
 
 
 @pytest.mark.parametrize("format", ["npy", "npz"])
-def test_roundtrip_scientific_content_and_plain_numpy(tmp_path, format):
-    expected = scientific_dataset()
+def test_roundtrip_dataset_content_and_plain_numpy(tmp_path, format):
+    expected = example_dataset()
     path = tmp_path / ("dataset" if format == "npy" else "dataset.npz")
     manifest = expected.save_numpy(path, format=format)
     actual = RecordingDataset.load_numpy(path)
@@ -121,7 +121,7 @@ def test_empty_dataset_and_empty_timing(tmp_path, format):
     if format == "npz":
         with ZipFile(path) as archive:
             assert archive.getinfo("dataset.json").compress_type == ZIP_STORED
-    source = scientific_dataset().time_series[0]
+    source = example_dataset().time_series[0]
     empty_series = source.slice_samples(1, 1)
     path = tmp_path / "empty_series"
     write_numpy_dataset(RecordingDataset("empty_series", 0, (empty_series,)), path, format=format)
@@ -131,13 +131,13 @@ def test_empty_dataset_and_empty_timing(tmp_path, format):
 
 
 def test_streaming_borrows_noncontiguous_arrays_then_releases_them(tmp_path):
-    source = scientific_dataset().time_series[0]
+    source = example_dataset().time_series[0]
     values = np.arange(40, dtype=">f8").reshape(2, 2, 10)[..., ::2]
     reference = weakref.ref(values)
-    tensor = DataTensor(values, source.data_tensor.tensor_layout, source.data_tensor.scientific_provenance)
+    tensor = DataTensor(values, source.data_tensor.tensor_layout, source.data_tensor.data_provenance)
     series = TimeSeries(tensor, source.sample_timing, source.sample_axis_name)
     with NumpyDatasetWriter(tmp_path / "streamed", recording_id="streamed", run_id=0) as writer:
-        writer.add_static(scientific_dataset().static_tensors[0])
+        writer.add_static(example_dataset().static_tensors[0])
         entry = writer.add_series(series)
         entry["tensor_layout"]["axes"].clear()
         del series, tensor, values
@@ -152,7 +152,7 @@ def test_streaming_borrows_noncontiguous_arrays_then_releases_them(tmp_path):
 
 @pytest.mark.parametrize("format", ["npy", "npz"])
 def test_write_failure_cleans_only_owned_destination(tmp_path, monkeypatch, format):
-    dataset = scientific_dataset()
+    dataset = example_dataset()
     target = tmp_path / "failed"
     original = NumpyDatasetWriter._write_array
     def fail_after_write(self, filename, values):
@@ -172,7 +172,7 @@ def test_abort_does_not_remove_unowned_files_in_destination(tmp_path):
     path = tmp_path / "failed"
     with pytest.raises(RuntimeError, match="intentional"):
         with NumpyDatasetWriter(path, recording_id="failure", run_id=0) as writer:
-            writer.add_static(scientific_dataset().static_tensors[0])
+            writer.add_static(example_dataset().static_tensors[0])
             (path / "user_note.txt").write_text("preserve", encoding="utf-8")
             raise RuntimeError("intentional")
     assert list(path.iterdir()) == [path / "user_note.txt"]
@@ -181,10 +181,10 @@ def test_abort_does_not_remove_unowned_files_in_destination(tmp_path):
 @pytest.mark.parametrize("name,dtype", [("solver_status", np.uint8), ("hydration_status", np.uint8),
                                        ("unknown_quality", float), ("voting_support", float)])
 def test_rejects_unsupported_or_mistyped_companions(tmp_path, name, dtype):
-    source = scientific_dataset().static_tensors[1]
+    source = example_dataset().static_tensors[1]
     companion = CompanionTensor(name, np.ones(source.data_values.shape, dtype=dtype),
                                 replace(source.tensor_layout, dtype=dtype))
-    tensor = DataTensor(source.data_values, source.tensor_layout, source.scientific_provenance, (companion,))
+    tensor = DataTensor(source.data_values, source.tensor_layout, source.data_provenance, (companion,))
     with pytest.raises(ValueError, match="companion"):
         with NumpyDatasetWriter(tmp_path / "rejected", recording_id="invalid", run_id=0) as writer:
             writer.add_static(tensor)
@@ -192,11 +192,11 @@ def test_rejects_unsupported_or_mistyped_companions(tmp_path, name, dtype):
 
 
 def test_rejects_static_sample_axis_even_when_static_added_first(tmp_path):
-    series = scientific_dataset().time_series[0]
+    series = example_dataset().time_series[0]
     tensor = DataTensor(np.array([1., 2.]),
         TensorLayout((AxisDefinition("capture_samples", (4, 9)),), "float64",
                      source_identity=SourceIdentity("static_source"), channel_kind="static_values"),
-        series.data_tensor.scientific_provenance)
+        series.data_tensor.data_provenance)
     with pytest.raises(ValueError, match="sample axis"):
         with NumpyDatasetWriter(tmp_path / "conflict", recording_id="invalid", run_id=0) as writer:
             writer.add_static(tensor)
@@ -204,7 +204,7 @@ def test_rejects_static_sample_axis_even_when_static_added_first(tmp_path):
 
 
 def test_shared_timing_rejects_signed_zero_conflict(tmp_path):
-    first, second = scientific_dataset().time_series[:2]
+    first, second = example_dataset().time_series[:2]
     conflicting = replace(second.sample_timing, timestamps_s=[0., .25])
     with pytest.raises(ValueError, match="timing identity"):
         with NumpyDatasetWriter(tmp_path / "conflict", recording_id="invalid", run_id=0) as writer:
@@ -223,8 +223,8 @@ def test_verification_rejects_corruption_and_cleans_output(tmp_path, monkeypatch
         expected, corrupt = np.asarray(-0.), np.asarray(0.)
     else:
         expected, corrupt = np.asarray(1.), np.asarray(2.)
-    source = scientific_dataset().static_tensors[0]
-    tensor = DataTensor(expected, replace(source.tensor_layout, dtype=expected.dtype), source.scientific_provenance)
+    source = example_dataset().static_tensors[0]
+    tensor = DataTensor(expected, replace(source.tensor_layout, dtype=expected.dtype), source.data_provenance)
     original = np.lib.format.write_array
     def write_corrupted(stream, values, **kwargs):
         original(stream, values if corruption == "trailing_bytes" else corrupt, **kwargs)
@@ -242,18 +242,18 @@ def test_verification_can_be_explicitly_disabled(tmp_path, monkeypatch):
     def unexpected_read(*args, **kwargs):
         raise AssertionError("Verification was disabled")
     monkeypatch.setattr(np.lib.format, "read_array", unexpected_read)
-    write_numpy_dataset(scientific_dataset(), tmp_path / "unverified", verify=False)
+    write_numpy_dataset(example_dataset(), tmp_path / "unverified", verify=False)
 
 
 @pytest.mark.parametrize("dtype", ["bool", "uint64", "float16", ">i4", ">c16"])
 @pytest.mark.parametrize("format", ["npy", "npz"])
 def test_numeric_dtype_fidelity(tmp_path, dtype, format):
-    source = scientific_dataset().static_tensors[0]
+    source = example_dataset().static_tensors[0]
     values = np.asarray([0, 2, 5], dtype=dtype)
     layout = TensorLayout((AxisDefinition("component_identity", ("alpha", "beta", "gamma")),),
                           values.dtype, ("1", "1", "1"), source_identity=source.tensor_layout.source_identity,
                           channel_kind="numeric_variants")
-    tensor = DataTensor(values, layout, source.scientific_provenance).immutable_copy()
+    tensor = DataTensor(values, layout, source.data_provenance).immutable_copy()
     dataset = RecordingDataset("dtype_fixture", 0, static_tensors=(tensor,))
     path = tmp_path / "dataset"
     write_numpy_dataset(dataset, path, format=format)
@@ -262,7 +262,7 @@ def test_numeric_dtype_fidelity(tmp_path, dtype, format):
 
 def saved_manifest(tmp_path):
     path = tmp_path / "dataset"
-    write_numpy_dataset(scientific_dataset(), path)
+    write_numpy_dataset(example_dataset(), path)
     return path, json.loads((path / "dataset.json").read_text(encoding="utf-8"))
 
 
@@ -322,7 +322,7 @@ def test_rejects_invalid_payload_and_inventory(tmp_path, damage):
         with filename.open("ab") as stream: stream.write(b"extra")
     elif damage == "duplicate_key":
         text = (path / "dataset.json").read_text(encoding="utf-8")
-        (path / "dataset.json").write_text(text.replace('"version":1', '"version":1,"version":1'), encoding="utf-8")
+        (path / "dataset.json").write_text(text.replace('"version":2', '"version":2,"version":2'), encoding="utf-8")
     with pytest.raises((ValueError, TypeError)):
         read_numpy_dataset(path)
 
@@ -330,7 +330,7 @@ def test_rejects_invalid_payload_and_inventory(tmp_path, damage):
 @pytest.mark.parametrize("damage", ["duplicate", "link", "extra"])
 def test_rejects_invalid_zip_inventory(tmp_path, damage):
     path = tmp_path / "dataset.npz"
-    write_numpy_dataset(scientific_dataset(), path, format="npz")
+    write_numpy_dataset(example_dataset(), path, format="npz")
     with ZipFile(path, "a") as archive:
         if damage == "duplicate":
             with pytest.warns(UserWarning, match="Duplicate name"):

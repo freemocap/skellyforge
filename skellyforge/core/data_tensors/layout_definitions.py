@@ -1,7 +1,7 @@
 """Declared array axes, source identities and prepared numerical selections.
 
 These definitions describe layout only. They do not assign timestamps, copy
-scientific payloads, impose coordinate dimensions or establish array ownership.
+payloads, impose coordinate dimensions or establish array ownership.
 The same authored order applies to live and recorded consumers.
 """
 
