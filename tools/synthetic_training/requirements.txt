@@ -1,0 +1,6 @@
+# Optional CPU tooling only; intentionally absent from Forge runtime dependencies.
+mitsuba==3.9.1
+drjit==1.5.0
+embreex==4.4.0.post1
+numpy==2.4.6
+pillow==12.3.0

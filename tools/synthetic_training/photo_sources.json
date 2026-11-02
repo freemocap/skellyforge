@@ -1,0 +1,62 @@
+[
+  {
+    "file_name": "interior.jpg",
+    "source_id": "wikimedia:Interior best view.jpg",
+    "title": "Interior best view.jpg",
+    "author": "Arun D cruze",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Interior_best_view.jpg",
+    "download_url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Interior_best_view.jpg",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "reviewed_date": "2026-11-02",
+    "review_scope": "File description, named author and explicit image CC0 dedication verified; original downloaded image visually inspected",
+    "sha256": "3050d1561f3f59ce41823e249d8174761dad97d0e228399f277f477169e3d0e5",
+    "dimensions": [
+      585,
+      1040
+    ],
+    "split": "training",
+    "attribution": "Interior best view.jpg by Arun D cruze (Wikimedia Commons), CC0 1.0",
+    "modifications": "Original retained unchanged; generated examples crop/resize background and overlay a rendered object"
+  },
+  {
+    "file_name": "forest.jpg",
+    "source_id": "wikimedia:Image of a forest.jpg",
+    "title": "Image of a forest.jpg",
+    "author": "Akum20",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Image_of_a_forest.jpg",
+    "download_url": "https://upload.wikimedia.org/wikipedia/commons/a/af/Image_of_a_forest.jpg",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "reviewed_date": "2026-11-02",
+    "review_scope": "File description, named author and explicit image CC0 dedication verified; original downloaded image visually inspected",
+    "sha256": "fad0d6b48507ac4d6792430a01470b60f926aae1ab8097ae85d8bea55d036819",
+    "dimensions": [
+      4160,
+      3120
+    ],
+    "split": "development",
+    "attribution": "Image of a forest.jpg by Akum20 (Wikimedia Commons), CC0 1.0",
+    "modifications": "Original retained unchanged; generated examples crop/resize background and overlay a rendered object"
+  },
+  {
+    "file_name": "landscape.jpg",
+    "source_id": "wikimedia:A lush verdant landscape.jpg",
+    "title": "A lush verdant landscape.jpg",
+    "author": "Ayyuha Sideeq",
+    "source_url": "https://commons.wikimedia.org/wiki/File:A_lush_verdant_landscape.jpg",
+    "download_url": "https://upload.wikimedia.org/wikipedia/commons/2/24/A_lush_verdant_landscape.jpg",
+    "license": "CC0-1.0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "reviewed_date": "2026-11-02",
+    "review_scope": "File description, named author and explicit image CC0 dedication verified; original downloaded image visually inspected",
+    "sha256": "026fe604c8f51d1c3fcc5c3699f800156daec4f47a6f0c5d304f8b1d95003b9e",
+    "dimensions": [
+      4160,
+      3120
+    ],
+    "split": "final_evaluation",
+    "attribution": "A lush verdant landscape.jpg by Ayyuha Sideeq (Wikimedia Commons), CC0 1.0",
+    "modifications": "Original retained unchanged; generated examples crop/resize background and overlay a rendered object"
+  }
+]

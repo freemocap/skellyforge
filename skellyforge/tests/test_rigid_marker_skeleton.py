@@ -49,7 +49,9 @@ def _grid_connection_group() -> LandmarkConnectionGroup:
                 pairs.append((f"marker_{index}", f"marker_{index + 1}"))
             if row < GRID_ROWS - 1:
                 pairs.append((f"marker_{index}", f"marker_{index + GRID_COLUMNS}"))
-    return LandmarkConnectionGroup(name="grid", pairs=tuple(pairs), tags=("charuco_grid",))
+    return LandmarkConnectionGroup(
+        name="grid", pairs=tuple(pairs), tags=("charuco_grid",)
+    )
 
 
 def _board() -> SkeletonDefinition:
@@ -252,3 +254,51 @@ def test_too_few_markers_is_refused() -> None:
             primary_marker_name="marker_1",
             secondary_marker_name="marker_1",
         )
+
+
+def test_nonplanar_object_features_recover_rotated_pose_with_missing_feature() -> None:
+    """An asymmetric object's named features use the existing rigid-object path."""
+    from scipy.spatial.transform import Rotation
+
+    feature_names = (
+        "base_origin",
+        "axis_corner",
+        "side_corner",
+        "top_corner",
+        "notch_tip",
+    )
+    feature_positions = np.array(
+        [[0, 0, 0], [2, 0, 0], [0, 1, 0], [0.2, 0.3, 1.5], [1.1, 0.4, 0.6]],
+        dtype=np.float64,
+    )
+    skeleton = build_rigid_marker_skeleton(
+        name="asymmetric_object",
+        segment_name="object_body",
+        marker_positions=dict(zip(feature_names, feature_positions, strict=True)),
+        origin_marker_name="base_origin",
+        primary_marker_name="axis_corner",
+        secondary_marker_name="side_corner",
+    )
+    expected_rotation = Rotation.from_euler(
+        "xyz", [23, -31, 47], degrees=True
+    ).as_matrix()
+    expected_scale = 75.0
+    expected_origin = np.array([125.0, -220.0, 880.0])
+    world_positions = (
+        expected_scale * (feature_positions @ expected_rotation.T) + expected_origin
+    )
+    # Remove a feature that is not needed to define the local frame. This tests
+    # reconstruction, not any claim that a detector can infer hidden geometry.
+    visible_indices = np.array([0, 1, 2, 3])
+    observations = {
+        feature_names[index]: Point.from_array(values=world_positions[index])
+        for index in visible_indices
+    }
+    pose = hydrate_skeleton(skeleton=skeleton, observed=observations, require_all=False)
+    segment_pose = pose.segment_poses["object_body"]
+    assert segment_pose.solved_by is PoseSolution.RIGID_FIT
+    assert segment_pose.scale_estimate == pytest.approx(expected_scale, rel=1e-9)
+    np.testing.assert_allclose(segment_pose.origin.array, expected_origin, atol=1e-8)
+    np.testing.assert_allclose(
+        segment_pose.orientation.to_rotation_matrix(), expected_rotation, atol=1e-8
+    )

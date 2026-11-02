@@ -1,0 +1,224 @@
+{
+  "status": "approved_initial_baseline",
+  "source_mesh_sha256": "6ab57f1c3f8e86bc3cbd302c6fa6270acf06277c6335454e922419c25d42e97e",
+  "units": "mm",
+  "reference_unit_mm": 60.0,
+  "object_axes": {
+    "x": "starboard",
+    "y": "bow",
+    "z": "up"
+  },
+  "origin_definition": "Bottom footprint bounding-box centre on z=0 plane",
+  "origin_source_mm": [
+    -5.5904998779296875,
+    0.0,
+    0.0
+  ],
+  "source_to_object_rotation": [
+    [
+      0.0,
+      -1.0,
+      0.0
+    ],
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "feature_names": [
+    "roof_fore_port",
+    "roof_fore_starboard",
+    "roof_aft_port",
+    "roof_aft_starboard",
+    "front_window_upper_port",
+    "front_window_upper_starboard",
+    "front_window_lower_port",
+    "front_window_lower_starboard",
+    "bow_upper_tip",
+    "stern_rim_port",
+    "stern_rim_starboard",
+    "chimney_rim_fore",
+    "chimney_rim_aft",
+    "chimney_rim_port",
+    "chimney_rim_starboard"
+  ],
+  "feature_definitions": [
+    "Fixed diagonal support vertex on upper roof face; rounded corner feature",
+    "Fixed diagonal support vertex on upper roof face; rounded corner feature",
+    "Fixed diagonal support vertex on upper roof face; rounded corner feature",
+    "Fixed diagonal support vertex on upper roof face; rounded corner feature",
+    "Front outer window aperture corner vertex",
+    "Front outer window aperture corner vertex",
+    "Front outer window aperture corner vertex",
+    "Front outer window aperture corner vertex",
+    "Fixed upper bow rim tip, not changing image silhouette",
+    "Upper stern transom/rim shoulder vertex",
+    "Upper stern transom/rim shoulder vertex",
+    "Fixed top outer chimney rim cardinal point; surface endpoint, not hole centre",
+    "Fixed top outer chimney rim cardinal point; surface endpoint, not hole centre",
+    "Fixed top outer chimney rim cardinal point; surface endpoint, not hole centre",
+    "Fixed top outer chimney rim cardinal point; surface endpoint, not hole centre"
+  ],
+  "source_positions_mm": [
+    [
+      13.305000305175781,
+      9.244000434875488,
+      40.24100112915039
+    ],
+    [
+      13.305000305175781,
+      -9.244000434875488,
+      40.24100112915039
+    ],
+    [
+      -8.375,
+      8.071000099182129,
+      38.15299987792969
+    ],
+    [
+      -8.375,
+      -8.071000099182129,
+      38.15299987792969
+    ],
+    [
+      13.277000427246094,
+      5.25,
+      33.61199951171875
+    ],
+    [
+      13.277000427246094,
+      -5.25,
+      33.61199951171875
+    ],
+    [
+      12.607999801635742,
+      5.25,
+      25.111000061035156
+    ],
+    [
+      12.607999801635742,
+      -5.25,
+      25.111000061035156
+    ],
+    [
+      30.825000762939453,
+      0.027000000700354576,
+      25.933000564575195
+    ],
+    [
+      -29.176000595092773,
+      9.119999885559082,
+      10.611000061035156
+    ],
+    [
+      -29.176000595092773,
+      -9.119999885559082,
+      10.611000061035156
+    ],
+    [
+      -0.800000011920929,
+      0.0,
+      48.0
+    ],
+    [
+      -7.199999809265137,
+      -0.0,
+      48.0
+    ],
+    [
+      -4.053999900817871,
+      3.200000047683716,
+      48.0
+    ],
+    [
+      -4.053999900817871,
+      -3.200000047683716,
+      48.0
+    ]
+  ],
+  "object_positions_mm": [
+    [
+      -9.244000434875488,
+      18.89550018310547,
+      40.24100112915039
+    ],
+    [
+      9.244000434875488,
+      18.89550018310547,
+      40.24100112915039
+    ],
+    [
+      -8.071000099182129,
+      -2.7845001220703125,
+      38.15299987792969
+    ],
+    [
+      8.071000099182129,
+      -2.7845001220703125,
+      38.15299987792969
+    ],
+    [
+      -5.25,
+      18.86750030517578,
+      33.61199951171875
+    ],
+    [
+      5.25,
+      18.86750030517578,
+      33.61199951171875
+    ],
+    [
+      -5.25,
+      18.19849967956543,
+      25.111000061035156
+    ],
+    [
+      5.25,
+      18.19849967956543,
+      25.111000061035156
+    ],
+    [
+      -0.027000000700354576,
+      36.41550064086914,
+      25.933000564575195
+    ],
+    [
+      -9.119999885559082,
+      -23.585500717163086,
+      10.611000061035156
+    ],
+    [
+      9.119999885559082,
+      -23.585500717163086,
+      10.611000061035156
+    ],
+    [
+      0.0,
+      4.7904998660087585,
+      48.0
+    ],
+    [
+      0.0,
+      -1.6094999313354492,
+      48.0
+    ],
+    [
+      -3.200000047683716,
+      1.5364999771118164,
+      48.0
+    ],
+    [
+      3.200000047683716,
+      1.5364999771118164,
+      48.0
+    ]
+  ],
+  "symmetry_policy": "Preserve port/starboard IDs; no 180-degree pose equivalence; mirrored evidence may be ambiguous. No reflection augmentation without explicit name permutation.",
+  "selection_method": "Authored semantic regions and target seeds; roof diagonal support extrema and nearest mesh vertex calculations; not generic automatic feature discovery."
+}

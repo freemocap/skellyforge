@@ -58,3 +58,132 @@
   note = {Read the implementation project's text on signed trigonometric exponent controls; image equations were not transcribed. Authorship identified on the project introduction page.},
   claim = {Horizontal and vertical exponents vary roundness and squareness of superquadric surfaces; the landmark-specific fit is our own derivation.}
 }
+@misc{benchyOfficialDownload,
+  title = {Download the official 3DBenchy model},
+  author = {{3DBenchy}},
+  url = {https://www.3dbenchy.com/download/},
+  urldate = {2026-11-01},
+  review = {full-text},
+  claim = {The official download page links CreativeTools/3DBenchy as an original model source.}
+}
+@misc{benchyOriginalMesh,
+  title = {Original single-part 3DBenchy STL},
+  author = {{Creative Tools}},
+  url = {https://github.com/CreativeTools/3DBenchy/blob/b542785f9642ab39db8a778a0ccc934b3ebd829a/Single-part/3DBenchy.stl},
+  urldate = {2026-11-01},
+  review = {source-code},
+  claim = {The pinned repository contains the original single-part mesh used for this geometry experiment.},
+  note = {Downloaded binary asset and verified Git blob hash; 225706 triangles and measured bounding extents recorded locally.}
+}
+@misc{benchyOfficialDimensions,
+  title = {Measure and calibrate 3DBenchy},
+  author = {{3DBenchy}},
+  url = {https://www.3dbenchy.com/dimensions/},
+  urldate = {2026-11-01},
+  review = {full-text},
+  claim = {Nominal overall length, width and height are 60, 31 and 48 millimetres respectively.}
+}
+@misc{benchyOfficialLicense,
+  title = {3DBenchy license},
+  author = {{3DBenchy}},
+  url = {https://www.3dbenchy.com/license/},
+  urldate = {2026-11-01},
+  review = {full-text},
+  claim = {The current official license page dedicates the model under CC0 1.0 Universal and requests optional attribution.},
+  note = {Current official page reviewed; this does not assert that historical repository files contained the same license wording.}
+}
+@misc{mitsuba391Mesh,
+  title = {Mitsuba 3 mesh I/O and manipulation},
+  author = {{Mitsuba contributors}},
+  url = {https://mitsuba.readthedocs.io/en/v3.9.0/src/how_to_guides/mesh_io_and_manipulation.html},
+  urldate = {2026-11-01},
+  review = {excerpt},
+  claim = {Procedural triangle mesh buffers can be populated through the parameter traversal interface.},
+  note = {Reviewed mesh construction and flattened buffers; executed the matching API in installed Mitsuba 3.9.1.}
+}
+@misc{mitsubaPerspectiveSensor,
+  title = {Mitsuba 3 perspective pinhole sensor},
+  author = {{Mitsuba contributors}},
+  url = {https://mitsuba.readthedocs.io/en/stable/src/generated/plugins_sensors.html},
+  urldate = {2026-11-01},
+  review = {excerpt},
+  claim = {Perspective sensors expose camera-to-world transforms, field-of-view axis and principal-point offsets.},
+  note = {Reviewed perspective sensor section; our projection convention is separately checked against sampled sensor rays.}
+}
+@misc{embreexArrayQueries,
+  title = {EmbreeX array ray queries},
+  author = {{EmbreeX contributors}},
+  url = {https://github.com/trimesh/embreex/blob/main/embreex/rtcore_scene.pyx},
+  urldate = {2026-11-01},
+  review = {source-code},
+  claim = {The array query API accepts contiguous ray origins and directions, executes its traversal loop in compiled code without the GIL, and supports finite ray distances.},
+  note = {Read source and tested the pinned 4.4.0.post1 Windows wheel; main source URL is mutable.}
+}
+@misc{drjitCpuBackend,
+  title = {Dr.Jit CPU backend},
+  author = {{Dr.Jit contributors}},
+  url = {https://drjit.readthedocs.io/en/stable/what.html},
+  urldate = {2026-11-01},
+  review = {excerpt},
+  claim = {The LLVM backend provides parallel CPU array execution and requires an LLVM runtime.},
+  note = {Read backend requirements; the local Windows LLVM attempt failed computation despite loading its DLL.}
+}
+@misc{llvmPortable1818,
+  title = {LLVM 18.1.8 release},
+  author = {{LLVM contributors}},
+  url = {https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.8},
+  urldate = {2026-11-01},
+  review = {metadata},
+  claim = {The official release supplies a portable Windows MSVC archive from which LLVM-C.dll can be extracted.},
+  note = {Downloaded archive and recorded SHA256; extracted only the DLL locally without running an installer. This does not claim successful Dr.Jit compatibility.}
+}
+
+@misc{mitsubaForegroundAov,
+  title = {Mitsuba integrators and arbitrary output variables},
+  author = {{Mitsuba contributors}},
+  url = {https://mitsuba.readthedocs.io/en/stable/src/generated/plugins_integrators.html},
+  urldate = {2026-11-02},
+  review = {excerpt},
+  claim = {The AOV integrator exposes nested integrator RGBA output and surface depth, while hide_emitters excludes directly visible emitters.},
+  note = {Read AOV and path-tracer documentation; independently tested channel ordering, partial coverage, foreground compositing and positive surface depth with the pinned Mitsuba 3.9.1 CPU renderer.}
+}
+
+@misc{commonsInteriorBackground,
+  title = {Interior best view.jpg},
+  author = {{Arun D cruze}},
+  url = {https://commons.wikimedia.org/wiki/File:Interior_best_view.jpg},
+  urldate = {2026-11-02},
+  review = {full-text},
+  claim = {The photograph is explicitly released under CC0 1.0 by its named author.},
+  note = {Read file description and license; downloaded original, visually inspected and recorded SHA256 in photo_sources.json.}
+}
+
+@misc{commonsForestBackground,
+  title = {Image of a forest.jpg},
+  author = {{Akum20}},
+  url = {https://commons.wikimedia.org/wiki/File:Image_of_a_forest.jpg},
+  urldate = {2026-11-02},
+  review = {full-text},
+  claim = {The photograph is explicitly released under CC0 1.0 by its named author.},
+  note = {Read file description and license; downloaded original, visually inspected and recorded SHA256 in photo_sources.json.}
+}
+
+@misc{commonsLandscapeBackground,
+  title = {A lush verdant landscape.jpg},
+  author = {{Ayyuha Sideeq}},
+  url = {https://commons.wikimedia.org/wiki/File:A_lush_verdant_landscape.jpg},
+  urldate = {2026-11-02},
+  review = {full-text},
+  claim = {The photograph is explicitly released under CC0 1.0 by its named author.},
+  note = {Read file description and license; downloaded original, visually inspected and recorded SHA256 in photo_sources.json.}
+}
+
+@misc{mediawikiImageInfo,
+  title = {MediaWiki API Imageinfo},
+  author = {{MediaWiki contributors}},
+  url = {https://www.mediawiki.org/wiki/API:Imageinfo},
+  urldate = {2026-11-02},
+  review = {excerpt},
+  claim = {Imageinfo exposes file URLs, dimensions, upload metadata and formatted extended metadata for provenance review.},
+  note = {Read iiprop url, size, sha1 and extmetadata documentation; source-specific photographic license evidence is retained with the acquired photo-pool manifest, not inferred from the API software license.}
+}
