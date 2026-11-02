@@ -3,8 +3,8 @@
 Guidance for Claude Code working in **skellyforge** (skeleton definitions + kinematics, a
 sub-skelley of the FreeMoCap polyrepo). Workspace orientation, repo boundaries, and the
 cross-repo model follow [AGENTS.md](AGENTS.md) and the containing workspace's
-instructions when present. **Never touch
-git** — the user owns commits; make changes on disk and report stopping points.
+instructions when present. Follow the workspace Git authorization and repository-scope policy; task-related
+commits and pushes are authorized within the agreed repositories.
 
 ## What this repo is (current architecture)
 

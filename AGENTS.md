@@ -27,6 +27,5 @@ architecture sections before editing; inspect the current implementation and dif
 Search existing math and typed model interfaces before adding another solver or
 definition. Continue authorized work once the next action's meaning and owner
 are clear. Ask only when targeted inspection cannot resolve consequential intent.
-Follow containing workspace policy when present; preserve edits and leave Git
-state to the human. Use ignored or external temporary output paths. Documentation
+Follow containing workspace policy when present; preserve edits and follow the workspace Git authorization and repository-scope policy. Use ignored or external temporary output paths. Documentation
 commands do not grant dependency-installation or environment-change permission.
